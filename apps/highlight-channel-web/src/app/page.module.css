@@ -1,0 +1,280 @@
+.page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 2rem 1rem;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.hero {
+  text-align: center;
+  margin-bottom: 3rem;
+  color: white;
+}
+
+.title {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 700;
+  margin-bottom: 1rem;
+  line-height: 1.2;
+}
+
+.subtitle {
+  font-size: 1.25rem;
+  opacity: 0.9;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.mainSection {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  margin-bottom: 2rem;
+}
+
+.inputSection {
+  margin-bottom: 2rem;
+}
+
+.label {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.75rem;
+}
+
+.textarea {
+  width: 100%;
+  padding: 1rem;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: inherit;
+  resize: vertical;
+  margin-bottom: 1rem;
+  transition: border-color 0.2s;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.textarea:disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.submitButton {
+  width: 100%;
+  padding: 1rem 2rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.submitButton:hover:not(:disabled) {
+  background: #5568d3;
+}
+
+.submitButton:disabled {
+  background: #999;
+  cursor: not-allowed;
+}
+
+.error {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #fee;
+  border: 1px solid #fcc;
+  border-radius: 8px;
+  color: #c33;
+}
+
+.presetsSection {
+  border-top: 1px solid #eee;
+  padding-top: 1.5rem;
+}
+
+.presetsLabel {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+}
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.presetChip {
+  padding: 0.5rem 1rem;
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.presetChip:hover:not(:disabled) {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.presetChip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.promoSection {
+  text-align: center;
+  color: white;
+  opacity: 0.9;
+}
+
+.promoText {
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.promoLink {
+  color: #ffd700;
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.promoLink:hover {
+  color: #ffed4e;
+}
+
+.builderSection {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid #eee;
+}
+
+.builderTitle {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  color: #333;
+}
+
+.builderGroup {
+  margin-bottom: 2rem;
+}
+
+.builderLabel {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.75rem;
+}
+
+.sportChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.sportChip {
+  padding: 0.5rem 1rem;
+  background: #f0f0f0;
+  border: 2px solid #ddd;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sportChip:hover {
+  background: #e0e0e0;
+  border-color: #667eea;
+}
+
+.sportChipActive {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.dateRange {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.dateInput {
+  flex: 1;
+  padding: 0.75rem;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.dateInput:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.dateSeparator {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.durationSlider,
+.contentSlider {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: #ddd;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.durationSlider::-webkit-slider-thumb,
+.contentSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #667eea;
+  cursor: pointer;
+}
+
+.durationSlider::-moz-range-thumb,
+.contentSlider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #667eea;
+  cursor: pointer;
+  border: none;
+}
+
+.sliderLabels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 0.5rem;
+}
+

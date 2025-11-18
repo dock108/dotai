@@ -35,11 +35,32 @@ Key traits:
 - **Object Storage**: S3-compatible bucket on Hetzner for large datasets + logs.
 - **Secrets**: 1Password → Hetzner Secrets or Doppler (TBD) injected at deploy time.
 
+### Data Privacy
+
+- **No PII stored**: Only anonymous user IDs and subscription tiers.
+- **Opt-in model improvement**: Users can explicitly allow anonymized data for aggregated analytics.
+- **Theory text**: Stored as-is (no PII extraction). Future: embeddings-only storage option.
+
+See `docs/DATA_PRIVACY.md` for full privacy model.
+
 ## 4. Deploy Strategy (Hetzner)
 
 1. Build Docker images for each app/service with shared base images.
 2. Use docker-compose for single-node dev/staging; promote to Kubernetes (optional) when multiple nodes/auto-scaling are needed.
 3. Terminate TLS on nginx (or Traefik) and route subdomains (`bets.dock108.ai`, etc.) to the relevant frontend containers. All hit the same backend service via internal networking.
+
+### Subdomain Routing
+
+- `dock108.ai` → Main landing page
+- `game.dock108.ai` → AI prompting game
+- `playlist.dock108.ai` → Playlist curator
+- `bets.dock108.ai` → Bets theory surface
+- `crypto.dock108.ai` → Crypto theory surface
+- `stocks.dock108.ai` → Stocks theory surface
+- `conspiracies.dock108.ai` → Conspiracies theory surface
+- `api.dock108.ai` → Theory engine API
+
+See `infra/DEPLOYMENT.md` for deployment instructions.
 
 ## 5. Environments
 

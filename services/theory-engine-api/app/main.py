@@ -6,6 +6,8 @@ from fastapi import FastAPI
 
 from datetime import datetime
 
+from .logging_config import configure_logging
+
 from py_core import (
     Domain,
     TheoryRequest,
@@ -24,9 +26,12 @@ from py_core import (
     ContextResult,
 )
 
-from .routers import bets, conspiracies, crypto, playlist, stocks
+from .routers import bets, conspiracies, crypto, highlights, playlist, stocks
 
 app = FastAPI(title="Dock108 Theory Engine", version="0.1.0")
+
+# Configure structured logging
+configure_logging()
 
 # Include routers
 app.include_router(playlist.router)
@@ -34,6 +39,7 @@ app.include_router(bets.router)
 app.include_router(crypto.router)
 app.include_router(stocks.router)
 app.include_router(conspiracies.router)
+app.include_router(highlights.router)
 
 
 @app.get("/healthz", tags=["health"])

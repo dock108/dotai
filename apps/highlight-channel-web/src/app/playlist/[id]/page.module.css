@@ -1,0 +1,320 @@
+.page {
+  min-height: 100vh;
+  background: #f5f5f5;
+  padding: 2rem 1rem;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.loading,
+.error {
+  text-align: center;
+  padding: 3rem;
+  background: white;
+  border-radius: 8px;
+  color: #666;
+}
+
+.header {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.backButton {
+  background: none;
+  border: none;
+  color: #667eea;
+  font-size: 0.9rem;
+  cursor: pointer;
+  margin-bottom: 1rem;
+  padding: 0.5rem 0;
+}
+
+.backButton:hover {
+  text-decoration: underline;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.queryText {
+  font-size: 1.1rem;
+  color: #666;
+  margin-bottom: 1rem;
+  font-style: italic;
+}
+
+.meta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.9rem;
+  color: #999;
+}
+
+.controls {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.primaryButton {
+  padding: 1rem 2rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.primaryButton:hover {
+  background: #5568d3;
+}
+
+.workdaySection {
+  border-top: 1px solid #eee;
+  padding-top: 1.5rem;
+}
+
+.workdayLabel {
+  display: block;
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+}
+
+.workdayButtons {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.workdayButton {
+  padding: 0.5rem 1.5rem;
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.workdayButton:hover {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.workdayNote {
+  font-size: 0.85rem;
+  color: #666;
+  font-style: italic;
+  margin-top: 0.5rem;
+}
+
+.content {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 1.5rem;
+}
+
+.videoList {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.sectionTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  color: #333;
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.videoItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f9f9f9;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.videoItem:hover {
+  background: #f0f0f0;
+}
+
+.videoNumber {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #667eea;
+  color: white;
+  border-radius: 50%;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.videoContent {
+  flex: 1;
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.thumbnail {
+  width: 120px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.videoInfo {
+  flex: 1;
+}
+
+.videoTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #333;
+  line-height: 1.4;
+}
+
+.videoMeta {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.watchButton {
+  padding: 0.5rem 1rem;
+  background: #667eea;
+  color: white;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.watchButton:hover {
+  background: #5568d3;
+}
+
+.explanationPanel {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  height: fit-content;
+  position: sticky;
+  top: 2rem;
+}
+
+.explanationToggle {
+  width: 100%;
+  padding: 0.75rem;
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 1rem;
+  transition: background 0.2s;
+}
+
+.explanationToggle:hover {
+  background: #e0e0e0;
+}
+
+.explanationContent {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: #333;
+}
+
+.explanationTitle {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.explanationSection {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #eee;
+}
+
+.explanationSection:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.explanationSection h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.explanationSection ul {
+  margin-left: 1.5rem;
+  margin-top: 0.5rem;
+}
+
+.explanationSection li {
+  margin: 0.25rem 0;
+  color: #666;
+}
+
+.explanationSection p {
+  margin: 0.5rem 0;
+  color: #666;
+}
+
+@media (max-width: 968px) {
+  .content {
+    grid-template-columns: 1fr;
+  }
+
+  .explanationPanel {
+    position: static;
+  }
+}
+
