@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from .schemas.theory import Domain, TheoryRequest, TheoryResponse
-from .guardrails.engine import evaluate_guardrails, summarize_guardrails
+from .schemas.theory import Domain, TheoryRequest, TheoryResponse, DataSource
+from .guardrails.engine import evaluate_guardrails, has_hard_block, summarize_guardrails
 from .domain.router import route_domain
 from .data.fetchers import (
     fetch_conspiracy_context,

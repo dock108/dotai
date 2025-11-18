@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { generatePlaylist } from "@/lib/playlistService";
 
 const requestSchema = z.object({
   topic: z.string().min(3),
@@ -13,14 +12,32 @@ const requestSchema = z.object({
 export async function POST(request: Request) {
   try {
     const payload = requestSchema.parse(await request.json());
-    const playlist = await generatePlaylist(payload);
-    return NextResponse.json({ ok: true, playlist });
-  } catch (error: unknown) {
-    // Log the full error for debugging
-    console.error("[API] Playlist generation error:", error);
-    if (error instanceof Error) {
-      console.error("[API] Error stack:", error.stack);
+    
+    // Forward to theory-engine API
+    const theoryEngineUrl = process.env.THEORY_ENGINE_URL || "http://localhost:8000";
+    const response = await fetch(`${theoryEngineUrl}/api/theory/playlist`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: payload.topic,
+        domain: "playlist",
+        user_tier: "free",
+        length: payload.length,
+        sportsMode: payload.sportsMode,
+        keepEndingHidden: payload.keepEndingHidden,
+        endingDelayChoice: payload.endingDelayChoice,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: "Theory engine error" }));
+      throw new Error(errorData.message || "Failed to generate playlist");
     }
+
+    const data = await response.json();
+    return NextResponse.json({ ok: true, playlist: data.playlist });
+  } catch (error: unknown) {
+    console.error("[API] Playlist generation error:", error);
 
     const message =
       error instanceof z.ZodError

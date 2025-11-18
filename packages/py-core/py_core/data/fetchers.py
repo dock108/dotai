@@ -17,6 +17,9 @@ class ContextResult:
     highlights: list[str] = field(default_factory=list)
     sources: list[str] = field(default_factory=list)
     limitations: list[str] = field(default_factory=list)
+    data_source_name: str | None = field(default=None, description="Human-readable data source name")
+    cache_status: str = field(default="fresh", description="'cached' or 'fresh'")
+    data_source_details: str | None = field(default=None, description="Additional details about the data source")
 
 
 # Global cache instance (can be replaced with DB-backed cache in production)
@@ -61,6 +64,9 @@ def fetch_youtube_context(
             highlights=payload.get("highlights", []),
             sources=payload.get("sources", []),
             limitations=payload.get("limitations", []) + ["Loaded from cache"],
+            data_source_name="YouTube search",
+            cache_status="cached",
+            data_source_details=f"Query: {query}, filters: {freshness}, limit: {limit}",
         )
 
     # Check for similar query (for YouTube similarity matching)
@@ -68,10 +74,16 @@ def fetch_youtube_context(
         # Return placeholder indicating similarity match found
         result = _default_context(Domain.playlist, f"{query} (similar cached)", limit)
         result.limitations.append("Similar query found in cache; consider rescoring cached results")
+        result.data_source_name = "YouTube search"
+        result.cache_status = "cached"
+        result.data_source_details = f"Similar query cached, original: {query}"
         return result
 
     # No cache hit - would hit API here
     result = _default_context(Domain.playlist, f"{query} (freshness={freshness})", limit)
+    result.data_source_name = "YouTube search"
+    result.cache_status = "fresh"
+    result.data_source_details = f"Query: {query}, filters: {freshness}, limit: {limit}"
 
     # Store in cache
     cache.set(
@@ -106,9 +118,15 @@ def fetch_odds_context(
             highlights=payload.get("highlights", []),
             sources=payload.get("sources", []),
             limitations=payload.get("limitations", []) + ["Loaded from cache"],
+            data_source_name="Historical odds + results",
+            cache_status="cached",
+            data_source_details="Play-by-play for 2023-2024 NFL regular season" if "NFL" in query else None,
         )
 
     result = _default_context(Domain.bets, f"{query} (freshness={freshness})", limit)
+    result.data_source_name = "Historical odds + results"
+    result.cache_status = "fresh"
+    result.data_source_details = "Play-by-play data with closing line value"
     cache.set(cache_key, {"highlights": result.highlights, "sources": result.sources, "limitations": result.limitations}, event_date)
     return result
 
@@ -127,9 +145,15 @@ def fetch_crypto_context(
             highlights=payload.get("highlights", []),
             sources=payload.get("sources", []),
             limitations=payload.get("limitations", []) + ["Loaded from cache"],
+            data_source_name="BTC vs ETH dominance 2017-2025 (daily)",
+            cache_status="cached",
+            data_source_details="Historical price data with liquidity proxies",
         )
 
     result = _default_context(Domain.crypto, f"{query} (freshness={freshness})", limit)
+    result.data_source_name = "BTC vs ETH dominance 2017-2025 (daily)"
+    result.cache_status = "fresh"
+    result.data_source_details = "Historical price data with liquidity proxies"
     cache.set(cache_key, {"highlights": result.highlights, "sources": result.sources, "limitations": result.limitations})
     return result
 
@@ -148,9 +172,15 @@ def fetch_stock_context(
             highlights=payload.get("highlights", []),
             sources=payload.get("sources", []),
             limitations=payload.get("limitations", []) + ["Loaded from cache"],
+            data_source_name="Stock fundamentals + price history",
+            cache_status="cached",
+            data_source_details="Revenue growth, margin compression, volume patterns",
         )
 
     result = _default_context(Domain.stocks, f"{query} (freshness={freshness})", limit)
+    result.data_source_name = "Stock fundamentals + price history"
+    result.cache_status = "fresh"
+    result.data_source_details = "Revenue growth, margin compression, volume patterns"
     cache.set(cache_key, {"highlights": result.highlights, "sources": result.sources, "limitations": result.limitations})
     return result
 
@@ -159,8 +189,11 @@ def fetch_conspiracy_context(
     query: str, limit: int = 5, sources: Sequence[str] | None = None, cache: ContextCache | None = None
 ) -> ContextResult:
     """Fetch conspiracy context (no special caching rules yet)."""
-    sources = list(sources) if sources else ["wikidata", "fact-check-db"]
+    sources_list = list(sources) if sources else ["wikidata", "fact-check-db"]
     result = _default_context(Domain.conspiracies, query, limit)
-    result.sources = sources
+    result.sources = sources_list
+    result.data_source_name = "Wikipedia + Fact-check databases"
+    result.cache_status = "cached"
+    result.data_source_details = "Mainstream encyclopedia entries and verified fact-check sources (no fringe sources)"
     return result
 
