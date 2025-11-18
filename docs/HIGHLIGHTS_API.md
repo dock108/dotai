@@ -14,7 +14,8 @@ Plan a sports highlight playlist from natural language query.
 ```json
 {
   "query_text": "NFL Week 12 highlights, 2 hours",
-  "mode": "sports_highlight"
+  "mode": "sports_highlight",
+  "user_id": "optional-user-id"
 }
 ```
 
@@ -67,7 +68,8 @@ Plan a sports highlight playlist from natural language query.
     "target_duration_minutes": 120
   },
   "created_at": "2024-11-18T12:00:00Z",
-  "stale_after": "2024-11-18T18:00:00Z"
+  "stale_after": "2024-11-18T18:00:00Z",
+  "disclaimer": "This app builds playlists using public YouTube videos. We do not host or control the content."
 }
 ```
 
@@ -115,6 +117,55 @@ Retrieve detailed playlist information.
 
 **Error Responses**:
 - `404 Not Found`: Playlist not found
+
+### GET /api/highlights/metrics
+
+Get metrics for highlight playlists (sports requested, average duration, cache hit rate).
+
+**Query Parameters**:
+- `days` (optional, default: 30) - Number of days to look back
+
+**Response** (200 OK):
+```json
+{
+  "period_days": 30,
+  "sports_request_counts": {
+    "NFL": 45,
+    "NBA": 32,
+    "MLB": 28
+  },
+  "average_playlist_duration_minutes": 87.5,
+  "cache_statistics": {
+    "hit_rate": 62.3,
+    "total_requests": 150,
+    "cache_hits": 93,
+    "cache_misses": 57,
+    "period_days": 30
+  }
+}
+```
+
+### GET /api/highlights/metrics/csv
+
+Get metrics as CSV for simple dashboard.
+
+**Query Parameters**:
+- `days` (optional, default: 30) - Number of days to look back
+
+**Response** (200 OK):
+```
+Metric,Value
+Average Playlist Duration (minutes),87.5
+Cache Hit Rate (%),62.3
+Total Requests,150
+Cache Hits,93
+Cache Misses,57
+
+Sport,Request Count
+NFL,45
+NBA,32
+MLB,28
+```
 
 ## Explanation Structure
 

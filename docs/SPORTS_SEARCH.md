@@ -28,7 +28,8 @@ spec = SportsSearchSpec(
     duration_target_minutes=10,
 )
 
-candidates = await search_youtube_sports(spec, max_results=20)
+candidates, api_call_count = await search_youtube_sports(spec, max_results=20)
+# api_call_count is the number of YouTube API calls made (for cost tracking)
 ```
 
 ### SportsSearchSpec
@@ -166,14 +167,21 @@ spec = SportsSearchSpec(
 )
 ```
 
+## Return Value
+
+The `search_youtube_sports()` function returns a tuple:
+- `list[VideoCandidate]` - List of video candidates sorted by final_score
+- `int` - Number of YouTube API calls made (for cost tracking)
+
 ## Integration
 
 The sports search module integrates with:
 
 1. **Playlist generation** - Use search results to build playlists
 2. **Caching layer** - Cache search results using `playlist_queries` table
-3. **Staleness logic** - Use `compute_stale_after()` for cache invalidation
+3. **Staleness logic** - Use `compute_stale_after()` from `py_core.playlist.staleness` for cache invalidation
 4. **Video metadata** - Store results in `videos` table for deduplication
+5. **Logging** - API call counts are logged for observability
 
 ## Future Enhancements
 

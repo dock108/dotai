@@ -1,6 +1,17 @@
-# Deployment Guide - Hetzner
+# Production Deployment Guide - Full Monorepo
 
-This guide covers deploying dock108 to Hetzner bare metal or cloud instances.
+## Scope
+
+**This guide covers production deployment for the entire dock108 monorepo:**
+- All frontend apps (`dock108-web`, `game-web`, `playlist-web`, `highlight-channel-web`, `theory-*-web`)
+- Backend services (`theory-engine-api`, `data-workers`)
+- Infrastructure (PostgreSQL, Redis, nginx reverse proxy)
+
+**For local development of individual features (e.g., Sports Highlight Channel), see `docs/LOCAL_DEPLOY.md`.**
+
+## Overview
+
+This guide covers deploying the full dock108 monorepo to Hetzner bare metal or cloud instances.
 
 ## Prerequisites
 

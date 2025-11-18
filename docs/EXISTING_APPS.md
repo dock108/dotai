@@ -1,5 +1,7 @@
 # Existing Apps & Scripts Inventory
 
+> **Note**: This is a planning/inventory document from Phase 0. Some information may be outdated. For current app status, see `docs/ARCHITECTURE.md` and individual app READMEs.
+
 This file captures today's runnable artifacts before we lift them into the refactored monorepo. Each entry summarizes how the code works now (inputs, outputs, API usage, persistence) plus the migration decision from Phase 0.
 
 ## AI Trainer Game (SwiftUI Prototype)

@@ -86,6 +86,11 @@ npm run dev  # Runs on http://localhost:3005
 
 See `docs/HIGHLIGHTS_API.md` for detailed API documentation.
 
+## Testing and Deployment
+
+- **Local Development**: See `docs/LOCAL_DEPLOY.md` for comprehensive local setup and testing guide (Sports Highlight Channel feature)
+- **Production Deployment**: See `infra/DEPLOYMENT.md` for full monorepo deployment guide (all services and apps)
+
 ## Getting Started
 
 1. Install `asdf` or a shared version manager for Node (for the Next.js apps) and Python (for FastAPI + workers).

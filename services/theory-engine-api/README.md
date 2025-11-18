@@ -5,7 +5,8 @@ FastAPI service that powers every dock108 surface.
 ## Status
 
 ✅ **Phase 2 Complete**: Basic API skeleton with `/api/theory/evaluate` endpoint  
-✅ **Phase 3 Complete**: Database models (SQLAlchemy) and caching layer
+✅ **Phase 3 Complete**: Database models (SQLAlchemy) and caching layer  
+✅ **Phase 4 Complete**: Sports highlight playlist generation with AI parsing, guardrails, and intelligent caching
 
 ## Database Setup
 
@@ -15,6 +16,9 @@ The service uses PostgreSQL with SQLAlchemy async. Models are defined in `app/db
 - `theories` - Stored theory submissions
 - `evaluations` - Evaluation results linked to theories
 - `external_context_cache` - Cached API responses (YouTube, odds, prices, etc.)
+- `playlist_queries` - Normalized playlist queries with metadata (sport, league, teams, event_date, is_playoff)
+- `playlists` - Generated playlists with video items and staleness tracking
+- `videos` - Cached video metadata for deduplication
 
 ### Initial Setup
 
@@ -46,7 +50,21 @@ Cache entries are stored in `external_context_cache` table with `key_hash` (SHA-
 
 ## API Endpoints
 
+### Theory Evaluation
 - `GET /healthz` - Health check
 - `POST /api/theory/evaluate` - Evaluate a theory submission
 
-See `docs/THEORY_ENGINE.md` for the full blueprint.
+### Sports Highlights
+- `POST /api/highlights/plan` - Plan a highlight playlist from user query
+- `GET /api/highlights/{playlist_id}` - Get detailed playlist information
+- `GET /api/highlights/metrics` - Get metrics (sports requested, avg duration, cache hit rate)
+- `GET /api/highlights/metrics/csv` - Get metrics as CSV for dashboard
+
+### Other Domains
+- `POST /api/bets/evaluate` - Evaluate betting theory
+- `POST /api/crypto/evaluate` - Evaluate crypto theory
+- `POST /api/stocks/evaluate` - Evaluate stock theory
+- `POST /api/conspiracies/evaluate` - Evaluate conspiracy theory
+- `POST /api/playlist/evaluate` - Evaluate playlist request
+
+See `docs/THEORY_ENGINE.md` for the full blueprint and `docs/HIGHLIGHTS_API.md` for highlights API documentation.

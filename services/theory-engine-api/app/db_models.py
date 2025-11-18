@@ -142,7 +142,7 @@ class PlaylistQuery(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     last_used_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False, onupdate=func.now())
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)  # Schema version for scoring/parsing changes
-    
+
     # Metadata fields for future integration with betting util / theory engine
     sport: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)  # e.g., "NFL", "NBA", "MLB"
     league: Mapped[str | None] = mapped_column(String(100), nullable=True)  # e.g., "NFL", "AFC", "Big Ten"

@@ -19,10 +19,16 @@ Stores normalized playlist queries for caching and deduplication.
 - `created_at` (DateTime) - When query was first created
 - `last_used_at` (DateTime) - Last time query was used (auto-updated)
 - `version` (Integer) - Schema version for scoring/parsing changes
+- `sport` (String(50), nullable, indexed) - Sport name (e.g., "NFL", "NBA", "MLB")
+- `league` (String(100), nullable) - League name (e.g., "NFL", "AFC", "Big Ten")
+- `teams` (JSONB, nullable) - List of team names
+- `event_date` (DateTime, nullable, indexed) - Date of the sports event
+- `is_playoff` (Boolean, nullable) - Whether this is a playoff game
 
 **Indexes**:
 - `idx_queries_signature_mode` - Composite index on (normalized_signature, mode)
 - `idx_queries_created` - Index on created_at
+- `idx_queries_sport_event` - Composite index on (sport, event_date)
 
 **Purpose**: 
 - Deduplicate equivalent queries
@@ -102,7 +108,7 @@ Playlists have intelligent staleness based on event recency:
 
 ### Implementation
 
-See `app/playlist_staleness.py`:
+Staleness logic is in `packages/py-core/py_core/playlist/staleness.py`:
 - `compute_stale_after(event_date, now, mode)` - Compute staleness timestamp
 - `is_stale(stale_after, now)` - Check if playlist is stale
 - `should_refresh_playlist(...)` - Determine if refresh is needed
@@ -110,7 +116,7 @@ See `app/playlist_staleness.py`:
 ### Usage Example
 
 ```python
-from app.playlist_staleness import compute_stale_after, should_refresh_playlist
+from py_core.playlist.staleness import compute_stale_after, should_refresh_playlist
 from app.db_models import PlaylistMode
 from datetime import datetime, timedelta
 

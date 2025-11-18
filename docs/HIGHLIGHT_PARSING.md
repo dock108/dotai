@@ -148,12 +148,20 @@ HighlightRequestSpec(
 
 These requests are **immediately rejected**:
 
-1. **Copyright Violations**:
+1. **Copyright Violations & YouTube Bypass Attempts**:
    - "full game reupload"
    - "reupload full game"
    - "pirated game"
    - "ppv reupload"
    - "pay per view reupload"
+   - "download full game"
+   - "download broadcast"
+   - "pirate the whole broadcast"
+   - "bypass youtube"
+   - "download from youtube"
+   - "youtube downloader"
+   - "rip from youtube"
+   - "extract from youtube"
 
 2. **NSFW/Violent Content**:
    - "violence"

@@ -31,5 +31,20 @@ Runs on port 3005.
 
 ## Environment Variables
 
-- `NEXT_PUBLIC_THEORY_ENGINE_URL` - Backend API URL (default: http://localhost:8000)
+Create a `.env.local` file:
+
+```bash
+# Backend API URL
+NEXT_PUBLIC_THEORY_ENGINE_URL=http://localhost:8000
+```
+
+## API Integration
+
+The app communicates with the theory-engine-api service:
+
+- `POST /api/highlights/plan` - Plan a highlight playlist
+- `GET /api/highlights/{playlist_id}` - Get playlist details
+- `GET /api/highlights/metrics` - Get metrics (optional)
+
+See `docs/HIGHLIGHTS_API.md` for detailed API documentation.
 
