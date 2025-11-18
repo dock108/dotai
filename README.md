@@ -7,20 +7,36 @@ A single home for every dock108 surface: the AI theory engine, the guardrails th
 ```
 apps/                 # All user-facing experiences
   dock108-web/        # Marketing + docs hub (Next.js placeholder)
-  game-web/           # Swift prototype today, React/Next.js target
-  playlist-web/       # Running YouTube curator MVP (Next.js)
+  game-web/           # AI prompting game (Swift prototype + React/Next.js)
+  playlist-web/       # Legacy YouTube curator MVP (Next.js)
+  highlight-channel-web/  # Sports highlight channel builder (Next.js) ⭐ Active
   theory-*-web/       # Domain-specific theory surfaces (placeholders)
 services/             # Python + worker backends
+  theory-engine-api/  # FastAPI backend (Sports highlights, theory evaluation) ⭐ Active
+  data-workers/       # ETL jobs for odds/prices/YouTube caching (planned)
 packages/             # Shared UI + client/server libraries
+  py-core/           # Python schemas, guardrails, scoring, clients ⭐ Active
+  ui-kit/            # Shared React components
+  js-core/            # JavaScript SDK and utilities
 infra/                # Docker, k8s, nginx deploy assets for Hetzner
 docs/                 # Living architecture + guardrail specs
 ```
 
-## Current Apps
+## Current Status
 
-- `apps/playlist-web`: existing Next.js playlist builder with all source + scripts.
-- `apps/game-web/swift-prototype`: the shipping SwiftUI AI lesson game; doubles as the spec for the future React port.
-- `apps/highlight-channel-web`: Sports highlight channel builder - create custom highlight playlists from natural language requests.
+### Active Features
+
+- **Sports Highlight Channel** (`apps/highlight-channel-web` + `services/theory-engine-api`):
+  - Natural language playlist generation from sports queries
+  - AI-powered parsing, guardrails, YouTube search, intelligent caching
+  - See [Sports Highlight Channel Feature](#sports-highlight-channel-feature) below
+
+### Other Apps
+
+- `apps/playlist-web`: Legacy YouTube curator MVP (Next.js) - original playlist builder
+- `apps/game-web/swift-prototype`: Shipping SwiftUI AI lesson game (spec for future React port)
+- `apps/game-web`: React/Next.js port (in progress)
+- `apps/theory-*-web`: Domain-specific theory surfaces (placeholders for bets, crypto, stocks, conspiracies)
 
 ## Sports Highlight Channel Feature
 
@@ -32,59 +48,27 @@ The Sports Highlight Channel feature allows users to build custom YouTube playli
 4. **Builds playlists** that match requested duration with intelligent caching to reduce API costs
 5. **Provides explanations** showing assumptions, filters applied, and ranking factors
 
-### Local Development
+### Quick Start
 
-#### Prerequisites
+For comprehensive local development and testing instructions, see **[`docs/LOCAL_DEPLOY.md`](docs/LOCAL_DEPLOY.md)**.
 
-- Python 3.11+
-- Node.js 18+ (for frontend apps)
-- PostgreSQL database
-- YouTube Data API key
+**Quick summary:**
+1. Install prerequisites: Python 3.11+, Node.js 18+, PostgreSQL 14+, `uv`, `pnpm`
+2. Set up database (local PostgreSQL or Docker)
+3. Get API keys: YouTube Data API, OpenAI API
+4. Configure environment: Copy `.env.example` to `services/theory-engine-api/.env`
+5. Start backend: `cd services/theory-engine-api && uv sync && alembic upgrade head && uvicorn app.main:app --reload`
+6. Start frontend: `cd apps/highlight-channel-web && pnpm install && pnpm dev`
 
-#### Environment Variables
+### API Endpoints
 
-Create a `.env` file in `services/theory-engine-api/`:
-
-```bash
-# Database
-DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/dock108
-
-# YouTube API
-YOUTUBE_API_KEY=your_youtube_api_key_here
-
-# Optional - for playlist creation
-YOUTUBE_OAUTH_ACCESS_TOKEN=your_oauth_token
-YOUTUBE_PLAYLIST_CHANNEL_ID=your_channel_id
-
-# OpenAI (for AI parsing)
-OPENAI_API_KEY=your_openai_key
-```
-
-#### Running the API
-
-```bash
-cd services/theory-engine-api
-uv sync  # Install dependencies
-alembic upgrade head  # Run database migrations
-uvicorn app.main:app --reload --port 8000
-```
-
-#### Running the Frontend
-
-```bash
-cd apps/highlight-channel-web
-npm install
-npm run dev  # Runs on http://localhost:3005
-```
-
-#### API Endpoints
-
+**Highlights API:**
 - `POST /api/highlights/plan` - Plan a highlight playlist from user query
 - `GET /api/highlights/{playlist_id}` - Get detailed playlist information
 - `GET /api/highlights/metrics` - Get metrics (sports requested, avg duration, cache hit rate)
 - `GET /api/highlights/metrics/csv` - Get metrics as CSV for dashboard
 
-See `docs/HIGHLIGHTS_API.md` for detailed API documentation.
+See [`docs/HIGHLIGHTS_API.md`](docs/HIGHLIGHTS_API.md) for detailed API documentation.
 
 ## Testing and Deployment
 
@@ -93,13 +77,39 @@ See `docs/HIGHLIGHTS_API.md` for detailed API documentation.
 
 ## Getting Started
 
-1. Install `asdf` or a shared version manager for Node (for the Next.js apps) and Python (for FastAPI + workers).
-2. Copy `.env.example` files that live inside each app/service.
-3. Use Docker Compose under `infra/docker` (coming soon) to boot Hetzner-like environments locally.
+1. **For local development**: See [`docs/LOCAL_DEPLOY.md`](docs/LOCAL_DEPLOY.md) for step-by-step setup
+2. **For production deployment**: See [`infra/DEPLOYMENT.md`](infra/DEPLOYMENT.md) for full monorepo deployment
+3. **Documentation**: See [`docs/README.md`](docs/README.md) for complete documentation index
 
-## Next Steps
+### Prerequisites
 
-- Flesh out `services/theory-engine-api` (FastAPI) and `services/data-workers` (ETL jobs for odds/prices/YouTube caching).
-- Stand up the shared packages (`ui-kit`, `js-core`, `py-core`) once interfaces settle.
-- Replace the Swift prototype with a shared React experience once the guardrails + backend are ready.
-- Document deployment runbooks in `infra/` once Hetzner stack is scripted.
+- Python 3.11+ with `uv` package manager
+- Node.js 18+ with `pnpm`
+- PostgreSQL 14+
+- YouTube Data API key
+- OpenAI API key
+
+## Project Status
+
+### Completed ✅
+
+- **Sports Highlight Channel MVP**: Full-stack feature with AI parsing, guardrails, caching, and metrics
+- **Shared Python Core** (`packages/py-core`): Schemas, guardrails, scoring utilities, YouTube client, staleness logic
+- **Theory Engine API** (`services/theory-engine-api`): FastAPI backend with highlights endpoints, database models, migrations
+- **Infrastructure**: Docker Compose setup for full monorepo deployment
+- **Documentation**: Comprehensive guides for local development and production deployment
+
+### In Progress 🚧
+
+- **React Game Port** (`apps/game-web`): Porting Swift prototype to React/Next.js
+- **Data Workers** (`services/data-workers`): ETL jobs for odds, prices, YouTube caching
+- **Shared UI Kit** (`packages/ui-kit`): Expanding shared React components
+
+### Planned 📋
+
+- **Theory Surfaces**: Complete `theory-*-web` apps (bets, crypto, stocks, conspiracies)
+- **JavaScript Core** (`packages/js-core`): SDK and utilities for frontend apps
+- **Kubernetes Deployment**: GitOps pipeline for Hetzner cluster
+- **Custom Models**: Train bespoke graders on collected theory data
+
+See [`docs/ROADMAP.md`](docs/ROADMAP.md) for detailed roadmap.
