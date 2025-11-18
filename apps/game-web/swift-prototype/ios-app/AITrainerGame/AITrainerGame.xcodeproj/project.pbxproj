@@ -1,0 +1,450 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1A1C40E82BDC5D1E00D57B01 /* AITrainerGameApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1C40E72BDC5D1E00D57B01 /* AITrainerGameApp.swift */; };
+		1A1C40EA2BDC5D5F00D57B01 /* PuzzleRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1C40E92BDC5D5F00D57B01 /* PuzzleRepository.swift */; };
+		1A1C40EC2BDC5D8200D57B01 /* puzzles.json in Resources */ = {isa = PBXBuildFile; fileRef = 1A1C40EB2BDC5D8200D57B01 /* puzzles.json */; };
+		1A1C40EE2BDC5DA600D57B01 /* Puzzle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1C40ED2BDC5DA600D57B01 /* Puzzle.swift */; };
+		1A1C40F02BDC5DB100D57B01 /* Message.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1C40EF2BDC5DB100D57B01 /* Message.swift */; };
+		1A1C40F22BDC5DBC00D57B01 /* ShareSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1C40F12BDC5DBC00D57B01 /* ShareSummary.swift */; };
+		1A1C40F42BDC5DC600D57B01 /* LLMService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1C40F32BDC5DC600D57B01 /* LLMService.swift */; };
+		1A1C40F62BDC5DD000D57B01 /* PuzzleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1C40F52BDC5DD000D57B01 /* PuzzleStore.swift */; };
+		1A1C40F82BDC5DDA00D57B01 /* PuzzleViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1C40F72BDC5DDA00D57B01 /* PuzzleViewModel.swift */; };
+		1AFD10022C0A1E5C00D57B01 /* DeterministicLessonRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AFD10012C0A1E5C00D57B01 /* DeterministicLessonRunner.swift */; };
+		1A1C40FA2BDC5DE500D57B01 /* RootFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1C40F92BDC5DE500D57B01 /* RootFlowView.swift */; };
+		1A1C40FC2BDC5DEF00D57B01 /* PuzzleListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1C40FB2BDC5DEF00D57B01 /* PuzzleListView.swift */; };
+		1A1C40FE2BDC5DF700D57B01 /* PuzzlePlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1C40FD2BDC5DF700D57B01 /* PuzzlePlayView.swift */; };
+		1A1C41002BDC5E0100D57B01 /* TutorialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1C40FF2BDC5E0100D57B01 /* TutorialView.swift */; };
+		1A1C41022BDC5E0A00D57B01 /* EndGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1C41012BDC5E0A00D57B01 /* EndGameView.swift */; };
+		1A1C41042BDC5E1300D57B01 /* ShareCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1C41032BDC5E1300D57B01 /* ShareCardView.swift */; };
+		1A1C41062BDC5E1C00D57B01 /* ToastModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1C41052BDC5E1C00D57B01 /* ToastModifier.swift */; };
+		1A1C41082BDC5E2500D57B01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A1C41072BDC5E2500D57B01 /* Assets.xcassets */; };
+		1A1C410A2BDC5E3700D57B01 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A1C41092BDC5E3700D57B01 /* Preview Assets.xcassets */; };
+		1A1C41192BDC5F1A00D57B01 /* SecretsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1C41182BDC5F1A00D57B01 /* SecretsProvider.swift */; };
+		1A1C411B2BDC5F5B00D57B01 /* Secrets.plist in Resources */ = {isa = PBXBuildFile; fileRef = 1A1C411C2BDC5F5B00D57B01 /* Secrets.plist */; };
+		1A1C411D2BDC5F6C00D57B01 /* PuzzleCompletion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1C411E2BDC5F6C00D57B01 /* PuzzleCompletion.swift */; };
+		1A1C41202BDC5F7D00D57B01 /* LaunchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1C411F2BDC5F7D00D57B01 /* LaunchView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		1A1C40E42BDC5CDE00D57B01 /* AITrainerGame.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AITrainerGame.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1A1C40E72BDC5D1E00D57B01 /* AITrainerGameApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AITrainerGameApp.swift; sourceTree = "<group>"; };
+		1A1C40E92BDC5D5F00D57B01 /* PuzzleRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PuzzleRepository.swift; sourceTree = "<group>"; };
+		1A1C40EB2BDC5D8200D57B01 /* puzzles.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = puzzles.json; sourceTree = "<group>"; };
+		1A1C40ED2BDC5DA600D57B01 /* Puzzle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Puzzle.swift; sourceTree = "<group>"; };
+		1A1C40EF2BDC5DB100D57B01 /* Message.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Message.swift; sourceTree = "<group>"; };
+		1A1C40F12BDC5DBC00D57B01 /* ShareSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSummary.swift; sourceTree = "<group>"; };
+		1A1C40F32BDC5DC600D57B01 /* LLMService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMService.swift; sourceTree = "<group>"; };
+		1A1C40F52BDC5DD000D57B01 /* PuzzleStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PuzzleStore.swift; sourceTree = "<group>"; };
+		1A1C40F72BDC5DDA00D57B01 /* PuzzleViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PuzzleViewModel.swift; sourceTree = "<group>"; };
+		1AFD10012C0A1E5C00D57B01 /* DeterministicLessonRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeterministicLessonRunner.swift; sourceTree = "<group>"; };
+		1A1C40F92BDC5DE500D57B01 /* RootFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootFlowView.swift; sourceTree = "<group>"; };
+		1A1C40FB2BDC5DEF00D57B01 /* PuzzleListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PuzzleListView.swift; sourceTree = "<group>"; };
+		1A1C40FD2BDC5DF700D57B01 /* PuzzlePlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PuzzlePlayView.swift; sourceTree = "<group>"; };
+		1A1C40FF2BDC5E0100D57B01 /* TutorialView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TutorialView.swift; sourceTree = "<group>"; };
+		1A1C41012BDC5E0A00D57B01 /* EndGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EndGameView.swift; sourceTree = "<group>"; };
+		1A1C41032BDC5E1300D57B01 /* ShareCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCardView.swift; sourceTree = "<group>"; };
+		1A1C41052BDC5E1C00D57B01 /* ToastModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastModifier.swift; sourceTree = "<group>"; };
+		1A1C41072BDC5E2500D57B01 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		1A1C41092BDC5E3700D57B01 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		1A1C410C2BDC5E4E00D57B01 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		1A1C41182BDC5F1A00D57B01 /* SecretsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecretsProvider.swift; sourceTree = "<group>"; };
+		1A1C411A2BDC5F5400D57B01 /* Secrets.template.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Secrets.template.plist; sourceTree = "<group>"; };
+		1A1C411C2BDC5F5B00D57B01 /* Secrets.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Secrets.plist; sourceTree = "<group>"; };
+		1A1C411E2BDC5F6C00D57B01 /* PuzzleCompletion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PuzzleCompletion.swift; sourceTree = "<group>"; };
+		1A1C411F2BDC5F7D00D57B01 /* LaunchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		1A1C40E12BDC5CBF00D57B01 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		1A1C40DA2BDC5C8F00D57B01 = {
+			isa = PBXGroup;
+			children = (
+				1A1C40E62BDC5CFA00D57B01 /* AITrainerGame */,
+				1A1C40E52BDC5CDE00D57B01 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		1A1C40E52BDC5CDE00D57B01 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				1A1C40E42BDC5CDE00D57B01 /* AITrainerGame.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		1A1C40E62BDC5CFA00D57B01 /* AITrainerGame */ = {
+			isa = PBXGroup;
+			children = (
+				1A1C410C2BDC5E4E00D57B01 /* Info.plist */,
+				1A1C410B2BDC5E4300D57B01 /* Resources */,
+				1A1C40E72BDC5D1E00D57B01 /* AITrainerGameApp.swift */,
+				1A1C41102BDC5E7300D57B01 /* Data */,
+				1A1C410F2BDC5E6A00D57B01 /* Models */,
+				1A1C41112BDC5E7F00D57B01 /* Services */,
+				1A1C41122BDC5E8A00D57B01 /* ViewModels */,
+				1A1C41132BDC5E9300D57B01 /* Views */,
+			);
+			path = AITrainerGame;
+			sourceTree = "<group>";
+		};
+		1A1C410B2BDC5E4300D57B01 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				1A1C40EB2BDC5D8200D57B01 /* puzzles.json */,
+				1A1C41072BDC5E2500D57B01 /* Assets.xcassets */,
+				1A1C410D2BDC5E5400D57B01 /* Preview Content */,
+				1A1C411A2BDC5F5400D57B01 /* Secrets.template.plist */,
+				1A1C411C2BDC5F5B00D57B01 /* Secrets.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		1A1C410D2BDC5E5400D57B01 /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				1A1C41092BDC5E3700D57B01 /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		1A1C410F2BDC5E6A00D57B01 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				1A1C40ED2BDC5DA600D57B01 /* Puzzle.swift */,
+				1A1C40EF2BDC5DB100D57B01 /* Message.swift */,
+				1A1C40F12BDC5DBC00D57B01 /* ShareSummary.swift */,
+				1A1C411E2BDC5F6C00D57B01 /* PuzzleCompletion.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		1A1C41102BDC5E7300D57B01 /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				1A1C40E92BDC5D5F00D57B01 /* PuzzleRepository.swift */,
+			);
+			path = Data;
+			sourceTree = "<group>";
+		};
+		1A1C41112BDC5E7F00D57B01 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				1A1C40F32BDC5DC600D57B01 /* LLMService.swift */,
+				1A1C41182BDC5F1A00D57B01 /* SecretsProvider.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		1A1C41122BDC5E8A00D57B01 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				1A1C40F52BDC5DD000D57B01 /* PuzzleStore.swift */,
+				1A1C40F72BDC5DDA00D57B01 /* PuzzleViewModel.swift */,
+				1AFD10012C0A1E5C00D57B01 /* DeterministicLessonRunner.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		1A1C41132BDC5E9300D57B01 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				1A1C40F92BDC5DE500D57B01 /* RootFlowView.swift */,
+				1A1C40FB2BDC5DEF00D57B01 /* PuzzleListView.swift */,
+				1A1C40FD2BDC5DF700D57B01 /* PuzzlePlayView.swift */,
+				1A1C40FF2BDC5E0100D57B01 /* TutorialView.swift */,
+				1A1C41012BDC5E0A00D57B01 /* EndGameView.swift */,
+				1A1C41032BDC5E1300D57B01 /* ShareCardView.swift */,
+				1A1C41052BDC5E1C00D57B01 /* ToastModifier.swift */,
+				1A1C411F2BDC5F7D00D57B01 /* LaunchView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		1A1C40E32BDC5CDE00D57B01 /* AITrainerGame */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1A1C410E2BDC5E5C00D57B01 /* Build configuration list for PBXNativeTarget "AITrainerGame" */;
+			buildPhases = (
+				1A1C40E02BDC5CBF00D57B01 /* Sources */,
+				1A1C40E12BDC5CBF00D57B01 /* Frameworks */,
+				1A1C40E22BDC5CBF00D57B01 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AITrainerGame;
+			productName = AITrainerGame;
+			productReference = 1A1C40E42BDC5CDE00D57B01 /* AITrainerGame.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		1A1C40DB2BDC5C8F00D57B01 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1520;
+				LastUpgradeCheck = 2600;
+				TargetAttributes = {
+					1A1C40E32BDC5CDE00D57B01 = {
+						CreatedOnToolsVersion = 15.2;
+					};
+				};
+			};
+			buildConfigurationList = 1A1C40DE2BDC5CBF00D57B01 /* Build configuration list for PBXProject "AITrainerGame" */;
+			compatibilityVersion = "Xcode 15.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 1A1C40DA2BDC5C8F00D57B01;
+			productRefGroup = 1A1C40E52BDC5CDE00D57B01 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				1A1C40E32BDC5CDE00D57B01 /* AITrainerGame */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		1A1C40E22BDC5CBF00D57B01 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1A1C410A2BDC5E3700D57B01 /* Preview Assets.xcassets in Resources */,
+				1A1C41082BDC5E2500D57B01 /* Assets.xcassets in Resources */,
+				1A1C40EC2BDC5D8200D57B01 /* puzzles.json in Resources */,
+				1A1C411B2BDC5F5B00D57B01 /* Secrets.plist in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1A1C40E02BDC5CBF00D57B01 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1A1C40FE2BDC5DF700D57B01 /* PuzzlePlayView.swift in Sources */,
+				1A1C40F22BDC5DBC00D57B01 /* ShareSummary.swift in Sources */,
+				1A1C41022BDC5E0A00D57B01 /* EndGameView.swift in Sources */,
+				1A1C40F62BDC5DD000D57B01 /* PuzzleStore.swift in Sources */,
+				1AFD10022C0A1E5C00D57B01 /* DeterministicLessonRunner.swift in Sources */,
+				1A1C41002BDC5E0100D57B01 /* TutorialView.swift in Sources */,
+				1A1C40EA2BDC5D5F00D57B01 /* PuzzleRepository.swift in Sources */,
+				1A1C40F82BDC5DDA00D57B01 /* PuzzleViewModel.swift in Sources */,
+				1A1C40EE2BDC5DA600D57B01 /* Puzzle.swift in Sources */,
+				1A1C41042BDC5E1300D57B01 /* ShareCardView.swift in Sources */,
+				1A1C41192BDC5F1A00D57B01 /* SecretsProvider.swift in Sources */,
+				1A1C41062BDC5E1C00D57B01 /* ToastModifier.swift in Sources */,
+				1A1C40F02BDC5DB100D57B01 /* Message.swift in Sources */,
+				1A1C40F42BDC5DC600D57B01 /* LLMService.swift in Sources */,
+				1A1C40FA2BDC5DE500D57B01 /* RootFlowView.swift in Sources */,
+				1A1C40FC2BDC5DEF00D57B01 /* PuzzleListView.swift in Sources */,
+				1A1C411D2BDC5F6C00D57B01 /* PuzzleCompletion.swift in Sources */,
+				1A1C41202BDC5F7D00D57B01 /* LaunchView.swift in Sources */,
+				1A1C40E82BDC5D1E00D57B01 /* AITrainerGameApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		1A1C41142BDC5EAF00D57B01 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = E3G5D247ZN;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+			};
+			name = Debug;
+		};
+		1A1C41152BDC5EB600D57B01 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = E3G5D247ZN;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		1A1C41162BDC5EC100D57B01 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AITrainerGame/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.aiTrainerGame;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		1A1C41172BDC5ECB00D57B01 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AITrainerGame/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.aiTrainerGame;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1A1C40DE2BDC5CBF00D57B01 /* Build configuration list for PBXProject "AITrainerGame" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A1C41142BDC5EAF00D57B01 /* Debug */,
+				1A1C41152BDC5EB600D57B01 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1A1C410E2BDC5E5C00D57B01 /* Build configuration list for PBXNativeTarget "AITrainerGame" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A1C41162BDC5EC100D57B01 /* Debug */,
+				1A1C41172BDC5ECB00D57B01 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 1A1C40DB2BDC5C8F00D57B01 /* Project object */;
+}

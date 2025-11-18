@@ -1,0 +1,282 @@
+[
+  {
+    "id": 0,
+    "number": 0,
+    "module": "foundation",
+    "title": "One Question, One Detail",
+    "skill": "Clarity",
+    "skillDescription": "Ask for one missing fact at a time.",
+    "goal": "Identify the best day for a walk using 3 focused AI questions.",
+    "scenario": "When you talk to an AI, it can only answer what you actually ask. If your question mixes topics or stays vague, it replies vaguely. In this drill the AI assistant already knows three specific attributes you need: weather, temperature, and storm chance. It will only reveal a detail when your question targets ONE attribute clearly.",
+    "answerFormat": "Day of the week",
+    "maxTurns": 3,
+    "exampleQuestions": [
+      "What is the weather?",
+      "What is the temperature?",
+      "Is there any storm chance?"
+    ],
+    "solutionLogic": "Focused questions surface each attribute. Combining those details reveals that Saturday is sunny, 72°, and storm-free — the best walking day.",
+    "systemPrompt": "Sound like an AI coach. Remind the user that each question must focus on a single attribute. Celebrate precise questions and reject broad ones.",
+    "tutorialScript": {
+      "rule": "Ask about ONE attribute at a time so the AI can respond clearly.",
+      "answer": "Saturday",
+      "firstTurnAlwaysSucceeds": true,
+      "successHighlight": "You spoke to the AI with focused questions and surfaced every detail.",
+      "failureHighlight": "The AI never locked onto a detail because the questions mixed attributes.",
+      "successReflection": "When you isolate one attribute, the AI can give you a precise answer instantly.",
+      "failureReflection": "Next time, separate weather vs. temperature vs. storm chance so the AI knows exactly what to respond to.",
+      "microLessonSuccess": "Clarity unlocks answers: ask about one attribute per turn.",
+      "microLessonFailure": "If the AI stalls, tighten your question to a single attribute.",
+      "completionMessage": "Clarity confirmed. Here's what the AI reveals…",
+      "clues": [
+        {
+          "id": "weather",
+          "title": "Weather",
+          "keywords": ["weather", "sunny", "cloudy", "rain", "conditions"],
+          "response": "Saturday: Sunny",
+          "reward": "core",
+          "celebrate": "Great clarity — one attribute at a time."
+        },
+        {
+          "id": "temperature",
+          "title": "Temperature",
+          "keywords": ["temperature", "temp", "degrees", "warm", "cold", "hot"],
+          "response": "Saturday: Around 72°",
+          "reward": "core",
+          "celebrate": "Perfect focus. That's another single-detail answer."
+        },
+        {
+          "id": "storm",
+          "title": "Storm Chance",
+          "keywords": ["storm", "storm chance", "thunderstorm", "rain chance", "precipitation"],
+          "response": "Saturday: 0% storm chance",
+          "reward": "core",
+          "celebrate": "Excellent! You focused on storm chance only."
+        }
+      ],
+      "fallback": {
+        "broad": "That mixes attributes. Pick weather, temperature, OR storm chance.",
+        "vague": "Name the exact attribute you want the AI to describe.",
+        "duplicate": "Already shared. Ask about a different attribute to learn more.",
+        "mismatch": "I can only discuss weather, temperature, or storm chance for this drill.",
+        "welcome": "Welcome to the AI clarity drill! Ask about ONE attribute to see what the AI already knows."
+      }
+    }
+  },
+  {
+    "id": 1,
+    "number": 1,
+    "module": "narrowing",
+    "title": "Lock the Category",
+    "skill": "Narrowing",
+    "skillDescription": "Use deliberate yes/no questions to shrink the search space.",
+    "goal": "Identify the hidden object by asking three narrowing questions.",
+    "scenario": "You’re practicing with a classification AI. It knows the object in a pouch, but it will only answer category questions that genuinely narrow options. Each focused yes/no about category, purpose, or shape unlocks a precise hint.",
+    "answerFormat": "Object name",
+    "maxTurns": 4,
+    "exampleQuestions": [
+      "Is it a tool?",
+      "Is its purpose navigation?",
+      "Is the shape circular?"
+    ],
+    "solutionLogic": "Smart narrowing questions reveal it is a navigation tool with a circular shape and floating needle—only a compass fits.",
+    "systemPrompt": "Coach the user to ask narrowing, single-dimension questions. Reward category-first thinking and push back on vague combos.",
+    "tutorialScript": {
+      "rule": "Ask one narrowing question (category, purpose, or shape) per turn.",
+      "answer": "compass",
+      "firstTurnAlwaysSucceeds": true,
+      "successHighlight": "You used category-first thinking to land on the exact object.",
+      "failureHighlight": "Because the AI never heard a clear narrowing question, the object stayed ambiguous.",
+      "successReflection": "Category → purpose → shape is a powerful order when clarifying with AI.",
+      "failureReflection": "Lead with a broad category question, then follow with purpose or shape to tighten the answer.",
+      "microLessonSuccess": "Narrowing questions quickly collapse the search space.",
+      "microLessonFailure": "If your question doesn't eliminate options, refine it to a single dimension.",
+      "completionMessage": "Classification AI responding… here's the narrowed detail.",
+      "clues": [
+        {
+          "id": "category",
+          "title": "Category",
+          "keywords": ["category", "kind", "type", "tool"],
+          "response": "It's definitely a tool, not clothing or food.",
+          "reward": "core",
+          "celebrate": "Great! You locked the broad category."
+        },
+        {
+          "id": "purpose",
+          "title": "Purpose",
+          "keywords": ["purpose", "use", "used", "for", "navigation", "navigate"],
+          "response": "Its entire purpose is navigation — nothing else.",
+          "reward": "core",
+          "celebrate": "Great! You shrank the category even further."
+        },
+        {
+          "id": "shape",
+          "title": "Shape",
+          "keywords": ["shape", "form", "circular", "round"],
+          "response": "It’s circular with a glass face.",
+          "reward": "supporting",
+          "celebrate": "Support clue unlocked."
+        },
+        {
+          "id": "mechanical",
+          "title": "Mechanism",
+          "keywords": ["mechanical", "digital", "needle"],
+          "response": "It relies on a floating needle, not a digital display.",
+          "reward": "supporting",
+          "celebrate": "Solid supporting detail."
+        }
+      ],
+      "fallback": {
+        "broad": "That mixes traits. Ask about category, purpose, or shape — only one.",
+        "vague": "Name the exact dimension you want to narrow.",
+        "duplicate": "Already confirmed that detail. Try a different filter.",
+        "mismatch": "This AI can only discuss category, purpose, shape, or mechanism.",
+        "welcome": "Every question must narrow the category. Lead with one dimension."
+      }
+    }
+  },
+  {
+    "id": 2,
+    "number": 2,
+    "module": "constraints",
+    "title": "Constraint Filter",
+    "skill": "Constraints",
+    "skillDescription": "Apply one restriction at a time to eliminate bad options.",
+    "goal": "Find the only snack that meets all safety constraints.",
+    "scenario": "You’re training with an AI allergen scanner. It knows which snacks violate nuts, dairy, or citrus rules. Every focused question about a single restriction eliminates risky items and moves you closer to the safe snack.",
+    "answerFormat": "Snack name",
+    "maxTurns": 4,
+    "exampleQuestions": [
+      "Which snacks break the nuts restriction?",
+      "Which items contain dairy?",
+      "Does any option include citrus?"
+    ],
+    "solutionLogic": "Applying each constraint sequentially leaves the blueberry bar as the only compliant snack.",
+    "systemPrompt": "Act like an allergen scanner coach. Reinforce one-constraint questions and nudge away from combined checks.",
+    "tutorialScript": {
+      "rule": "Ask about ONE constraint (nuts, dairy, or citrus) per turn.",
+      "answer": "blueberry bar",
+      "firstTurnAlwaysSucceeds": true,
+      "successHighlight": "You isolated each restriction and found the only snack that passed all three.",
+      "failureHighlight": "Mixing constraints kept the scanner from eliminating anything.",
+      "successReflection": "Precise constraint checks eliminate huge chunks of options quickly.",
+      "failureReflection": "Call out the exact restriction you’re testing so the AI can respond.",
+      "microLessonSuccess": "Constraint questions = instant eliminations.",
+      "microLessonFailure": "Name the exact restriction you’re checking before asking.",
+      "completionMessage": "Constraint applied — updating safe list…",
+      "clues": [
+        {
+          "id": "nuts",
+          "title": "Nuts",
+          "keywords": ["nut", "nuts", "peanut", "almond"],
+          "response": "Anything labeled trail mix or caramel crunch contains nuts. The berry bar stays safe.",
+          "reward": "core",
+          "celebrate": "Nice! That constraint wiped out a chunk of snacks."
+        },
+        {
+          "id": "dairy",
+          "title": "Dairy",
+          "keywords": ["dairy", "milk", "cheese", "butter"],
+          "response": "Cheddar crisps and yogurt clusters contain dairy. The blueberry bar is still clear.",
+          "reward": "core",
+          "celebrate": "Great elimination."
+        },
+        {
+          "id": "citrus",
+          "title": "Citrus",
+          "keywords": ["citrus", "orange", "lemon", "lime"],
+          "response": "Only the citrus gummies break that rule. The blueberry bar and oat bites stay eligible.",
+          "reward": "core",
+          "celebrate": "Clean constraint check!"
+        },
+        {
+          "id": "bonus",
+          "title": "Bonus Tip",
+          "keywords": ["safe", "remaining", "options", "snacks", "list"],
+          "response": "After all three checks, the blueberry bar is the only snack left with zero allergens.",
+          "reward": "supporting",
+          "celebrate": "Summary locked in."
+        }
+      ],
+      "fallback": {
+        "broad": "Stick to one constraint: nuts, dairy, OR citrus.",
+        "vague": "Name the exact restriction you want to check.",
+        "duplicate": "Already covered that constraint. Try another one.",
+        "mismatch": "That question doesn’t map to nuts, dairy, or citrus.",
+        "welcome": "Apply one constraint per turn to knock snacks off the list."
+      }
+    }
+  },
+  {
+    "id": 3,
+    "number": 3,
+    "module": "prioritization",
+    "title": "Lead with the Key Detail",
+    "skill": "Prioritization",
+    "skillDescription": "Ask about the highest-leverage detail first.",
+    "goal": "Choose the correct drone landing zone by prioritizing the defining detail.",
+    "scenario": "You’re working with an AI logistics coordinator. It tracks wind, access level, landing zone type, and fragility. Only the landing zone type truly reveals where the drone must land. Ask about the critical detail first to unlock the answer fast.",
+    "answerFormat": "Location name",
+    "maxTurns": 3,
+    "exampleQuestions": [
+      "What type of landing zone do we need?",
+      "How strong is the wind?",
+      "How fragile is the package?"
+    ],
+    "solutionLogic": "Prioritizing landing-zone type immediately reveals the rooftop garden requirement.",
+    "systemPrompt": "Coach the user to ask about the most defining detail first. Celebrate when they prioritize correctly and nudge when they chase lesser details.",
+    "tutorialScript": {
+      "rule": "Lead with the most defining detail. Landing-zone type matters first.",
+      "answer": "rooftop garden",
+      "firstTurnAlwaysSucceeds": true,
+      "successHighlight": "You led with the defining detail and unlocked the correct drop zone immediately.",
+      "failureHighlight": "The AI stayed polite but you never touched the key detail, so the location stayed hidden.",
+      "successReflection": "Leading with the critical variable shows the AI exactly what matters.",
+      "failureReflection": "Before asking about supporting info, confirm the landing-zone type.",
+      "microLessonSuccess": "Prioritization pays off: biggest lever first.",
+      "microLessonFailure": "Next time, identify the most defining trait before you ask.",
+      "completionMessage": "Priority check processed…",
+      "clues": [
+        {
+          "id": "landing",
+          "title": "Landing Zone",
+          "keywords": ["landing", "zone", "surface", "pad", "ground"],
+          "response": "It needs an open, reinforced rooftop garden with clear approach lanes.",
+          "reward": "core",
+          "celebrate": "Exactly the right question. You led with the key detail."
+        },
+        {
+          "id": "wind",
+          "title": "Wind",
+          "keywords": ["wind", "gust", "breeze"],
+          "response": "Wind is mild, but that alone won’t tell you the location.",
+          "reward": "supporting",
+          "celebrate": "Nice check, though it’s not the main clue."
+        },
+        {
+          "id": "access",
+          "title": "Access",
+          "keywords": ["access", "door", "security", "level"],
+          "response": "Security is medium — still not enough to pick the spot.",
+          "reward": "supporting",
+          "celebrate": "Support detail logged."
+        },
+        {
+          "id": "fragility",
+          "title": "Fragility",
+          "keywords": ["fragile", "fragility", "delicate"],
+          "response": "The package is delicate, but that matters after you pick the zone type.",
+          "reward": "supporting",
+          "celebrate": "Good to know, but start with the landing zone type."
+        }
+      ],
+      "fallback": {
+        "broad": "Zero in on one detail. Landing-zone type is the big lever.",
+        "vague": "State the exact detail you want to inspect first.",
+        "duplicate": "Already covered that detail. Try another.",
+        "mismatch": "That doesn’t affect the drop zone. Ask about landing type, wind, access, or fragility.",
+        "welcome": "Lead with the defining question to get the big clue."
+      }
+    }
+  }
+]

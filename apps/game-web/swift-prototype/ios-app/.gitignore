@@ -1,0 +1,6 @@
+# SwiftPM / Xcode
+DerivedData/
+xcuserdata/
+
+# Secrets
+AITrainerGame/AITrainerGame/Resources/Secrets.plist

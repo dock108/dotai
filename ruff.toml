@@ -1,0 +1,22 @@
+line-length = 100
+target-version = "py311"
+src = ["services", "packages"]
+
+[lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "B",
+    "UP",
+    "S",
+    "PTH",
+    "RUF"
+]
+ignore = [
+    "S101" # allow assert usage in tests/examples
+]
+
+[lint.per-file-ignores]
+"*/__init__.py" = ["F401"]
+

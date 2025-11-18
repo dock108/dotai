@@ -1,0 +1,32 @@
+[project]
+name = "py-core"
+version = "0.1.0"
+description = "Shared schemas, guardrail helpers, and scoring utilities for dock108."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "pydantic>=2.8.0,<3.0.0",
+  "typing-extensions>=4.12.0,<5.0.0",
+  "httpx>=0.27.0,<0.28.0",
+  "tenacity>=9.0.0,<10.0.0",
+  "python-dateutil>=2.9.0,<3.0.0"
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3.2,<9.0.0"]
+
+[tool.uv]
+dev-dependencies = [
+  "black>=24.8.0,<25.0.0",
+  "ruff>=0.7.0,<0.8.0",
+  "pytest>=8.3.2,<9.0.0",
+  "mypy>=1.11.0,<2.0.0"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["py_core"]
+
