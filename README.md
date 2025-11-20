@@ -10,14 +10,14 @@ apps/                 # All user-facing experiences
   game-web/           # AI prompting game (Swift prototype + React/Next.js)
   playlist-web/       # Legacy YouTube curator MVP (Next.js)
   highlight-channel-web/  # Sports highlight channel builder (Next.js) ⭐ Active
-  theory-*-web/       # Domain-specific theory surfaces (placeholders)
+  theory-*-web/       # Domain-specific theory surfaces (bets, crypto, stocks, conspiracies) ⭐ Active
 services/             # Python + worker backends
   theory-engine-api/  # FastAPI backend (Sports highlights, theory evaluation) ⭐ Active
-  data-workers/       # ETL jobs for odds/prices/YouTube caching (planned)
+  data-workers/       # Celery workers for odds/prices/YouTube caching ⭐ Active
 packages/             # Shared UI + client/server libraries
   py-core/           # Python schemas, guardrails, scoring, clients ⭐ Active
-  ui-kit/            # Shared React components
-  js-core/            # JavaScript SDK and utilities
+  ui-kit/            # Shared React components ⭐ Active
+  js-core/            # JavaScript SDK and utilities ⭐ Active
 infra/                # Docker, k8s, nginx deploy assets for Hetzner
 docs/                 # Living architecture + guardrail specs
 ```
@@ -57,7 +57,7 @@ For comprehensive local development and testing instructions, see **[`docs/LOCAL
 2. Set up database (local PostgreSQL or Docker)
 3. Get API keys: YouTube Data API, OpenAI API
 4. Configure environment: Copy `.env.example` to `services/theory-engine-api/.env`
-5. Start backend: `cd services/theory-engine-api && uv sync && alembic upgrade head && uvicorn app.main:app --reload`
+5. Start backend: `cd services/theory-engine-api && uv sync && uv pip install -e ../../packages/py-core && alembic upgrade head && uv run uvicorn app.main:app --reload`
 6. Start frontend: `cd apps/highlight-channel-web && pnpm install && pnpm dev`
 
 ### API Endpoints
@@ -102,14 +102,19 @@ See [`docs/HIGHLIGHTS_API.md`](docs/HIGHLIGHTS_API.md) for detailed API document
 ### In Progress 🚧
 
 - **React Game Port** (`apps/game-web`): Porting Swift prototype to React/Next.js
-- **Data Workers** (`services/data-workers`): ETL jobs for odds, prices, YouTube caching
-- **Shared UI Kit** (`packages/ui-kit`): Expanding shared React components
+- **Kubernetes Deployment**: GitOps pipeline for Hetzner cluster
+
+### Completed ✅ (Latest)
+
+- **Theory Surfaces** (`apps/theory-*-web`): All 4 theory apps (bets, crypto, stocks, conspiracies) now functional with shared components
+- **JavaScript Core** (`packages/js-core`): TypeScript SDK with API client, React hooks, and type-safe endpoints
+- **Shared UI Kit** (`packages/ui-kit`): Expanded with LoadingSpinner, ErrorDisplay, PresetChips, DomainHeader, PageLayout, Container, Section
+- **Data Workers** (`services/data-workers`): Celery-based workers for YouTube caching, odds snapshots, and market prices (placeholders ready for API integration)
+- **Enhanced TheoryCard**: Domain-specific fields with collapsible sections for all theory types
 
 ### Planned 📋
 
-- **Theory Surfaces**: Complete `theory-*-web` apps (bets, crypto, stocks, conspiracies)
-- **JavaScript Core** (`packages/js-core`): SDK and utilities for frontend apps
-- **Kubernetes Deployment**: GitOps pipeline for Hetzner cluster
 - **Custom Models**: Train bespoke graders on collected theory data
+- **API Cache Integration**: Update theory-engine-api to use Redis cache from workers
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for detailed roadmap.

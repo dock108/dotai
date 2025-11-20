@@ -17,9 +17,9 @@ class ContextResult:
     highlights: list[str] = field(default_factory=list)
     sources: list[str] = field(default_factory=list)
     limitations: list[str] = field(default_factory=list)
-    data_source_name: str | None = field(default=None, description="Human-readable data source name")
-    cache_status: str = field(default="fresh", description="'cached' or 'fresh'")
-    data_source_details: str | None = field(default=None, description="Additional details about the data source")
+    data_source_name: str | None = field(default=None)  # Human-readable data source name
+    cache_status: str = field(default="fresh")  # 'cached' or 'fresh'
+    data_source_details: str | None = field(default=None)  # Additional details about the data source
 
 
 # Global cache instance (can be replaced with DB-backed cache in production)

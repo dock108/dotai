@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { createClient, HighlightsAPI, type HighlightPlanResponse, type APIError, type NetworkError } from "@dock108/js-core";
+import { LoadingSpinner, ErrorDisplay } from "@dock108/ui-kit";
 import styles from "./page.module.css";
 
 const PRESETS = [
@@ -73,13 +75,47 @@ interface PlaylistResponse {
   stale_after: string | null;
 }
 
+interface ErrorInfo {
+  code?: string;
+  message: string;
+  detail?: string;
+  suggestions?: string[];
+  retry_after?: number;
+}
+
 export default function Home() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorInfo | null>(null);
   const [parsedSpec, setParsedSpec] = useState<ParsedSpec | null>(null);
   const [showBuilder, setShowBuilder] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
+  const [requestStartTime, setRequestStartTime] = useState<number | null>(null);
+  const [elapsedTime, setElapsedTime] = useState<number>(0);
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
   const router = useRouter();
+  
+  // Initialize API client
+  const apiClient = createClient();
+  const highlightsAPI = new HighlightsAPI(apiClient);
+  
+  const EXAMPLE_QUERIES = [
+    "NFL highlights from last night, 30 minutes",
+    "NBA top plays from this week",
+    "MLB bloopers from September 2024",
+    "NHL highlights from yesterday, 1 hour",
+    "Kansas City Chiefs highlights from this season",
+    "Sports upsets from last month",
+  ];
+  
+  const TIPS = [
+    "Be specific about the sport (NFL, NBA, MLB, etc.)",
+    "Include a time period (last night, this week, specific date)",
+    "Specify content type (highlights, bloopers, top plays)",
+    "Request a duration (15 minutes to 8 hours)",
+    "You can combine multiple requests (e.g., 'NFL then MLB highlights')",
+  ];
 
   // Check if builder should be shown (from sessionStorage)
   useEffect(() => {
@@ -99,29 +135,51 @@ export default function Home() {
   const [contentMix, setContentMix] = useState<number>(0.5); // 0 = bloopers, 1 = highlights
 
   const handleSubmit = async (queryText: string) => {
-    if (!queryText.trim()) return;
+    const trimmed = queryText.trim();
+    if (!trimmed) {
+      setError({ message: "Please enter a query" });
+      return;
+    }
+    
+    if (trimmed.length < 5) {
+      setError({
+        code: "VALIDATION_ERROR",
+        message: "Query must be at least 5 characters long",
+        suggestions: ["Try adding more details about the sport, date, or content type"],
+      });
+      return;
+    }
+    
+    if (trimmed.length > 500) {
+      setError({
+        code: "VALIDATION_ERROR",
+        message: "Query is too long (max 500 characters)",
+        suggestions: ["Try shortening your query or breaking it into multiple requests"],
+      });
+      return;
+    }
 
     setError(null);
+    setSuccessMessage(null);
     setLoading(true);
+    const startTime = Date.now();
+    setRequestStartTime(startTime);
+    setElapsedTime(0);
+    
+    // Start elapsed time counter
+    const timeInterval = setInterval(() => {
+      setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+    
+    // Create abort controller for cancellation
+    const controller = new AbortController();
+    setAbortController(controller);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_THEORY_ENGINE_URL || "http://localhost:8000";
-
-      const response = await fetch(`${apiUrl}/api/highlights/plan`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query_text: queryText,
-          mode: "sports_highlight",
-        }),
+      const data = await highlightsAPI.planPlaylist({
+        query_text: queryText,
+        mode: "sports_highlight",
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: "Failed to create playlist" }));
-        throw new Error(errorData.detail || "Failed to create playlist");
-      }
-
-      const data: PlaylistResponse = await response.json();
       
       // Extract spec from explanation for builder
       if (data.explanation) {
@@ -140,7 +198,7 @@ export default function Home() {
             setDurationMinutes(num);
           }
         } else {
-          setDurationMinutes(data.explanation.target_duration_minutes);
+          setDurationMinutes(data.explanation.target_duration_minutes || 60);
         }
         setParsedSpec({
           sport: sportMatch?.[1] || "",
@@ -148,7 +206,7 @@ export default function Home() {
           teams: [],
           date_range: null,
           content_mix: { highlights: 0.6, bloopers: 0.2, top_plays: 0.2 },
-          requested_duration_minutes: data.explanation.target_duration_minutes,
+          requested_duration_minutes: data.explanation.target_duration_minutes || 60,
         });
         // Show builder after first successful parse (persist in sessionStorage)
         setShowBuilder(true);
@@ -157,12 +215,104 @@ export default function Home() {
         }
       }
       
-      router.push(`/playlist/${data.playlist_id}`);
+      // Handle empty results
+      if (data.items.length === 0) {
+        setError({
+          code: "NO_VIDEOS_FOUND",
+          message: "No videos found matching your request.",
+          detail: "We couldn't find any videos that match your search criteria.",
+          suggestions: [
+            "Try a broader search (e.g., 'NFL highlights' instead of specific teams)",
+            "Adjust the date range or remove date filters",
+            "Check if the sport/league name is spelled correctly",
+            "Try a more general query",
+          ],
+        });
+        setLoading(false);
+        return;
+      }
+      
+      // Show success message
+      const cacheStatus = data.cache_status === "cached" ? "from cache" : "fresh";
+      const videoCount = data.items.length;
+      const durationMinutes = Math.round(data.total_duration_seconds / 60);
+      setSuccessMessage(
+        `Playlist created! Found ${videoCount} videos (${durationMinutes} minutes, ${cacheStatus}). Redirecting...`
+      );
+      
+      // Clear intervals and abort controller
+      clearInterval(timeInterval);
+      setAbortController(null);
+      setRequestStartTime(null);
+      
+      // Small delay to show success message, then redirect
+      setTimeout(() => {
+        router.push(`/playlist/${data.playlist_id}`);
+      }, 1000);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      // Clear intervals and abort controller
+      clearInterval(timeInterval);
+      setAbortController(null);
+      setRequestStartTime(null);
+      let errorInfo: ErrorInfo = {
+        message: "Something went wrong. Please try again.",
+      };
+      
+      if (err instanceof NetworkError) {
+        errorInfo = {
+          code: "NETWORK_ERROR",
+          message: "Network error. Please check your internet connection and try again.",
+          detail: err.message,
+          suggestions: [
+            "Check your internet connection",
+            "Try refreshing the page",
+            "If using a VPN, try disconnecting it",
+          ],
+        };
+      } else if (err instanceof APIError) {
+        // Try to parse error detail as JSON (if it's our structured error)
+        try {
+          const errorData = typeof err.detail === "string" ? JSON.parse(err.detail) : err.detail;
+          errorInfo = {
+            code: errorData.error_code || err.statusCode.toString(),
+            message: errorData.message || err.message,
+            detail: errorData.detail,
+            suggestions: errorData.suggestions,
+            retry_after: errorData.retry_after,
+          };
+        } catch {
+          // If parsing fails, use the error message directly
+          errorInfo = {
+            code: err.statusCode.toString(),
+            message: err.detail || err.message,
+          };
+        }
+      } else if (err instanceof Error) {
+        errorInfo = {
+          message: err.message,
+        };
+      }
+      
+      setError(errorInfo);
     } finally {
       setLoading(false);
+      setRequestStartTime(null);
+      setElapsedTime(0);
     }
+  };
+  
+  const handleCancel = () => {
+    if (abortController) {
+      abortController.abort();
+      setAbortController(null);
+    }
+    setLoading(false);
+    setRequestStartTime(null);
+    setElapsedTime(0);
+    setError({
+      code: "CANCELLED",
+      message: "Request cancelled",
+    });
   };
 
   const handleBuilderUpdate = async () => {
@@ -184,7 +334,7 @@ export default function Home() {
     parts.push(`${durationMinutes} minutes`);
     const builderQuery = parts.join(" ");
     
-    await handleSubmit(builderQuery, false);
+    await handleSubmit(builderQuery);
   };
 
   const handlePreset = (presetQuery: string) => {
@@ -200,7 +350,54 @@ export default function Home() {
           <p className={styles.subtitle}>
             Describe the sports highlights you want, and we'll build a custom playlist for you.
           </p>
+          <button
+            className={styles.helpToggle}
+            onClick={() => setShowHelp(!showHelp)}
+            type="button"
+          >
+            {showHelp ? "Hide" : "Show"} Tips & Examples
+          </button>
         </header>
+        
+        {showHelp && (
+          <div className={styles.helpSection}>
+            <div className={styles.helpContent}>
+              <h3 className={styles.helpTitle}>How It Works</h3>
+              <p className={styles.helpText}>
+                Just describe what you want in natural language. We'll search YouTube for the best videos
+                matching your request and create a custom playlist. The more specific you are, the better results you'll get.
+              </p>
+              
+              <h3 className={styles.helpTitle}>Example Queries</h3>
+              <div className={styles.exampleQueries}>
+                {EXAMPLE_QUERIES.map((example, idx) => (
+                  <button
+                    key={idx}
+                    className={styles.exampleQuery}
+                    onClick={() => {
+                      setQuery(example);
+                      setShowHelp(false);
+                    }}
+                    type="button"
+                  >
+                    "{example}"
+                  </button>
+                ))}
+              </div>
+              
+              <h3 className={styles.helpTitle}>Tips for Better Results</h3>
+              <ul className={styles.tipsList}>
+                {TIPS.map((tip, idx) => (
+                  <li key={idx}>{tip}</li>
+                ))}
+              </ul>
+              
+              <div className={styles.disclaimer}>
+                <strong>Note:</strong> This app builds playlists using public YouTube videos. We do not host or control the content.
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className={styles.mainSection}>
           <div className={styles.inputSection}>
@@ -210,11 +407,33 @@ export default function Home() {
             <textarea
               className={styles.textarea}
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                // Clear error when user starts typing
+                if (error) {
+                  setError(null);
+                }
+                // Real-time validation feedback
+                const text = e.target.value.trim();
+                if (text.length > 0 && text.length < 5) {
+                  // Show hint but don't block
+                }
+              }}
               placeholder='e.g., "NFL Week 12 highlights, then MLB bloopers, then any huge upsets from Aug 8, 2010"'
               rows={4}
               disabled={loading}
+              maxLength={500}
             />
+            {query.length > 0 && query.length < 5 && (
+              <div className={styles.validationHint}>
+                Query must be at least 5 characters (currently {query.length})
+              </div>
+            )}
+            {query.length >= 500 && (
+              <div className={styles.validationWarning}>
+                Query is too long (max 500 characters)
+              </div>
+            )}
             <button
               className={styles.submitButton}
               onClick={() => handleSubmit(query)}
@@ -222,7 +441,79 @@ export default function Home() {
             >
               {loading ? "Building Playlist..." : "Build Playlist"}
             </button>
-            {error && <div className={styles.error}>{error}</div>}
+            
+            {loading && (
+              <div className={styles.loadingContainer}>
+                <LoadingSpinner 
+                  message={
+                    elapsedTime > 30
+                      ? `This is taking longer than usual (${elapsedTime}s). Still searching...`
+                      : elapsedTime > 10
+                      ? `Searching for videos and building your playlist... (${elapsedTime}s)`
+                      : "Searching for videos and building your playlist..."
+                  }
+                />
+                {elapsedTime > 15 && (
+                  <button
+                    className={styles.cancelButton}
+                    onClick={handleCancel}
+                    type="button"
+                  >
+                    Cancel Request
+                  </button>
+                )}
+              </div>
+            )}
+            
+            {error && (
+              <>
+                <ErrorDisplay
+                  error={error.message}
+                  title={
+                    error.code === "NO_VIDEOS_FOUND"
+                      ? "No Videos Found"
+                      : error.code === "RATE_LIMIT_EXCEEDED"
+                      ? "Rate Limit Exceeded"
+                      : error.code === "QUOTA_EXCEEDED"
+                      ? "Service Temporarily Unavailable"
+                      : error.code === "NETWORK_ERROR"
+                      ? "Network Error"
+                      : "Error Creating Playlist"
+                  }
+                  onRetry={
+                    error.code === "RATE_LIMIT_EXCEEDED" ||
+                    error.code === "NETWORK_ERROR" ||
+                    error.code === "NO_VIDEOS_FOUND"
+                      ? () => {
+                          setError(null);
+                          handleSubmit(query);
+                        }
+                      : undefined
+                  }
+                />
+                {error.suggestions && error.suggestions.length > 0 && (
+                  <div className={styles.suggestions}>
+                    <strong>Suggestions:</strong>
+                    <ul>
+                      {error.suggestions.map((suggestion, idx) => (
+                        <li key={idx}>{suggestion}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {error.retry_after && (
+                  <div className={styles.retryInfo}>
+                    Please wait {Math.ceil(error.retry_after / 60)} minutes before trying again.
+                  </div>
+                )}
+              </>
+            )}
+            
+            {successMessage && (
+              <div className={styles.success}>
+                {successMessage}
+              </div>
+            )}
           </div>
 
           <div className={styles.presetsSection}>

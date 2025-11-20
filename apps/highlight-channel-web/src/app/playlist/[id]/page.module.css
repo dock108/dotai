@@ -54,6 +54,24 @@
   font-style: italic;
 }
 
+.cachedBadge {
+  background: #fff3cd;
+  color: #856404;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.freshBadge {
+  background: #d1ecf1;
+  color: #0c5460;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 .meta {
   display: flex;
   gap: 1rem;

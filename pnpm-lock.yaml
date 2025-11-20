@@ -36,8 +36,76 @@ importers:
         specifier: ^8.8.0
         version: 8.47.0(eslint@9.39.1)(typescript@5.9.3)
 
+  apps/game-web:
+    dependencies:
+      next:
+        specifier: 16.0.3
+        version: 16.0.3(@babel/core@7.28.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      react:
+        specifier: 19.2.0
+        version: 19.2.0
+      react-dom:
+        specifier: 19.2.0
+        version: 19.2.0(react@19.2.0)
+    devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.25
+      '@types/react':
+        specifier: ^19
+        version: 19.2.6
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.2.3(@types/react@19.2.6)
+      eslint:
+        specifier: ^9
+        version: 9.39.1
+      eslint-config-next:
+        specifier: 16.0.3
+        version: 16.0.3(@typescript-eslint/parser@8.47.0(eslint@9.39.1)(typescript@5.9.3))(eslint@9.39.1)(typescript@5.9.3)
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  apps/highlight-channel-web:
+    dependencies:
+      '@dock108/ui-kit':
+        specifier: workspace:*
+        version: link:../../packages/ui-kit
+      next:
+        specifier: 16.0.3
+        version: 16.0.3(@babel/core@7.28.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      react:
+        specifier: 19.2.0
+        version: 19.2.0
+      react-dom:
+        specifier: 19.2.0
+        version: 19.2.0(react@19.2.0)
+    devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.25
+      '@types/react':
+        specifier: ^19
+        version: 19.2.6
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.2.3(@types/react@19.2.6)
+      eslint:
+        specifier: ^9
+        version: 9.39.1
+      eslint-config-next:
+        specifier: 16.0.3
+        version: 16.0.3(@typescript-eslint/parser@8.47.0(eslint@9.39.1)(typescript@5.9.3))(eslint@9.39.1)(typescript@5.9.3)
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
   apps/playlist-web:
     dependencies:
+      '@dock108/ui-kit':
+        specifier: workspace:*
+        version: link:../../packages/ui-kit
       next:
         specifier: 16.0.3
         version: 16.0.3(@babel/core@7.28.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -69,6 +137,161 @@ importers:
       eslint-config-next:
         specifier: 16.0.3
         version: 16.0.3(@typescript-eslint/parser@8.47.0(eslint@9.39.1)(typescript@5.9.3))(eslint@9.39.1)(typescript@5.9.3)
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  apps/theory-bets-web:
+    dependencies:
+      '@dock108/ui-kit':
+        specifier: workspace:*
+        version: link:../../packages/ui-kit
+      next:
+        specifier: 16.0.3
+        version: 16.0.3(@babel/core@7.28.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      react:
+        specifier: 19.2.0
+        version: 19.2.0
+      react-dom:
+        specifier: 19.2.0
+        version: 19.2.0(react@19.2.0)
+    devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.25
+      '@types/react':
+        specifier: ^19
+        version: 19.2.6
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.2.3(@types/react@19.2.6)
+      eslint:
+        specifier: ^9
+        version: 9.39.1
+      eslint-config-next:
+        specifier: 16.0.3
+        version: 16.0.3(@typescript-eslint/parser@8.47.0(eslint@9.39.1)(typescript@5.9.3))(eslint@9.39.1)(typescript@5.9.3)
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  apps/theory-conspiracy-web:
+    dependencies:
+      '@dock108/ui-kit':
+        specifier: workspace:*
+        version: link:../../packages/ui-kit
+      next:
+        specifier: 16.0.3
+        version: 16.0.3(@babel/core@7.28.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      react:
+        specifier: 19.2.0
+        version: 19.2.0
+      react-dom:
+        specifier: 19.2.0
+        version: 19.2.0(react@19.2.0)
+    devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.25
+      '@types/react':
+        specifier: ^19
+        version: 19.2.6
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.2.3(@types/react@19.2.6)
+      eslint:
+        specifier: ^9
+        version: 9.39.1
+      eslint-config-next:
+        specifier: 16.0.3
+        version: 16.0.3(@typescript-eslint/parser@8.47.0(eslint@9.39.1)(typescript@5.9.3))(eslint@9.39.1)(typescript@5.9.3)
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  apps/theory-crypto-web:
+    dependencies:
+      '@dock108/ui-kit':
+        specifier: workspace:*
+        version: link:../../packages/ui-kit
+      next:
+        specifier: 16.0.3
+        version: 16.0.3(@babel/core@7.28.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      react:
+        specifier: 19.2.0
+        version: 19.2.0
+      react-dom:
+        specifier: 19.2.0
+        version: 19.2.0(react@19.2.0)
+    devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.25
+      '@types/react':
+        specifier: ^19
+        version: 19.2.6
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.2.3(@types/react@19.2.6)
+      eslint:
+        specifier: ^9
+        version: 9.39.1
+      eslint-config-next:
+        specifier: 16.0.3
+        version: 16.0.3(@typescript-eslint/parser@8.47.0(eslint@9.39.1)(typescript@5.9.3))(eslint@9.39.1)(typescript@5.9.3)
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  apps/theory-stocks-web:
+    dependencies:
+      '@dock108/ui-kit':
+        specifier: workspace:*
+        version: link:../../packages/ui-kit
+      next:
+        specifier: 16.0.3
+        version: 16.0.3(@babel/core@7.28.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      react:
+        specifier: 19.2.0
+        version: 19.2.0
+      react-dom:
+        specifier: 19.2.0
+        version: 19.2.0(react@19.2.0)
+    devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.25
+      '@types/react':
+        specifier: ^19
+        version: 19.2.6
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.2.3(@types/react@19.2.6)
+      eslint:
+        specifier: ^9
+        version: 9.39.1
+      eslint-config-next:
+        specifier: 16.0.3
+        version: 16.0.3(@typescript-eslint/parser@8.47.0(eslint@9.39.1)(typescript@5.9.3))(eslint@9.39.1)(typescript@5.9.3)
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  packages/ui-kit:
+    dependencies:
+      react:
+        specifier: 19.2.0
+        version: 19.2.0
+      react-dom:
+        specifier: 19.2.0
+        version: 19.2.0(react@19.2.0)
+    devDependencies:
+      '@types/react':
+        specifier: ^19
+        version: 19.2.6
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.2.3(@types/react@19.2.6)
       typescript:
         specifier: ^5
         version: 5.9.3

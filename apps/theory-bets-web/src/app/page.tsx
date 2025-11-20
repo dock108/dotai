@@ -1,43 +1,35 @@
 "use client";
 
 import { useState } from "react";
-import { TheoryForm, TheoryCard, type TheoryResponse } from "@dock108/ui-kit";
+import {
+  TheoryForm,
+  TheoryCard,
+  DomainHeader,
+  ErrorDisplay,
+  LoadingSpinner,
+  Container,
+  Section,
+} from "@dock108/ui-kit";
+import { useBetsEvaluation, type BetsRequest, type BetsResponse } from "@dock108/js-core";
 import styles from "./page.module.css";
 
-const THEORY_ENGINE_URL = process.env.NEXT_PUBLIC_THEORY_ENGINE_URL || "http://localhost:8000";
-
 export default function Home() {
-  const [response, setResponse] = useState<TheoryResponse | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { data, loading, error, evaluate } = useBetsEvaluation();
+  const [submitError, setSubmitError] = useState<Error | null>(null);
 
   const handleSubmit = async (text: string, extraFields?: Record<string, any>) => {
-    setLoading(true);
-    setResponse(null);
-
+    setSubmitError(null);
     try {
-      const res = await fetch(`${THEORY_ENGINE_URL}/api/theory/bets`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text,
-          domain: "bets",
-          sport: extraFields?.sport,
-          league: extraFields?.league,
-          horizon: extraFields?.horizon || "single_game",
-        }),
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.detail || "Failed to evaluate theory");
-      }
-
-      const data = await res.json();
-      setResponse(data);
-    } catch (error) {
-      throw error;
-    } finally {
-      setLoading(false);
+      const request: BetsRequest = {
+        text,
+        domain: "bets",
+        sport: extraFields?.sport || null,
+        league: extraFields?.league || null,
+        horizon: extraFields?.horizon || "single_game",
+      };
+      await evaluate(request);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err : new Error(String(err)));
     }
   };
 
@@ -73,33 +65,55 @@ export default function Home() {
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <h1>bets.dock108.ai</h1>
-        <p className={styles.subtitle}>Evaluate your betting theories with data-driven analysis</p>
-      </header>
+      <Container>
+        <DomainHeader
+          title="bets.dock108.ai"
+          subtitle="Evaluate your betting theories with data-driven analysis"
+          domain="bets"
+        />
 
-      <div className={styles.content}>
-        <div className={styles.formSection}>
-          <TheoryForm
-            domain="bets"
-            placeholder="e.g., 'The Lakers will cover the spread because their defense improved after the trade deadline'"
-            examples={[
-              "MLB moneyline trend: Teams with 3+ consecutive wins have 65% win rate",
-              "NCAAB spreads: Home favorites in conference games cover 58% of the time",
-              "NFL totals: Games in domes average 5 points higher than outdoor games",
-            ]}
-            onSubmit={handleSubmit}
-            extraFields={extraFields}
-            loading={loading}
-          />
+        <div className={styles.content}>
+          <Section>
+            <TheoryForm
+              domain="bets"
+              placeholder="e.g., 'The Lakers will cover the spread because their defense improved after the trade deadline'"
+              examples={[
+                "MLB moneyline trend: Teams with 3+ consecutive wins have 65% win rate",
+                "NCAAB spreads: Home favorites in conference games cover 58% of the time",
+                "NFL totals: Games in domes average 5 points higher than outdoor games",
+              ]}
+              onSubmit={handleSubmit}
+              extraFields={extraFields}
+              loading={loading}
+            />
+          </Section>
+
+          {loading && (
+            <Section>
+              <LoadingSpinner message="Evaluating your betting theory..." />
+            </Section>
+          )}
+
+          {(error || submitError) && (
+            <Section>
+              <ErrorDisplay
+                error={error || submitError || new Error("Unknown error")}
+                title="Failed to Evaluate Theory"
+                onRetry={() => {
+                  setSubmitError(null);
+                  // Retry is handled by the form resubmission
+                }}
+              />
+            </Section>
+          )}
+
+          {data && (
+            <Section>
+              <TheoryCard response={data as BetsResponse} domain="bets" />
+            </Section>
+          )}
         </div>
-
-        {response && (
-          <div className={styles.resultSection}>
-            <TheoryCard response={response} domain="bets" />
-          </div>
-        )}
-      </div>
+      </Container>
     </div>
   );
 }

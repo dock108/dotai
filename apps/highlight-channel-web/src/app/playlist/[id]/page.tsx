@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { createClient, HighlightsAPI, type HighlightDetailResponse, type APIError, type NetworkError } from "@dock108/js-core";
+import { LoadingSpinner, ErrorDisplay } from "@dock108/ui-kit";
 import styles from "./page.module.css";
 
 interface PlaylistItem {
@@ -69,35 +71,62 @@ export default function PlaylistPage() {
   const params = useParams();
   const router = useRouter();
   const playlistId = params.id as string;
-  const [playlist, setPlaylist] = useState<PlaylistDetail | null>(null);
+  const [playlist, setPlaylist] = useState<HighlightDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ message: string; code?: string } | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
   const [workdayHours, setWorkdayHours] = useState<number | null>(null);
+  
+  // Initialize API client
+  const apiClient = createClient();
+  const highlightsAPI = new HighlightsAPI(apiClient);
 
   useEffect(() => {
     const fetchPlaylist = async () => {
+      if (!playlistId) {
+        setError({ message: "Invalid playlist ID" });
+        setLoading(false);
+        return;
+      }
+      
+      const playlistIdNum = parseInt(playlistId, 10);
+      if (isNaN(playlistIdNum)) {
+        setError({ message: "Invalid playlist ID format" });
+        setLoading(false);
+        return;
+      }
+      
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_THEORY_ENGINE_URL || "http://localhost:8000";
-        const response = await fetch(`${apiUrl}/api/highlights/${playlistId}`);
-
-        if (!response.ok) {
-          throw new Error("Failed to load playlist");
-        }
-
-        const data: PlaylistDetail = await response.json();
+        const data = await highlightsAPI.getPlaylist(playlistIdNum);
         setPlaylist(data);
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Failed to load playlist");
+        let errorMessage = "Failed to load playlist";
+        let errorCode: string | undefined;
+        
+        if (err instanceof NetworkError) {
+          errorCode = "NETWORK_ERROR";
+          errorMessage = "Network error. Please check your internet connection and try again.";
+        } else if (err instanceof APIError) {
+          errorCode = err.statusCode.toString();
+          if (err.statusCode === 404) {
+            errorMessage = "Playlist not found. It may have been deleted or the ID is incorrect.";
+          } else if (err.statusCode >= 500) {
+            errorMessage = "Server error. Please try again later.";
+          } else {
+            errorMessage = err.detail || err.message;
+          }
+        } else if (err instanceof Error) {
+          errorMessage = err.message;
+        }
+        
+        setError({ message: errorMessage, code: errorCode });
       } finally {
         setLoading(false);
       }
     };
 
-    if (playlistId) {
-      fetchPlaylist();
-    }
-  }, [playlistId]);
+    fetchPlaylist();
+  }, [playlistId, highlightsAPI]);
 
   const buildYouTubePlaylistUrl = (items: PlaylistItem[]): string => {
     const videoIds = items.map((item) => item.video_id).join(",");
@@ -123,7 +152,7 @@ export default function PlaylistPage() {
     return (
       <div className={styles.page}>
         <div className={styles.container}>
-          <div className={styles.loading}>Loading playlist...</div>
+          <LoadingSpinner message="Loading playlist..." />
         </div>
       </div>
     );
@@ -133,12 +162,33 @@ export default function PlaylistPage() {
     return (
       <div className={styles.page}>
         <div className={styles.container}>
-          <div className={styles.error}>
-            {error || "Playlist not found"}
-            <button onClick={() => router.push("/")} className={styles.backButton}>
-              Back to Home
-            </button>
-          </div>
+          <ErrorDisplay
+            error={error?.message || "Playlist not found"}
+            title={error?.code === "404" ? "Playlist Not Found" : "Error Loading Playlist"}
+            onRetry={
+              error?.code !== "404"
+                ? () => {
+                    setError(null);
+                    setLoading(true);
+                    const playlistIdNum = parseInt(playlistId, 10);
+                    if (!isNaN(playlistIdNum)) {
+                      highlightsAPI.getPlaylist(playlistIdNum)
+                        .then(setPlaylist)
+                        .catch((err) => {
+                          setError({
+                            message: err instanceof Error ? err.message : "Failed to load playlist",
+                            code: err instanceof APIError ? err.statusCode.toString() : undefined,
+                          });
+                        })
+                        .finally(() => setLoading(false));
+                    }
+                  }
+                : undefined
+            }
+          />
+          <button onClick={() => router.push("/")} className={styles.backButton}>
+            Back to Home
+          </button>
         </div>
       </div>
     );
@@ -154,11 +204,19 @@ export default function PlaylistPage() {
             ← Back
           </button>
           <h1 className={styles.title}>Your Sports Channel</h1>
-          <p className={styles.queryText}>{playlist.query_text}</p>
+          <p className={styles.queryText}>{playlist.query_text || "Sports Highlights"}</p>
           <div className={styles.meta}>
             <span>{playlist.items.length} videos</span>
             <span>•</span>
             <span>{totalDuration} total</span>
+            {playlist.cache_status && (
+              <>
+                <span>•</span>
+                <span className={playlist.cache_status === "cached" ? styles.cachedBadge : styles.freshBadge}>
+                  {playlist.cache_status === "cached" ? "Cached" : "Fresh"}
+                </span>
+              </>
+            )}
           </div>
         </header>
 

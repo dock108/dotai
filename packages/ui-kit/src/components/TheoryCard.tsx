@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import styles from "./TheoryCard.module.css";
 
 export interface DataSource {
@@ -53,6 +54,24 @@ export interface TheoryResponse {
 interface TheoryCardProps {
   response: TheoryResponse;
   domain: "bets" | "crypto" | "stocks" | "conspiracies";
+}
+
+function DomainSection({ title, children, response }: { title: string; children: React.ReactNode; response: TheoryResponse }) {
+  const [expanded, setExpanded] = useState(true);
+
+  return (
+    <div className={styles.domainSection}>
+      <button
+        className={styles.domainSectionHeader}
+        onClick={() => setExpanded(!expanded)}
+        type="button"
+      >
+        <h4 className={styles.domainSectionTitle}>{title}</h4>
+        <span className={styles.toggleIcon}>{expanded ? "−" : "+"}</span>
+      </button>
+      {expanded && <div className={styles.domainSectionContent}>{children}</div>}
+    </div>
+  );
 }
 
 export function TheoryCard({ response, domain }: TheoryCardProps) {
@@ -166,73 +185,89 @@ export function TheoryCard({ response, domain }: TheoryCardProps) {
         )}
       </div>
 
-      {/* Domain-specific extensions (for backward compatibility) */}
-      {domain === "bets" && (response.likelihood_grade || response.edge_estimate) && (
-        <div className={styles.domainFields}>
+      {/* Domain-specific fields with collapsible sections */}
+      {domain === "bets" && (response.likelihood_grade || response.edge_estimate || response.kelly_sizing_example) && (
+        <DomainSection title="Betting Analysis" response={response}>
           {response.likelihood_grade && (
-            <div>
-              <strong>Likelihood Grade:</strong> {response.likelihood_grade}
+            <div className={styles.domainField}>
+              <strong>Likelihood Grade:</strong> <span className={styles.grade}>{response.likelihood_grade}</span>
             </div>
           )}
-          {response.edge_estimate !== undefined && (
-            <div>
-              <strong>Edge Estimate:</strong> {(response.edge_estimate * 100).toFixed(1)}%
+          {response.edge_estimate !== undefined && response.edge_estimate !== null && (
+            <div className={styles.domainField}>
+              <strong>Edge Estimate:</strong> <span className={styles.positive}>{(response.edge_estimate * 100).toFixed(1)}%</span>
             </div>
           )}
-        </div>
+          {response.kelly_sizing_example && (
+            <div className={styles.domainField}>
+              <strong>Kelly Sizing Example:</strong>
+              <p className={styles.exampleText}>{response.kelly_sizing_example}</p>
+            </div>
+          )}
+        </DomainSection>
       )}
 
-      {domain === "crypto" && (
-        <div className={styles.domainFields}>
+      {domain === "crypto" && (response.pattern_frequency !== undefined || response.failure_periods?.length || response.remaining_edge !== undefined) && (
+        <DomainSection title="Pattern Analysis" response={response}>
           {response.pattern_frequency !== undefined && (
-            <div>
-              <strong>Pattern Frequency:</strong> {(response.pattern_frequency * 100).toFixed(0)}%
+            <div className={styles.domainField}>
+              <strong>Pattern Frequency:</strong> <span className={styles.percentage}>{(response.pattern_frequency * 100).toFixed(0)}%</span>
             </div>
           )}
           {response.failure_periods && response.failure_periods.length > 0 && (
-            <div>
-              <strong>Failed Periods:</strong> {response.failure_periods.join(", ")}
+            <div className={styles.domainField}>
+              <strong>Failed Periods:</strong>
+              <ul className={styles.domainList}>
+                {response.failure_periods.map((period, idx) => (
+                  <li key={idx}>{period}</li>
+                ))}
+              </ul>
             </div>
           )}
-          {response.remaining_edge !== undefined && (
-            <div>
-              <strong>Remaining Edge:</strong> {(response.remaining_edge * 100).toFixed(1)}%
+          {response.remaining_edge !== undefined && response.remaining_edge !== null && (
+            <div className={styles.domainField}>
+              <strong>Remaining Edge:</strong> <span className={response.remaining_edge > 0 ? styles.positive : styles.negative}>
+                {(response.remaining_edge * 100).toFixed(1)}%
+              </span>
             </div>
           )}
-        </div>
+        </DomainSection>
       )}
 
-      {domain === "stocks" && (
-        <div className={styles.domainFields}>
+      {domain === "stocks" && (response.correlation_grade || response.fundamentals_match !== undefined || response.volume_analysis) && (
+        <DomainSection title="Fundamentals Analysis" response={response}>
           {response.correlation_grade && (
-            <div>
-              <strong>Correlation Grade:</strong> {response.correlation_grade}
+            <div className={styles.domainField}>
+              <strong>Correlation Grade:</strong> <span className={styles.grade}>{response.correlation_grade}</span>
             </div>
           )}
           {response.fundamentals_match !== undefined && (
-            <div>
-              <strong>Fundamentals Match:</strong> {response.fundamentals_match ? "Yes" : "No"}
+            <div className={styles.domainField}>
+              <strong>Fundamentals Match:</strong> <span className={response.fundamentals_match ? styles.positive : styles.negative}>
+                {response.fundamentals_match ? "Yes" : "No"}
+              </span>
             </div>
           )}
           {response.volume_analysis && (
-            <div>
-              <strong>Volume Analysis:</strong> {response.volume_analysis}
+            <div className={styles.domainField}>
+              <strong>Volume Analysis:</strong>
+              <p className={styles.analysisText}>{response.volume_analysis}</p>
             </div>
           )}
-        </div>
+        </DomainSection>
       )}
 
       {domain === "conspiracies" && (
-        <div className={styles.domainFields}>
+        <DomainSection title="Fact-Checking Analysis" response={response}>
           {response.likelihood_rating !== undefined && (
-            <div>
-              <strong>Likelihood Rating:</strong> {response.likelihood_rating}/100
+            <div className={styles.domainField}>
+              <strong>Likelihood Rating:</strong> <span className={styles.rating}>{response.likelihood_rating}/100</span>
             </div>
           )}
           {response.evidence_for && response.evidence_for.length > 0 && (
-            <div>
+            <div className={styles.domainField}>
               <strong>Evidence For:</strong>
-              <ul>
+              <ul className={styles.domainList}>
                 {response.evidence_for.map((item, idx) => (
                   <li key={idx}>{item}</li>
                 ))}
@@ -240,9 +275,9 @@ export function TheoryCard({ response, domain }: TheoryCardProps) {
             </div>
           )}
           {response.evidence_against && response.evidence_against.length > 0 && (
-            <div>
+            <div className={styles.domainField}>
               <strong>Evidence Against:</strong>
-              <ul>
+              <ul className={styles.domainList}>
                 {response.evidence_against.map((item, idx) => (
                   <li key={idx}>{item}</li>
                 ))}
@@ -250,9 +285,9 @@ export function TheoryCard({ response, domain }: TheoryCardProps) {
             </div>
           )}
           {response.historical_parallels && response.historical_parallels.length > 0 && (
-            <div>
+            <div className={styles.domainField}>
               <strong>Historical Parallels:</strong>
-              <ul>
+              <ul className={styles.domainList}>
                 {response.historical_parallels.map((item, idx) => (
                   <li key={idx}>{item}</li>
                 ))}
@@ -260,16 +295,16 @@ export function TheoryCard({ response, domain }: TheoryCardProps) {
             </div>
           )}
           {response.missing_data && response.missing_data.length > 0 && (
-            <div>
+            <div className={styles.domainField}>
               <strong>Missing Data:</strong>
-              <ul>
+              <ul className={styles.domainList}>
                 {response.missing_data.map((item, idx) => (
                   <li key={idx}>{item}</li>
                 ))}
               </ul>
             </div>
           )}
-        </div>
+        </DomainSection>
       )}
     </div>
   );

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import math
 import os
@@ -307,10 +308,31 @@ async def search_youtube_sports(
                 pass  # Could add channelId filter here if needed
             
             search_url = "https://www.googleapis.com/youtube/v3/search"
-            search_response = await client.get(search_url, params=search_params)
-            search_response.raise_for_status()
-            api_call_count += 1  # Count search API call
-            search_data = search_response.json()
+            try:
+                search_response = await retry_youtube_api_call(client, search_url, search_params)
+                api_call_count += 1  # Count search API call
+                search_data = search_response.json()
+            except httpx.HTTPStatusError as e:
+                # Re-raise with more context
+                if e.response.status_code == 429:
+                    raise ValueError(
+                        "YouTube API rate limit exceeded. Please try again in a few minutes."
+                    ) from e
+                elif e.response.status_code == 403:
+                    error_data = e.response.json() if e.response.content else {}
+                    error_reason = error_data.get("error", {}).get("errors", [{}])[0].get("reason", "")
+                    if "quotaExceeded" in error_reason:
+                        raise ValueError(
+                            "YouTube API quota exceeded. Please try again later."
+                        ) from e
+                    raise ValueError(
+                        f"YouTube API access denied: {error_reason or 'Invalid API key or permissions'}"
+                    ) from e
+                raise ValueError(f"YouTube API error: {e.response.status_code}") from e
+            except (httpx.TimeoutException, httpx.NetworkError, httpx.ConnectError) as e:
+                raise ValueError(
+                    f"Network error connecting to YouTube API: {str(e)}. Please check your internet connection and try again."
+                ) from e
             
             video_ids = [
                 item["id"]["videoId"]
@@ -328,10 +350,31 @@ async def search_youtube_sports(
                 "key": api_key,
             }
             videos_url = "https://www.googleapis.com/youtube/v3/videos"
-            videos_response = await client.get(videos_url, params=videos_params)
-            videos_response.raise_for_status()
-            api_call_count += 1  # Count videos API call
-            videos_data = videos_response.json()
+            try:
+                videos_response = await retry_youtube_api_call(client, videos_url, videos_params)
+                api_call_count += 1  # Count videos API call
+                videos_data = videos_response.json()
+            except httpx.HTTPStatusError as e:
+                # Re-raise with more context
+                if e.response.status_code == 429:
+                    raise ValueError(
+                        "YouTube API rate limit exceeded. Please try again in a few minutes."
+                    ) from e
+                elif e.response.status_code == 403:
+                    error_data = e.response.json() if e.response.content else {}
+                    error_reason = error_data.get("error", {}).get("errors", [{}])[0].get("reason", "")
+                    if "quotaExceeded" in error_reason:
+                        raise ValueError(
+                            "YouTube API quota exceeded. Please try again later."
+                        ) from e
+                    raise ValueError(
+                        f"YouTube API access denied: {error_reason or 'Invalid API key or permissions'}"
+                    ) from e
+                raise ValueError(f"YouTube API error: {e.response.status_code}") from e
+            except (httpx.TimeoutException, httpx.NetworkError, httpx.ConnectError) as e:
+                raise ValueError(
+                    f"Network error connecting to YouTube API: {str(e)}. Please check your internet connection and try again."
+                ) from e
             
             # Parse video details
             for item in videos_data.get("items", []):
@@ -404,6 +447,75 @@ async def search_youtube_sports(
     scored_candidates.sort(key=lambda x: x[1]["final_score"], reverse=True)
     
     return [candidate for candidate, _ in scored_candidates[:max_results]], api_call_count
+
+
+async def retry_youtube_api_call(
+    client: httpx.AsyncClient,
+    url: str,
+    params: dict[str, Any],
+    max_retries: int = 3,
+    initial_delay: float = 1.0,
+) -> httpx.Response:
+    """Retry YouTube API call with exponential backoff for transient failures.
+    
+    Args:
+        client: httpx async client
+        url: API endpoint URL
+        params: Request parameters
+        max_retries: Maximum number of retry attempts
+        initial_delay: Initial delay in seconds before first retry
+    
+    Returns:
+        httpx.Response object
+    
+    Raises:
+        httpx.HTTPStatusError: For non-retryable errors (4xx except 429, 5xx)
+        httpx.RequestError: For network errors after all retries
+    """
+    last_error = None
+    
+    for attempt in range(max_retries + 1):
+        try:
+            response = await client.get(url, params=params, timeout=30.0)
+            
+            # Don't retry on success
+            if response.status_code < 400:
+                return response
+            
+            # Don't retry on client errors (except 429 which is handled separately)
+            if 400 <= response.status_code < 500 and response.status_code != 429:
+                response.raise_for_status()
+                return response
+            
+            # Retry on 429 (rate limit) and 5xx (server errors)
+            if response.status_code == 429 or response.status_code >= 500:
+                if attempt < max_retries:
+                    # Exponential backoff: 1s, 2s, 4s, etc.
+                    delay = initial_delay * (2 ** attempt)
+                    await asyncio.sleep(delay)
+                    continue
+                else:
+                    response.raise_for_status()
+                    return response
+            
+            # For other status codes, raise immediately
+            response.raise_for_status()
+            return response
+            
+        except (httpx.TimeoutException, httpx.NetworkError, httpx.ConnectError) as e:
+            last_error = e
+            if attempt < max_retries:
+                # Exponential backoff for network errors
+                delay = initial_delay * (2 ** attempt)
+                await asyncio.sleep(delay)
+                continue
+            else:
+                raise
+    
+    # Should never reach here, but just in case
+    if last_error:
+        raise last_error
+    raise httpx.RequestError("Failed to complete request after retries")
 
 
 def get_duration_filters(content_types: list[str]) -> dict[str, tuple[int, int | None]]:

@@ -100,13 +100,21 @@ pg_isready  # Check if running
 ### Option 1: Local PostgreSQL
 
 ```bash
-# Create database and user
+# Simple: Create database (uses your current PostgreSQL user)
 createdb dock108
-# Or if you need to create user first:
+
+# Or if you need to create a specific user first:
+# Connect to PostgreSQL
 psql postgres
+
+# Inside psql prompt, run these SQL commands:
 CREATE USER dock108 WITH PASSWORD 'changeme';
 CREATE DATABASE dock108 OWNER dock108;
 \q
+
+# Note: Make sure to run CREATE USER and CREATE DATABASE inside the psql prompt,
+# not as separate shell commands. After connecting with `psql postgres`, you'll
+# see a `postgres=#` prompt where you can type SQL commands.
 ```
 
 ### Option 2: Docker PostgreSQL
@@ -189,12 +197,17 @@ ENVIRONMENT=development
 # Install uv if not already installed
 pip install uv
 
-# Sync dependencies (installs py-core and service dependencies)
+# Sync dependencies (installs service dependencies)
 uv sync
 
+# Install py-core package (local monorepo dependency)
+uv pip install -e ../../packages/py-core
+
 # Verify installation
-uv pip list
+uv pip list | grep py-core
 ```
+
+**Note**: The `py-core` package is a local monorepo dependency that must be installed separately. If you get `ModuleNotFoundError: No module named 'py_core'`, make sure you've run `uv pip install -e ../../packages/py-core` from the `services/theory-engine-api` directory.
 
 ### 4. Run Database Migrations
 
@@ -211,11 +224,13 @@ Expected tables: `playlist_queries`, `playlists`, `videos`, `customer_accounts`,
 ### 5. Start Backend Server
 
 ```bash
-# Development mode with auto-reload
-uvicorn app.main:app --reload --port 8000
-
-# Or using uv run
+# Use uv run to ensure it uses the correct Python environment
 uv run uvicorn app.main:app --reload --port 8000
+
+# Alternative: If you want to use uvicorn directly, make sure you're in the uv environment
+# uv sync creates a virtual environment - you can activate it with:
+# source .venv/bin/activate  # On macOS/Linux
+# Then: uvicorn app.main:app --reload --port 8000
 ```
 
 **Verify backend is running**:
@@ -502,10 +517,75 @@ FROM playlist_queries q
 LEFT JOIN playlists p ON p.query_id = q.id;
 ```
 
+## Theory Surfaces
+
+All theory surfaces (bets, crypto, stocks, conspiracies) use the same backend API and can be tested similarly:
+
+1. **Start backend** (if not already running):
+   ```bash
+   cd services/theory-engine-api
+   uv run uvicorn app.main:app --reload
+   ```
+
+2. **Start any theory surface**:
+   ```bash
+   # Bets (port 3001)
+   cd apps/theory-bets-web && pnpm dev
+
+   # Crypto (port 3002)
+   cd apps/theory-crypto-web && pnpm dev
+
+   # Stocks (port 3003)
+   cd apps/theory-stocks-web && pnpm dev
+
+   # Conspiracies (port 3004)
+   cd apps/theory-conspiracy-web && pnpm dev
+   ```
+
+3. **Test the surface**:
+   - Open the app in browser
+   - Enter a theory in the text area
+   - Click "Evaluate Theory"
+   - Review the response with domain-specific fields
+
+See [`docs/THEORY_SURFACES.md`](THEORY_SURFACES.md) for detailed documentation.
+
+## Data Workers
+
+Data workers use Celery for async task processing:
+
+1. **Start Redis** (if not already running):
+   ```bash
+   docker run -d -p 6379:6379 redis:7-alpine
+   ```
+
+2. **Set environment variables**:
+   ```bash
+   export REDIS_URL=redis://localhost:6379/0
+   export CELERY_BROKER_URL=redis://localhost:6379/0
+   export CELERY_RESULT_BACKEND=redis://localhost:6379/0
+   export YOUTUBE_API_KEY=your_key_here
+   ```
+
+3. **Start Celery worker**:
+   ```bash
+   cd services/data-workers
+   uv sync
+   uv run celery -A app.main worker --loglevel=info
+   ```
+
+4. **Start Celery beat** (for scheduled tasks):
+   ```bash
+   uv run celery -A app.main beat --loglevel=info
+   ```
+
+See [`services/data-workers/README.md`](../services/data-workers/README.md) for detailed documentation.
+
 ## Next Steps
 
 After successful local setup:
 1. Review `docs/HIGHLIGHTS_API.md` for API details
 2. Review `docs/highlight-mvp.md` for constraints and limitations
-3. See `infra/DEPLOYMENT.md` for full monorepo production deployment (all services and apps)
+3. Review `docs/THEORY_SURFACES.md` for theory surface documentation
+4. See `infra/DEPLOYMENT.md` for full monorepo production deployment (all services and apps)
 

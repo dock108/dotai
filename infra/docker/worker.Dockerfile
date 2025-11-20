@@ -27,5 +27,5 @@ COPY packages/py-core/ ./packages/py-core/
 WORKDIR /app/services/data-workers
 
 # Run Celery worker
-CMD ["celery", "-A", "app", "worker", "--loglevel=info"]
+CMD ["celery", "-A", "app.main", "worker", "--loglevel=info"]
 

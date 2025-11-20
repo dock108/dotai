@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime
 from typing import Any
@@ -33,6 +34,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/api/highlights", tags=["highlights"])
 logger = get_logger(__name__)
+
+
+class HighlightErrorResponse(BaseModel):
+    """Error response with user-friendly message and error code."""
+
+    error_code: str = Field(description="Error code for frontend handling")
+    message: str = Field(description="User-friendly error message")
+    detail: str | None = Field(default=None, description="Additional details or suggestions")
+    retry_after: int | None = Field(default=None, description="Seconds to wait before retry (for rate limits)")
 
 
 class HighlightPlanRequest(BaseModel):
@@ -232,6 +242,35 @@ def build_playlist_from_candidates(
     return selected_items, explanation
 
 
+def validate_highlight_request(request: HighlightPlanRequest) -> list[str]:
+    """Validate highlight request and return list of validation errors.
+    
+    Returns:
+        List of error messages (empty if valid)
+    """
+    errors = []
+    
+    # Check query length
+    if len(request.query_text.strip()) < 5:
+        errors.append("Query must be at least 5 characters long")
+    
+    # Check for obviously invalid queries
+    query_lower = request.query_text.lower()
+    
+    # Check for common mistakes
+    if len(request.query_text.strip()) > 500:
+        errors.append("Query is too long (max 500 characters). Please shorten your request.")
+    
+    # Check for suspicious patterns (could indicate abuse)
+    suspicious_patterns = ["http://", "https://", "<script", "javascript:"]
+    for pattern in suspicious_patterns:
+        if pattern in query_lower:
+            errors.append("Query contains invalid characters or patterns")
+            break
+    
+    return errors
+
+
 @router.post("/plan", response_model=HighlightPlanResponse, status_code=status.HTTP_201_CREATED)
 async def plan_highlight_playlist(
     request: HighlightPlanRequest,
@@ -240,13 +279,28 @@ async def plan_highlight_playlist(
     """Plan a sports highlight playlist from user query.
     
     Steps:
-    1. Run guardrails
-    2. Call AI planner => structured spec
-    3. Compute normalized_signature
-    4. Check DB for existing not-stale playlist
-    5. If found: return cached
-    6. If not: build playlist, save, return fresh
+    1. Validate request
+    2. Run guardrails
+    3. Call AI planner => structured spec
+    4. Compute normalized_signature
+    5. Check DB for existing not-stale playlist
+    6. If found: return cached
+    7. If not: build playlist, save, return fresh
     """
+    # Validate request
+    validation_errors = validate_highlight_request(request)
+    if validation_errors:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=json.dumps({
+                "error_code": "VALIDATION_ERROR",
+                "message": "Invalid request. Please check your query and try again.",
+                "detail": "; ".join(validation_errors),
+                "errors": validation_errors,
+            }),
+            headers={"Content-Type": "application/json"},
+        )
+    
     # Generate or use user ID for logging
     user_id = request.user_id or http_request.headers.get("X-User-ID") or f"anonymous_{uuid.uuid4().hex[:8]}"
     request_id = uuid.uuid4().hex
@@ -270,19 +324,64 @@ async def plan_highlight_playlist(
             "highlight_playlist_guardrail_blocked",
             guardrail_flags=[r.code for r in guardrail_results],
         )
+        # Get guardrail messages
+        guardrail_messages = [r.message for r in guardrail_results if r.code.startswith("hard:")]
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This request cannot be processed due to guardrail restrictions.",
+            detail=json.dumps({
+                "error_code": "GUARDRAIL_BLOCKED",
+                "message": "This request cannot be processed due to content restrictions.",
+                "detail": guardrail_messages[0] if guardrail_messages else "Your request violates our content policies.",
+                "suggestions": [
+                    "Try requesting highlights from official channels only",
+                    "Avoid requesting full game reuploads or copyrighted broadcasts",
+                    "Use general terms like 'highlights' or 'top plays' instead of specific copyrighted content",
+                ],
+            }),
+            headers={"Content-Type": "application/json"},
         )
     
     # Step 2: Parse with AI
     try:
         parse_result = await parse_highlight_request(normalized_text)
         spec = parse_result.spec
+    except ValueError as e:
+        # User-friendly parsing errors
+        error_msg = str(e)
+        if "API key" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=json.dumps({
+                    "error_code": "CONFIGURATION_ERROR",
+                    "message": "Service configuration error. Please contact support.",
+                    "detail": "There was an issue with the AI parsing service.",
+                }),
+                headers={"Content-Type": "application/json"},
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=json.dumps({
+                "error_code": "PARSE_ERROR",
+                "message": "Unable to understand your request. Please try rephrasing your query.",
+                "detail": "We couldn't parse your request. Try being more specific about the sport, date, or content type.",
+                "suggestions": [
+                    "Include a sport name (e.g., NFL, NBA, MLB)",
+                    "Specify a time period (e.g., 'last night', 'this week', 'November 2024')",
+                    "Be clear about what you want (e.g., 'highlights', 'bloopers', 'top plays')",
+                ],
+            }),
+            headers={"Content-Type": "application/json"},
+        )
     except Exception as e:
+        log.error("highlight_playlist_parse_error", error=str(e), error_type=type(e).__name__, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to parse request: {str(e)}",
+            detail=json.dumps({
+                "error_code": "PARSE_ERROR",
+                "message": "An error occurred while processing your request. Please try again.",
+                "detail": "If this problem persists, please contact support.",
+            }),
+            headers={"Content-Type": "application/json"},
         )
     
     # Extract metadata early for use in cache check and query creation
@@ -400,11 +499,110 @@ async def plan_highlight_playlist(
         # Search YouTube
         try:
             candidates, youtube_api_calls = await search_youtube_sports(search_spec, max_results=100)
-        except Exception as e:
-            log.error("highlight_playlist_youtube_search_failed", error=str(e))
+            
+            # Handle empty results
+            if not candidates or len(candidates) == 0:
+                log.warning(
+                    "highlight_playlist_no_videos_found",
+                    query_text=request.query_text,
+                    sport=spec.sport.value if hasattr(spec.sport, 'value') else str(spec.sport),
+                    date_range=spec.date_range,
+                )
+                
+                # Generate helpful suggestions
+                suggestions = []
+                if spec.sport:
+                    suggestions.append(f"Try searching for {spec.sport} highlights from a different time period")
+                if spec.date_range:
+                    suggestions.append("Try a broader date range or remove the date filter")
+                suggestions.append("Try a more general query (e.g., 'NFL highlights' instead of specific teams)")
+                suggestions.append("Check if the sport/league name is spelled correctly")
+                
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=json.dumps({
+                        "error_code": "NO_VIDEOS_FOUND",
+                        "message": "No videos found matching your request.",
+                        "detail": "We couldn't find any videos that match your search criteria. Try adjusting your query.",
+                        "suggestions": suggestions,
+                        "query_text": request.query_text,
+                    }),
+                    headers={"Content-Type": "application/json"},
+                )
+        except ValueError as e:
+            error_msg = str(e)
+            log.error("highlight_playlist_youtube_search_failed", error=error_msg, query_text=request.query_text)
+            
+            # Handle rate limit errors
+            if "rate limit" in error_msg.lower() or "429" in error_msg:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=json.dumps({
+                        "error_code": "RATE_LIMIT_EXCEEDED",
+                        "message": "We're experiencing high demand. Please try again in a few minutes.",
+                        "detail": "The YouTube API has rate-limited our requests. Your query has been saved and you can try again shortly.",
+                        "retry_after": 60,
+                    }),
+                    headers={"Content-Type": "application/json"},
+                )
+            
+            # Handle quota exceeded errors
+            if "quota exceeded" in error_msg.lower():
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=json.dumps({
+                        "error_code": "QUOTA_EXCEEDED",
+                        "message": "Service temporarily unavailable. Please try again later.",
+                        "detail": "We've reached our daily API limit. Please try again tomorrow or use a cached playlist if available.",
+                        "retry_after": 3600,
+                    }),
+                    headers={"Content-Type": "application/json"},
+                )
+            
+            # Handle network errors
+            if "network error" in error_msg.lower() or "connection" in error_msg.lower():
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=json.dumps({
+                        "error_code": "NETWORK_ERROR",
+                        "message": "Unable to connect to video service. Please check your internet connection and try again.",
+                        "detail": error_msg,
+                    }),
+                    headers={"Content-Type": "application/json"},
+                )
+            
+            # Handle access denied errors
+            if "access denied" in error_msg.lower() or "invalid api key" in error_msg.lower():
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=json.dumps({
+                        "error_code": "API_ERROR",
+                        "message": "Service configuration error. Please contact support if this persists.",
+                        "detail": "There was an issue with the video service configuration.",
+                    }),
+                    headers={"Content-Type": "application/json"},
+                )
+            
+            # Generic YouTube API error
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to search YouTube: {str(e)}",
+                detail=json.dumps({
+                    "error_code": "YOUTUBE_API_ERROR",
+                    "message": "Unable to search for videos at this time. Please try again in a few moments.",
+                    "detail": error_msg,
+                }),
+                headers={"Content-Type": "application/json"},
+            )
+        except Exception as e:
+            log.error("highlight_playlist_unexpected_error", error=str(e), error_type=type(e).__name__, query_text=request.query_text, exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=json.dumps({
+                    "error_code": "UNKNOWN_ERROR",
+                    "message": "An unexpected error occurred. Please try again.",
+                    "detail": "If this problem persists, please contact support.",
+                }),
+                headers={"Content-Type": "application/json"},
             )
         
         # Build playlist from candidates
@@ -414,6 +612,24 @@ async def plan_highlight_playlist(
             spec,
             search_spec,
         )
+        
+        # Check if playlist is too short (less than 50% of requested duration)
+        if items and len(items) > 0:
+            actual_duration_minutes = explanation.get("actual_duration_minutes", 0)
+            if actual_duration_minutes < spec.requested_duration_minutes * 0.5:
+                log.warning(
+                    "highlight_playlist_short_duration",
+                    query_text=request.query_text,
+                    requested_minutes=spec.requested_duration_minutes,
+                    actual_minutes=actual_duration_minutes,
+                    videos_found=len(items),
+                )
+                # Add note to explanation
+                explanation["coverage_notes"].append(
+                    f"Note: Only found {actual_duration_minutes:.1f} minutes of content "
+                    f"(requested {spec.requested_duration_minutes} minutes). "
+                    f"Try a broader search or different time period for more results."
+                )
         
         # Compute stale_after (metadata already extracted above)
         now = datetime.utcnow()

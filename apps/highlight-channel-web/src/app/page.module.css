@@ -102,6 +102,178 @@
   color: #c33;
 }
 
+.loadingContainer {
+  margin-top: 1rem;
+  padding: 2rem;
+  text-align: center;
+}
+
+.success {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #d4edda;
+  border: 1px solid #c3e6cb;
+  border-radius: 8px;
+  color: #155724;
+  font-weight: 500;
+}
+
+.suggestions {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  color: #856404;
+}
+
+.suggestions strong {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.suggestions ul {
+  margin: 0.5rem 0 0 1.5rem;
+  padding: 0;
+  list-style: disc;
+}
+
+.suggestions li {
+  margin: 0.25rem 0;
+}
+
+.retryInfo {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: #e7f3ff;
+  border: 1px solid #b3d9ff;
+  border-radius: 8px;
+  color: #004085;
+  font-size: 0.9rem;
+}
+
+.helpToggle {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  color: white;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.helpToggle:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.helpSection {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  margin-bottom: 2rem;
+}
+
+.helpContent {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.helpTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #333;
+  margin: 1.5rem 0 0.75rem 0;
+}
+
+.helpTitle:first-child {
+  margin-top: 0;
+}
+
+.helpText {
+  color: #666;
+  line-height: 1.6;
+  margin: 0 0 1rem 0;
+}
+
+.exampleQueries {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.exampleQuery {
+  padding: 0.75rem 1rem;
+  background: #f0f7ff;
+  border: 1px solid #cbd5e0;
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #2d3748;
+  font-size: 0.95rem;
+}
+
+.exampleQuery:hover {
+  background: #e6f2ff;
+  border-color: #667eea;
+  transform: translateX(4px);
+}
+
+.tipsList {
+  margin: 1rem 0;
+  padding-left: 1.5rem;
+  color: #666;
+  line-height: 1.8;
+}
+
+.tipsList li {
+  margin: 0.5rem 0;
+}
+
+.disclaimer {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  color: #856404;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.validationHint {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.validationWarning {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: #d32f2f;
+  font-weight: 500;
+}
+
+.cancelButton {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.cancelButton:hover {
+  background: #c82333;
+}
+
 .presetsSection {
   border-top: 1px solid #eee;
   padding-top: 1.5rem;

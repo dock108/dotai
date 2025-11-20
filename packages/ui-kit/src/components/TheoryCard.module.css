@@ -218,3 +218,120 @@
   color: #c33;
   line-height: 1.6;
 }
+
+.domainSection {
+  margin-top: 1.5rem;
+  border-top: 1px solid #eee;
+  padding-top: 1.5rem;
+}
+
+.domainSectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0.5rem 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.domainSectionHeader:hover {
+  opacity: 0.8;
+}
+
+.domainSectionTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0066cc;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.875rem;
+}
+
+.toggleIcon {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #666;
+  user-select: none;
+}
+
+.domainSectionContent {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.domainField {
+  color: #333;
+  line-height: 1.6;
+}
+
+.domainField strong {
+  color: #0066cc;
+  margin-right: 0.5rem;
+}
+
+.domainList {
+  margin: 0.5rem 0 0 1.5rem;
+  padding: 0;
+  list-style: disc;
+}
+
+.domainList li {
+  margin: 0.25rem 0;
+  color: #666;
+}
+
+.grade {
+  background: #f0f7ff;
+  color: #0066cc;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.percentage {
+  background: #f0f7ff;
+  color: #0066cc;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.rating {
+  background: #f0f7ff;
+  color: #0066cc;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.positive {
+  background: #d4edda;
+  color: #155724;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.negative {
+  background: #f8d7da;
+  color: #721c24;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.exampleText,
+.analysisText {
+  margin: 0.5rem 0 0 0;
+  padding: 0.75rem;
+  background: #f9f9f9;
+  border-radius: 4px;
+  color: #333;
+  line-height: 1.6;
+}

@@ -1,71 +1,84 @@
 "use client";
 
 import { useState } from "react";
-import { TheoryForm, TheoryCard, type TheoryResponse } from "@dock108/ui-kit";
+import {
+  TheoryForm,
+  TheoryCard,
+  DomainHeader,
+  ErrorDisplay,
+  LoadingSpinner,
+  Container,
+  Section,
+} from "@dock108/ui-kit";
+import { useConspiraciesEvaluation, type ConspiraciesResponse } from "@dock108/js-core";
 import styles from "./page.module.css";
 
-const THEORY_ENGINE_URL = process.env.NEXT_PUBLIC_THEORY_ENGINE_URL || "http://localhost:8000";
-
 export default function Home() {
-  const [response, setResponse] = useState<TheoryResponse | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { data, loading, error, evaluate } = useConspiraciesEvaluation();
+  const [submitError, setSubmitError] = useState<Error | null>(null);
 
   const handleSubmit = async (text: string) => {
-    setLoading(true);
-    setResponse(null);
-
+    setSubmitError(null);
     try {
-      const res = await fetch(`${THEORY_ENGINE_URL}/api/theory/conspiracies`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text,
-          domain: "conspiracies",
-        }),
+      await evaluate({
+        text,
+        domain: "conspiracies",
       });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.detail || "Failed to evaluate theory");
-      }
-
-      const data = await res.json();
-      setResponse(data);
-    } catch (error) {
-      throw error;
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err : new Error(String(err)));
     }
   };
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <h1>conspiracies.dock108.ai</h1>
-        <p className={styles.subtitle}>Evaluate conspiracy theories with fact-checking and evidence analysis</p>
-      </header>
+      <Container>
+        <DomainHeader
+          title="conspiracies.dock108.ai"
+          subtitle="Evaluate conspiracy theories with fact-checking and evidence analysis"
+          domain="conspiracies"
+        />
 
-      <div className={styles.content}>
-        <div className={styles.formSection}>
-          <TheoryForm
-            domain="conspiracies"
-            placeholder="e.g., 'JFK second shooter' or 'moon landing hoax' (not within last 90 days)"
-            examples={[
-              "JFK second shooter theory",
-              "Moon landing hoax claims",
-              "False flag claim about X (not within last 90 days)",
-            ]}
-            onSubmit={handleSubmit}
-            loading={loading}
-          />
+        <div className={styles.content}>
+          <Section>
+            <TheoryForm
+              domain="conspiracies"
+              placeholder="e.g., 'JFK second shooter' or 'moon landing hoax' (not within last 90 days)"
+              examples={[
+                "JFK second shooter theory",
+                "Moon landing hoax claims",
+                "False flag claim about X (not within last 90 days)",
+              ]}
+              onSubmit={handleSubmit}
+              loading={loading}
+            />
+          </Section>
+
+          {loading && (
+            <Section>
+              <LoadingSpinner message="Evaluating your theory..." />
+            </Section>
+          )}
+
+          {(error || submitError) && (
+            <Section>
+              <ErrorDisplay
+                error={error || submitError || new Error("Unknown error")}
+                title="Failed to Evaluate Theory"
+                onRetry={() => {
+                  setSubmitError(null);
+                  // Retry is handled by the form resubmission
+                }}
+              />
+            </Section>
+          )}
+
+          {data && (
+            <Section>
+              <TheoryCard response={data as ConspiraciesResponse} domain="conspiracies" />
+            </Section>
+          )}
         </div>
-
-        {response && (
-          <div className={styles.resultSection}>
-            <TheoryCard response={response} domain="conspiracies" />
-          </div>
-        )}
-      </div>
+      </Container>
     </div>
   );
 }
