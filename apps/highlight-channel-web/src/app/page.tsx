@@ -1,164 +1,126 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient, HighlightsAPI, type HighlightPlanResponse, type APIError, type NetworkError } from "@dock108/js-core";
+import {
+  createClient,
+  HighlightsAPI,
+  type HighlightPlanResponse,
+  APIError,
+  NetworkError,
+} from "@dock108/js-core";
 import { LoadingSpinner, ErrorDisplay } from "@dock108/ui-kit";
 import styles from "./page.module.css";
-
-const PRESETS = [
-  { text: "Last night's NFL", query: "NFL highlights from last night" },
-  { text: "Today's MLB", query: "MLB highlights from today" },
-  { text: "Random bloopers", query: "sports bloopers from this week" },
-  { text: "Deep dive on one team", query: "Kansas City Chiefs highlights from this season" },
-];
-
-const SPORTS = ["NFL", "NBA", "MLB", "NHL", "Soccer", "Golf", "F1"];
-
-interface ParsedSpec {
-  sport: string;
-  leagues: string[];
-  teams: string[];
-  date_range: {
-    start_date?: string;
-    end_date?: string;
-    single_date?: string;
-  } | null;
-  content_mix: {
-    highlights: number;
-    bloopers: number;
-    top_plays: number;
-  };
-  requested_duration_minutes: number;
-}
-
-interface PlaylistResponse {
-  playlist_id: number;
-  query_id: number;
-  items: Array<{
-    video_id: string;
-    title: string;
-    channel_title: string;
-    duration_seconds: number;
-    url: string;
-    thumbnail_url?: string;
-    scores: {
-      final_score: number;
-      highlight_score: number;
-      channel_reputation: number;
-      view_count_normalized: number;
-      freshness_score: number;
-    };
-  }>;
-  total_duration_seconds: number;
-  cache_status: string;
-  explanation: {
-    assumptions: string[];
-    filters_applied: {
-      content_types: string[];
-      exclusions: string[];
-      nsfw_filter: boolean;
-    };
-    ranking_factors: {
-      highlight_score_weight: number;
-      channel_reputation_weight: number;
-      view_count_weight: number;
-      freshness_weight: number;
-    };
-    coverage_notes: string[];
-    total_candidates: number;
-    selected_videos: number;
-    actual_duration_minutes: number;
-    target_duration_minutes: number;
-  };
-  created_at: string;
-  stale_after: string | null;
-}
-
-interface ErrorInfo {
-  code?: string;
-  message: string;
-  detail?: string;
-  suggestions?: string[];
-  retry_after?: number;
-}
+import {
+  SPORT_OPTIONS,
+  PLAY_TYPE_SUGGESTIONS,
+  MAX_FILTER_ITEMS,
+  DATE_PRESETS,
+  DURATION_PRESETS,
+} from "@/lib/constants";
+import { PRESETS } from "@/lib/presets";
+import type { BuilderState, ErrorInfo, DatePreset } from "@/lib/types";
+import { buildQueryFromState, extractErrorInfo } from "@/lib/utils";
 
 export default function Home() {
-  const [query, setQuery] = useState("");
+  const router = useRouter();
+  const apiClient = createClient();
+  const highlightsAPI = new HighlightsAPI(apiClient);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ErrorInfo | null>(null);
-  const [parsedSpec, setParsedSpec] = useState<ParsedSpec | null>(null);
-  const [showBuilder, setShowBuilder] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [requestStartTime, setRequestStartTime] = useState<number | null>(null);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
-  const router = useRouter();
-  
-  // Initialize API client
-  const apiClient = createClient();
-  const highlightsAPI = new HighlightsAPI(apiClient);
-  
-  const EXAMPLE_QUERIES = [
-    "NFL highlights from last night, 30 minutes",
-    "NBA top plays from this week",
-    "MLB bloopers from September 2024",
-    "NHL highlights from yesterday, 1 hour",
-    "Kansas City Chiefs highlights from this season",
-    "Sports upsets from last month",
-  ];
-  
-  const TIPS = [
-    "Be specific about the sport (NFL, NBA, MLB, etc.)",
-    "Include a time period (last night, this week, specific date)",
-    "Specify content type (highlights, bloopers, top plays)",
-    "Request a duration (15 minutes to 8 hours)",
-    "You can combine multiple requests (e.g., 'NFL then MLB highlights')",
-  ];
 
-  // Check if builder should be shown (from sessionStorage)
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const builderShown = sessionStorage.getItem("highlightBuilderShown");
-      if (builderShown === "true") {
-        setShowBuilder(true);
-      }
+  // Builder state
+  const [builderState, setBuilderState] = useState<BuilderState>({
+    sports: [],
+    teams: [],
+    players: [],
+    playTypes: [],
+    keywords: [],
+    datePreset: "last7days",
+    customStartDate: "",
+    customEndDate: "",
+    durationMinutes: 90,
+    comments: "",
+  });
+
+  // Input states for adding items
+  const [teamInput, setTeamInput] = useState("");
+  const [playerInput, setPlayerInput] = useState("");
+  const [playTypeInput, setPlayTypeInput] = useState("");
+  const [keywordInput, setKeywordInput] = useState("");
+
+  const buildQueryFromState = (state: BuilderState): string => {
+    const parts: string[] = [];
+
+    // Sports
+    if (state.sports.length > 0) {
+      parts.push(state.sports.join(", "));
     }
-  }, []);
 
-  // Query builder state
-  const [selectedSport, setSelectedSport] = useState<string>("");
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
-  const [durationMinutes, setDurationMinutes] = useState<number>(60);
-  const [contentMix, setContentMix] = useState<number>(0.5); // 0 = bloopers, 1 = highlights
+    // Teams
+    if (state.teams.length > 0) {
+      parts.push(state.teams.join(", "));
+    }
 
-  const handleSubmit = async (queryText: string) => {
-    const trimmed = queryText.trim();
-    if (!trimmed) {
-      setError({ message: "Please enter a query" });
+    // Players
+    if (state.players.length > 0) {
+      parts.push(state.players.join(", "));
+    }
+
+    // Play types
+    if (state.playTypes.length > 0) {
+      parts.push(state.playTypes.join(", "));
+    }
+
+    // Keywords
+    if (state.keywords.length > 0) {
+      parts.push(state.keywords.join(", "));
+    }
+
+    // Date range
+    if (state.datePreset === "custom" && state.customStartDate && state.customEndDate) {
+      parts.push(`from ${state.customStartDate} to ${state.customEndDate}`);
+    } else if (state.datePreset === "custom" && state.customStartDate) {
+      parts.push(`from ${state.customStartDate}`);
+    } else if (state.datePreset === "historical" && state.customStartDate && state.customEndDate) {
+      parts.push(`from ${state.customStartDate} to ${state.customEndDate}`);
+    } else if (state.datePreset !== "custom" && state.datePreset !== "historical") {
+      const presetLabels: Record<DatePreset, string> = {
+        last2days: "last 48 hours",
+        last7days: "last 7 days",
+        last14days: "last 14 days",
+        last30days: "last 30 days",
+        custom: "",
+        historical: "",
+      };
+      parts.push(presetLabels[state.datePreset]);
+    }
+
+    // Duration
+    parts.push(`${state.durationMinutes} minutes`);
+
+    // Comments (added as context)
+    if (state.comments.trim()) {
+      parts.push(`(${state.comments})`);
+    }
+
+    return parts.join(" ");
+  };
+
+  const handleSubmit = async () => {
+    if (builderState.sports.length === 0) {
+      setError({ message: "Please select at least one sport" });
       return;
     }
+
+    const queryText = buildQueryFromState(builderState);
     
-    if (trimmed.length < 5) {
-      setError({
-        code: "VALIDATION_ERROR",
-        message: "Query must be at least 5 characters long",
-        suggestions: ["Try adding more details about the sport, date, or content type"],
-      });
-      return;
-    }
-    
-    if (trimmed.length > 500) {
-      setError({
-        code: "VALIDATION_ERROR",
-        message: "Query is too long (max 500 characters)",
-        suggestions: ["Try shortening your query or breaking it into multiple requests"],
-      });
-      return;
-    }
-
     setError(null);
     setSuccessMessage(null);
     setLoading(true);
@@ -166,133 +128,84 @@ export default function Home() {
     setRequestStartTime(startTime);
     setElapsedTime(0);
     
-    // Start elapsed time counter
     const timeInterval = setInterval(() => {
       setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
     }, 1000);
     
-    // Create abort controller for cancellation
     const controller = new AbortController();
     setAbortController(controller);
 
     try {
-      const data = await highlightsAPI.planPlaylist({
+      // Build structured request from builder state
+      const request: any = {
         query_text: queryText,
         mode: "sports_highlight",
-      });
+      };
       
-      // Extract spec from explanation for builder
-      if (data.explanation) {
-        // Store parsed spec for builder
-        const sportMatch = queryText.match(/\b(NFL|NBA|MLB|NHL|Soccer|Golf|F1)\b/i);
-        if (sportMatch) {
-          setSelectedSport(sportMatch[1].toUpperCase());
-        }
-        // Extract duration if available
-        const durationMatch = queryText.match(/(\d+)\s*(?:hours?|hrs?|minutes?|mins?)/i);
-        if (durationMatch) {
-          const num = parseInt(durationMatch[1]);
-          if (queryText.toLowerCase().includes("hour")) {
-            setDurationMinutes(num * 60);
-          } else {
-            setDurationMinutes(num);
-          }
-        } else {
-          setDurationMinutes(data.explanation.target_duration_minutes || 60);
-        }
-        setParsedSpec({
-          sport: sportMatch?.[1] || "",
-          leagues: [],
-          teams: [],
-          date_range: null,
-          content_mix: { highlights: 0.6, bloopers: 0.2, top_plays: 0.2 },
-          requested_duration_minutes: data.explanation.target_duration_minutes || 60,
-        });
-        // Show builder after first successful parse (persist in sessionStorage)
-        setShowBuilder(true);
-        if (typeof window !== "undefined") {
-          sessionStorage.setItem("highlightBuilderShown", "true");
-        }
+      // Add structured fields if builder state has values
+      if (builderState.sports.length > 0) {
+        request.sports = builderState.sports;
+      }
+      if (builderState.teams.length > 0) {
+        request.teams = builderState.teams;
+      }
+      if (builderState.players.length > 0) {
+        request.players = builderState.players;
+      }
+      if (builderState.playTypes.length > 0) {
+        request.play_types = builderState.playTypes;
+      }
+      if (builderState.datePreset) {
+        request.date_preset = builderState.datePreset;
+      }
+      if (builderState.customStartDate) {
+        request.custom_start_date = builderState.customStartDate;
+      }
+      if (builderState.customEndDate) {
+        request.custom_end_date = builderState.customEndDate;
+      }
+      if (builderState.durationMinutes) {
+        request.duration_minutes = builderState.durationMinutes;
+      }
+      if (builderState.comments.trim()) {
+        request.comments = builderState.comments;
       }
       
-      // Handle empty results
+      const data = await highlightsAPI.planPlaylist(request);
+      
       if (data.items.length === 0) {
         setError({
           code: "NO_VIDEOS_FOUND",
-          message: "No videos found matching your request.",
-          detail: "We couldn't find any videos that match your search criteria.",
+          message: "We couldn't find highlights that match this exactly.",
           suggestions: [
-            "Try a broader search (e.g., 'NFL highlights' instead of specific teams)",
-            "Adjust the date range or remove date filters",
-            "Check if the sport/league name is spelled correctly",
-            "Try a more general query",
+            "Try expanding the date range",
+            "Remove some filters to broaden the search",
+            "Check if the sport/team names are spelled correctly",
           ],
         });
         setLoading(false);
         return;
       }
       
-      // Show success message
       const cacheStatus = data.cache_status === "cached" ? "from cache" : "fresh";
       const videoCount = data.items.length;
       const durationMinutes = Math.round(data.total_duration_seconds / 60);
       setSuccessMessage(
-        `Playlist created! Found ${videoCount} videos (${durationMinutes} minutes, ${cacheStatus}). Redirecting...`
+        `Highlight show ready! Found ${videoCount} videos (${durationMinutes} minutes, ${cacheStatus}). Redirecting...`
       );
       
-      // Clear intervals and abort controller
       clearInterval(timeInterval);
       setAbortController(null);
       setRequestStartTime(null);
       
-      // Small delay to show success message, then redirect
       setTimeout(() => {
         router.push(`/playlist/${data.playlist_id}`);
       }, 1000);
     } catch (err: unknown) {
-      // Clear intervals and abort controller
       clearInterval(timeInterval);
       setAbortController(null);
       setRequestStartTime(null);
-      let errorInfo: ErrorInfo = {
-        message: "Something went wrong. Please try again.",
-      };
-      
-      if (err instanceof NetworkError) {
-        errorInfo = {
-          code: "NETWORK_ERROR",
-          message: "Network error. Please check your internet connection and try again.",
-          detail: err.message,
-          suggestions: [
-            "Check your internet connection",
-            "Try refreshing the page",
-            "If using a VPN, try disconnecting it",
-          ],
-        };
-      } else if (err instanceof APIError) {
-        // Try to parse error detail as JSON (if it's our structured error)
-        try {
-          const errorData = typeof err.detail === "string" ? JSON.parse(err.detail) : err.detail;
-          errorInfo = {
-            code: errorData.error_code || err.statusCode.toString(),
-            message: errorData.message || err.message,
-            detail: errorData.detail,
-            suggestions: errorData.suggestions,
-            retry_after: errorData.retry_after,
-          };
-        } catch {
-          // If parsing fails, use the error message directly
-          errorInfo = {
-            code: err.statusCode.toString(),
-            message: err.detail || err.message,
-          };
-        }
-      } else if (err instanceof Error) {
-        errorInfo = {
-          message: err.message,
-        };
-      }
-      
+      const errorInfo = extractErrorInfo(err);
       setError(errorInfo);
     } finally {
       setLoading(false);
@@ -300,7 +213,7 @@ export default function Home() {
       setElapsedTime(0);
     }
   };
-  
+
   const handleCancel = () => {
     if (abortController) {
       abortController.abort();
@@ -309,53 +222,84 @@ export default function Home() {
     setLoading(false);
     setRequestStartTime(null);
     setElapsedTime(0);
-    setError({
-      code: "CANCELLED",
-      message: "Request cancelled",
+  };
+
+  const handlePreset = (preset: BuilderPreset) => {
+    setBuilderState({
+      sports: preset.state.sports || [],
+      teams: preset.state.teams || [],
+      players: preset.state.players || [],
+      playTypes: preset.state.playTypes || [],
+      keywords: [],
+      datePreset: preset.state.datePreset || "last7days",
+      customStartDate: preset.state.customStartDate || "",
+      customEndDate: preset.state.customEndDate || "",
+      durationMinutes: preset.state.durationMinutes || 90,
+      comments: preset.state.comments || "",
     });
   };
 
-  const handleBuilderUpdate = async () => {
-    // Construct query from builder state
-    const parts: string[] = [];
-    if (selectedSport) parts.push(selectedSport);
-    if (startDate && endDate) {
-      parts.push(`from ${startDate} to ${endDate}`);
-    } else if (startDate) {
-      parts.push(`from ${startDate}`);
+  const addItem = (type: "teams" | "players" | "playTypes" | "keywords", value: string) => {
+    if (!value.trim()) return;
+    const current = builderState[type];
+    if (current.length >= MAX_FILTER_ITEMS) {
+      setError({ message: `Maximum ${MAX_FILTER_ITEMS} ${type} allowed` });
+      return;
     }
-    if (contentMix < 0.3) {
-      parts.push("bloopers");
-    } else if (contentMix > 0.7) {
-      parts.push("highlights");
-    } else {
-      parts.push("highlights and bloopers");
+    if (current.includes(value.trim())) {
+      setError({ message: `${value.trim()} is already added` });
+      return;
     }
-    parts.push(`${durationMinutes} minutes`);
-    const builderQuery = parts.join(" ");
-    
-    await handleSubmit(builderQuery);
+    setBuilderState({
+      ...builderState,
+      [type]: [...current, value.trim()],
+    });
+    // Clear input
+    if (type === "teams") setTeamInput("");
+    if (type === "players") setPlayerInput("");
+    if (type === "playTypes") setPlayTypeInput("");
+    if (type === "keywords") setKeywordInput("");
+    setError(null);
   };
 
-  const handlePreset = (presetQuery: string) => {
-    setQuery(presetQuery);
-    handleSubmit(presetQuery);
+  const removeItem = (type: "teams" | "players" | "playTypes" | "keywords", index: number) => {
+    const current = [...builderState[type]];
+    current.splice(index, 1);
+    setBuilderState({
+      ...builderState,
+      [type]: current,
+    });
   };
+
+  const toggleSport = (sport: string) => {
+    const current = [...builderState.sports];
+    const index = current.indexOf(sport);
+    if (index >= 0) {
+      current.splice(index, 1);
+    } else {
+      current.push(sport);
+    }
+    setBuilderState({
+      ...builderState,
+      sports: current,
+    });
+  };
+
 
   return (
     <div className={styles.page}>
       <div className={styles.container}>
         <header className={styles.hero}>
-          <h1 className={styles.title}>Build Your Own Sports Channel</h1>
+          <h1 className={styles.title}>Catch Up on Recent Sports Highlights</h1>
           <p className={styles.subtitle}>
-            Describe the sports highlights you want, and we'll build a custom playlist for you.
+            Tell us what you missed. We'll find the best highlights from the last few days and build you a custom show.
           </p>
           <button
             className={styles.helpToggle}
             onClick={() => setShowHelp(!showHelp)}
             type="button"
           >
-            {showHelp ? "Hide" : "Show"} Tips & Examples
+            {showHelp ? "Hide" : "Show"} Tips
           </button>
         </header>
         
@@ -364,34 +308,9 @@ export default function Home() {
             <div className={styles.helpContent}>
               <h3 className={styles.helpTitle}>How It Works</h3>
               <p className={styles.helpText}>
-                Just describe what you want in natural language. We'll search YouTube for the best videos
-                matching your request and create a custom playlist. The more specific you are, the better results you'll get.
+                Select the sports you care about, add specific teams or players, choose a time window, and we'll build a highlight show 
+                from the best clips uploaded in the last 48 hours. Perfect for catching up on what you missed.
               </p>
-              
-              <h3 className={styles.helpTitle}>Example Queries</h3>
-              <div className={styles.exampleQueries}>
-                {EXAMPLE_QUERIES.map((example, idx) => (
-                  <button
-                    key={idx}
-                    className={styles.exampleQuery}
-                    onClick={() => {
-                      setQuery(example);
-                      setShowHelp(false);
-                    }}
-                    type="button"
-                  >
-                    "{example}"
-                  </button>
-                ))}
-              </div>
-              
-              <h3 className={styles.helpTitle}>Tips for Better Results</h3>
-              <ul className={styles.tipsList}>
-                {TIPS.map((tip, idx) => (
-                  <li key={idx}>{tip}</li>
-                ))}
-              </ul>
-              
               <div className={styles.disclaimer}>
                 <strong>Note:</strong> This app builds playlists using public YouTube videos. We do not host or control the content.
               </div>
@@ -400,47 +319,297 @@ export default function Home() {
         )}
 
         <div className={styles.mainSection}>
-          <div className={styles.inputSection}>
-            <label className={styles.label}>
-              Describe the sports highlights you want today...
-            </label>
-            <textarea
-              className={styles.textarea}
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                // Clear error when user starts typing
-                if (error) {
-                  setError(null);
-                }
-                // Real-time validation feedback
-                const text = e.target.value.trim();
-                if (text.length > 0 && text.length < 5) {
-                  // Show hint but don't block
-                }
-              }}
-              placeholder='e.g., "NFL Week 12 highlights, then MLB bloopers, then any huge upsets from Aug 8, 2010"'
-              rows={4}
-              disabled={loading}
-              maxLength={500}
-            />
-            {query.length > 0 && query.length < 5 && (
-              <div className={styles.validationHint}>
-                Query must be at least 5 characters (currently {query.length})
+          {/* Quick Presets */}
+          <div className={styles.presetsSection}>
+            <p className={styles.presetsLabel}>Quick presets:</p>
+            <div className={styles.presets}>
+              {PRESETS.map((preset, idx) => (
+                <button
+                  key={idx}
+                  className={styles.presetChip}
+                  onClick={() => handlePreset(preset)}
+                  disabled={loading}
+                  type="button"
+                >
+                  {preset.text}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Builder Form */}
+          <div className={styles.builderSection}>
+            <h3 className={styles.builderTitle}>Build Your Highlight Show</h3>
+            
+            {/* Sports Selection */}
+            <div className={styles.builderGroup}>
+              <label className={styles.builderLabel}>Sports (select one or more)</label>
+              <div className={styles.sportChips}>
+                {SPORT_OPTIONS.map((sport) => (
+                  <button
+                    key={sport}
+                    type="button"
+                    className={`${styles.sportChip} ${builderState.sports.includes(sport) ? styles.sportChipActive : ""}`}
+                    onClick={() => toggleSport(sport)}
+                  >
+                    {sport}
+                  </button>
+                ))}
               </div>
-            )}
-            {query.length >= 500 && (
-              <div className={styles.validationWarning}>
-                Query is too long (max 500 characters)
+            </div>
+
+            {/* Teams */}
+            <div className={styles.builderGroup}>
+              <label className={styles.builderLabel}>
+                Teams (up to {MAX_FILTER_ITEMS})
+              </label>
+              <div className={styles.chipInputGroup}>
+                <input
+                  type="text"
+                  className={styles.chipInput}
+                  value={teamInput}
+                  onChange={(e) => setTeamInput(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addItem("teams", teamInput);
+                    }
+                  }}
+                  placeholder="e.g., Kansas City Chiefs"
+                  disabled={loading || builderState.teams.length >= MAX_FILTER_ITEMS}
+                />
+                <button
+                  type="button"
+                  className={styles.addButton}
+                  onClick={() => addItem("teams", teamInput)}
+                  disabled={loading || builderState.teams.length >= MAX_FILTER_ITEMS}
+                >
+                  Add
+                </button>
               </div>
-            )}
+              {builderState.teams.length > 0 && (
+                <div className={styles.chipContainer}>
+                  {builderState.teams.map((team, idx) => (
+                    <span key={idx} className={styles.chip}>
+                      {team}
+                      <button
+                        type="button"
+                        className={styles.chipRemove}
+                        onClick={() => removeItem("teams", idx)}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Players */}
+            <div className={styles.builderGroup}>
+              <label className={styles.builderLabel}>
+                Players (up to {MAX_FILTER_ITEMS})
+              </label>
+              <div className={styles.chipInputGroup}>
+                <input
+                  type="text"
+                  className={styles.chipInput}
+                  value={playerInput}
+                  onChange={(e) => setPlayerInput(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addItem("players", playerInput);
+                    }
+                  }}
+                  placeholder="e.g., Patrick Mahomes"
+                  disabled={loading || builderState.players.length >= MAX_FILTER_ITEMS}
+                />
+                <button
+                  type="button"
+                  className={styles.addButton}
+                  onClick={() => addItem("players", playerInput)}
+                  disabled={loading || builderState.players.length >= MAX_FILTER_ITEMS}
+                >
+                  Add
+                </button>
+              </div>
+              {builderState.players.length > 0 && (
+                <div className={styles.chipContainer}>
+                  {builderState.players.map((player, idx) => (
+                    <span key={idx} className={styles.chip}>
+                      {player}
+                      <button
+                        type="button"
+                        className={styles.chipRemove}
+                        onClick={() => removeItem("players", idx)}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Play Types */}
+            <div className={styles.builderGroup}>
+              <label className={styles.builderLabel}>
+                Play Types (up to {MAX_FILTER_ITEMS})
+              </label>
+              <div className={styles.chipInputGroup}>
+                <input
+                  type="text"
+                  className={styles.chipInput}
+                  value={playTypeInput}
+                  onChange={(e) => setPlayTypeInput(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addItem("playTypes", playTypeInput);
+                    }
+                  }}
+                  placeholder="e.g., touchdowns, buzzer beaters"
+                  disabled={loading || builderState.playTypes.length >= MAX_FILTER_ITEMS}
+                />
+                <button
+                  type="button"
+                  className={styles.addButton}
+                  onClick={() => addItem("playTypes", playTypeInput)}
+                  disabled={loading || builderState.playTypes.length >= MAX_FILTER_ITEMS}
+                >
+                  Add
+                </button>
+              </div>
+              <div className={styles.suggestions}>
+                {PLAY_TYPE_SUGGESTIONS.slice(0, 5).map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    className={styles.suggestionChip}
+                    onClick={() => addItem("playTypes", suggestion)}
+                    disabled={loading || builderState.playTypes.length >= MAX_FILTER_ITEMS || builderState.playTypes.includes(suggestion)}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+              {builderState.playTypes.length > 0 && (
+                <div className={styles.chipContainer}>
+                  {builderState.playTypes.map((playType, idx) => (
+                    <span key={idx} className={styles.chip}>
+                      {playType}
+                      <button
+                        type="button"
+                        className={styles.chipRemove}
+                        onClick={() => removeItem("playTypes", idx)}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Date Range */}
+            <div className={styles.builderGroup}>
+              <label className={styles.builderLabel}>Time Window</label>
+              <div className={styles.datePresets}>
+                {DATE_PRESETS.map((preset) => (
+                  <button
+                    key={preset.value}
+                    type="button"
+                    className={`${styles.datePresetButton} ${builderState.datePreset === preset.value ? styles.datePresetActive : ""}`}
+                    onClick={() => {
+                      setBuilderState({ 
+                        ...builderState, 
+                        datePreset: preset.value,
+                        // Clear custom dates when switching away from custom/historical
+                        customStartDate: preset.value === "custom" || preset.value === "historical" ? builderState.customStartDate : "",
+                        customEndDate: preset.value === "custom" || preset.value === "historical" ? builderState.customEndDate : "",
+                      });
+                    }}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+              {(builderState.datePreset === "custom" || builderState.datePreset === "historical") && (
+                <div className={styles.dateRange}>
+                  <input
+                    type="date"
+                    className={styles.dateInput}
+                    value={builderState.customStartDate}
+                    onChange={(e) => setBuilderState({ ...builderState, customStartDate: e.target.value })}
+                  />
+                  <span className={styles.dateSeparator}>to</span>
+                  <input
+                    type="date"
+                    className={styles.dateInput}
+                    value={builderState.customEndDate}
+                    onChange={(e) => setBuilderState({ ...builderState, customEndDate: e.target.value })}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Duration */}
+            <div className={styles.builderGroup}>
+              <label className={styles.builderLabel}>
+                Duration: {builderState.durationMinutes} minutes ({Math.round(builderState.durationMinutes / 60 * 10) / 10} hours)
+              </label>
+              <div className={styles.durationPresets}>
+                {[60, 120, 240, 360, 480, 600].map((minutes) => (
+                  <button
+                    key={minutes}
+                    type="button"
+                    className={`${styles.durationPreset} ${builderState.durationMinutes === minutes ? styles.durationPresetActive : ""}`}
+                    onClick={() => setBuilderState({ ...builderState, durationMinutes: minutes })}
+                  >
+                    {minutes / 60}h
+                  </button>
+                ))}
+              </div>
+              <input
+                type="range"
+                min="60"
+                max="600"
+                step="15"
+                value={builderState.durationMinutes}
+                onChange={(e) => setBuilderState({ ...builderState, durationMinutes: Number(e.target.value) })}
+                className={styles.durationSlider}
+              />
+              <div className={styles.sliderLabels}>
+                <span>1 hour</span>
+                <span>10 hours</span>
+              </div>
+            </div>
+
+            {/* Additional Comments */}
+            <div className={styles.builderGroup}>
+              <label className={styles.builderLabel}>Additional Comments (optional)</label>
+              <textarea
+                className={styles.commentsInput}
+                value={builderState.comments}
+                onChange={(e) => setBuilderState({ ...builderState, comments: e.target.value })}
+                placeholder="e.g., Focus on official channels, prioritize RedZone-style recaps"
+                rows={3}
+                disabled={loading}
+              />
+            </div>
+
+            {/* Submit Button */}
             <button
               className={styles.submitButton}
-              onClick={() => handleSubmit(query)}
-              disabled={loading || !query.trim()}
+              onClick={handleSubmit}
+              disabled={loading || builderState.sports.length === 0}
             >
-              {loading ? "Building Playlist..." : "Build Playlist"}
+              {loading ? "Building Highlight Show..." : "Build Highlight Show"}
             </button>
+            <p className={styles.buttonHint}>
+              We'll search for highlights uploaded within 48 hours of games. If we can't find enough good clips, we'll tell you.
+            </p>
             
             {loading && (
               <div className={styles.loadingContainer}>
@@ -472,21 +641,15 @@ export default function Home() {
                   title={
                     error.code === "NO_VIDEOS_FOUND"
                       ? "No Videos Found"
-                      : error.code === "RATE_LIMIT_EXCEEDED"
-                      ? "Rate Limit Exceeded"
-                      : error.code === "QUOTA_EXCEEDED"
-                      ? "Service Temporarily Unavailable"
                       : error.code === "NETWORK_ERROR"
                       ? "Network Error"
                       : "Error Creating Playlist"
                   }
                   onRetry={
-                    error.code === "RATE_LIMIT_EXCEEDED" ||
-                    error.code === "NETWORK_ERROR" ||
-                    error.code === "NO_VIDEOS_FOUND"
+                    error.code === "NETWORK_ERROR" || error.code === "NO_VIDEOS_FOUND"
                       ? () => {
                           setError(null);
-                          handleSubmit(query);
+                          handleSubmit();
                         }
                       : undefined
                   }
@@ -501,11 +664,6 @@ export default function Home() {
                     </ul>
                   </div>
                 )}
-                {error.retry_after && (
-                  <div className={styles.retryInfo}>
-                    Please wait {Math.ceil(error.retry_after / 60)} minutes before trying again.
-                  </div>
-                )}
               </>
             )}
             
@@ -515,134 +673,8 @@ export default function Home() {
               </div>
             )}
           </div>
-
-          <div className={styles.presetsSection}>
-            <p className={styles.presetsLabel}>Quick presets:</p>
-            <div className={styles.presets}>
-              {PRESETS.map((preset, idx) => (
-                <button
-                  key={idx}
-                  className={styles.presetChip}
-                  onClick={() => handlePreset(preset.query)}
-                  disabled={loading}
-                >
-                  {preset.text}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {showBuilder && parsedSpec && (
-            <div className={styles.builderSection}>
-              <h3 className={styles.builderTitle}>Refine Your Request</h3>
-              
-              <div className={styles.builderGroup}>
-                <label className={styles.builderLabel}>Sport</label>
-                <div className={styles.sportChips}>
-                  {SPORTS.map((sport) => (
-                    <button
-                      key={sport}
-                      className={`${styles.sportChip} ${selectedSport === sport ? styles.sportChipActive : ""}`}
-                      onClick={() => {
-                        setSelectedSport(sport);
-                        handleBuilderUpdate();
-                      }}
-                    >
-                      {sport}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className={styles.builderGroup}>
-                <label className={styles.builderLabel}>Date Range</label>
-                <div className={styles.dateRange}>
-                  <input
-                    type="date"
-                    className={styles.dateInput}
-                    value={startDate}
-                    onChange={(e) => {
-                      setStartDate(e.target.value);
-                      if (e.target.value && endDate) {
-                        handleBuilderUpdate();
-                      }
-                    }}
-                  />
-                  <span className={styles.dateSeparator}>to</span>
-                  <input
-                    type="date"
-                    className={styles.dateInput}
-                    value={endDate}
-                    onChange={(e) => {
-                      setEndDate(e.target.value);
-                      if (startDate && e.target.value) {
-                        handleBuilderUpdate();
-                      }
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div className={styles.builderGroup}>
-                <label className={styles.builderLabel}>
-                  Duration: {durationMinutes} minutes ({Math.round(durationMinutes / 60 * 10) / 10} hours)
-                </label>
-                <input
-                  type="range"
-                  min="15"
-                  max="480"
-                  step="15"
-                  value={durationMinutes}
-                  onChange={(e) => {
-                    setDurationMinutes(Number(e.target.value));
-                  }}
-                  onMouseUp={handleBuilderUpdate}
-                  onTouchEnd={handleBuilderUpdate}
-                  className={styles.durationSlider}
-                />
-                <div className={styles.sliderLabels}>
-                  <span>15 min</span>
-                  <span>8 hours</span>
-                </div>
-              </div>
-
-              <div className={styles.builderGroup}>
-                <label className={styles.builderLabel}>
-                  Content Mix: {contentMix < 0.3 ? "Bloopers" : contentMix > 0.7 ? "Highlights" : "Mixed"}
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={contentMix}
-                  onChange={(e) => {
-                    setContentMix(Number(e.target.value));
-                  }}
-                  onMouseUp={handleBuilderUpdate}
-                  onTouchEnd={handleBuilderUpdate}
-                  className={styles.contentSlider}
-                />
-                <div className={styles.sliderLabels}>
-                  <span>Bloopers</span>
-                  <span>Highlights</span>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className={styles.promoSection}>
-          <p className={styles.promoText}>
-            Not getting the results you expect when you talk to AI?{" "}
-            <a href="/game" className={styles.promoLink}>
-              Try our AI Prompting Game (iOS / Web)
-            </a>{" "}
-            – learn to describe what you actually want.
-          </p>
         </div>
       </div>
     </div>
   );
 }
-

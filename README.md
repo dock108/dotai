@@ -28,7 +28,10 @@ docs/                 # Living architecture + guardrail specs
 
 - **Sports Highlight Channel** (`apps/highlight-channel-web` + `services/theory-engine-api`):
   - Natural language playlist generation from sports queries
+  - Guided UI builder with structured input (sports, teams, players, play types, date ranges)
   - AI-powered parsing, guardrails, YouTube search, intelligent caching
+  - Iterative filtering with AI-powered description analysis
+  - Recent highlights focus (last 48 hours to 30 days)
   - See [Sports Highlight Channel Feature](#sports-highlight-channel-feature) below
 
 ### Other Apps
@@ -94,6 +97,11 @@ See [`docs/HIGHLIGHTS_API.md`](docs/HIGHLIGHTS_API.md) for detailed API document
 ### Completed ✅
 
 - **Sports Highlight Channel MVP**: Full-stack feature with AI parsing, guardrails, caching, and metrics
+- **Guided UI Builder**: Structured input with sports checklists, player/team/play type chips, date presets, duration sliders
+- **Code Cleanup**: 
+  - Backend: Centralized datetime utilities, date range helpers, error handlers
+  - Frontend: Extracted constants, types, utilities, and presets into `src/lib/` modules
+  - Removed duplicate code and improved modularity
 - **Shared Python Core** (`packages/py-core`): Schemas, guardrails, scoring utilities, YouTube client, staleness logic
 - **Theory Engine API** (`services/theory-engine-api`): FastAPI backend with highlights endpoints, database models, migrations
 - **Infrastructure**: Docker Compose setup for full monorepo deployment

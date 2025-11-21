@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Code Cleanup & Organization
+
+#### Added
+- **Backend utilities** (`services/theory-engine-api/app/utils/`):
+  - `datetime_utils.py` - Centralized datetime functions (`now_utc()`, `now_local()`, `format_date_for_query()`)
+  - `date_range_utils.py` - Date range building from presets (`build_date_range_from_preset()`, `get_default_date_range()`)
+  - `error_handlers.py` - Standardized error response helpers
+- **Frontend library modules** (`apps/highlight-channel-web/src/lib/`):
+  - `constants.ts` - All constants (SPORT_OPTIONS, DATE_PRESETS, etc.)
+  - `types.ts` - All TypeScript types/interfaces
+  - `utils.ts` - Utility functions (buildQueryFromState, formatDuration, extractErrorInfo)
+  - `presets.ts` - Preset configurations
+
+#### Changed
+- **Backend cleanup**:
+  - Consolidated duplicate date range calculation logic
+  - Standardized datetime imports across all files
+  - Removed duplicate `_format_date_for_query()` function
+  - Updated error handling to use centralized utilities
+  - Removed `sports_search_example.py` (example file)
+- **Frontend cleanup**:
+  - Extracted constants, types, and utilities from page components
+  - Simplified error handling using `extractErrorInfo()` utility
+  - Reduced `page.tsx` from 851 lines by extracting shared code
+  - Reduced `playlist/[id]/page.tsx` from 397 lines by extracting shared code
+- **Documentation**:
+  - Reorganized `docs/` folder with clear categorization
+  - Updated `docs/README.md` with improved navigation
+  - Updated root `README.md` with latest features and cleanup work
+
+#### Removed
+- `services/theory-engine-api/app/sports_search_example.py` - Example file removed
+- Duplicate utility functions consolidated into shared modules
+
 ### Phase - Observability, Guardrails, and Documentation
 
 #### Added

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 def compute_stale_after(
@@ -25,6 +25,19 @@ def compute_stale_after(
     Returns:
         Timestamp when playlist becomes stale, or None if it should never expire
     """
+    # Normalize now to timezone-aware (UTC)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    else:
+        now = now.astimezone(timezone.utc)
+    
+    # Normalize event_date if provided
+    if event_date is not None:
+        if event_date.tzinfo is None:
+            event_date = event_date.replace(tzinfo=timezone.utc)
+        else:
+            event_date = event_date.astimezone(timezone.utc)
+    
     # For general playlists without event dates, use a default 7-day TTL
     if event_date is None:
         if mode == "general_playlist":
@@ -59,6 +72,18 @@ def is_stale(stale_after: datetime | None, now: datetime) -> bool:
     """
     if stale_after is None:
         return False
+    
+    # Normalize both datetimes to timezone-aware (UTC) for comparison
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    else:
+        now = now.astimezone(timezone.utc)
+    
+    if stale_after.tzinfo is None:
+        stale_after = stale_after.replace(tzinfo=timezone.utc)
+    else:
+        stale_after = stale_after.astimezone(timezone.utc)
+    
     return now >= stale_after
 
 

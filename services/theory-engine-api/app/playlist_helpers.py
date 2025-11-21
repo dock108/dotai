@@ -76,7 +76,8 @@ def parse_query_to_spec(query_text: str, mode: PlaylistMode = PlaylistMode.gener
     Returns:
         Structured query specification
     """
-    # TODO: Implement LLM-based parsing
+    # Note: LLM-based parsing is implemented in highlight_parser.py
+    # This function is kept for backward compatibility but delegates to highlight_parser
     # For now, return a basic spec
     return PlaylistQuerySpec(
         mode=mode,

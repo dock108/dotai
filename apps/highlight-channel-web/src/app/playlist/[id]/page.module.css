@@ -1,12 +1,20 @@
 .page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: linear-gradient(135deg, #1D3557 0%, #3A0CA3 100%);
   padding: 2rem 1rem;
 }
 
 .container {
-  max-width: 1200px;
+  max-width: 1120px;
   margin: 0 auto;
+}
+
+.heroSection {
+  margin-bottom: 2rem;
+}
+
+.heroSection .backButton {
+  margin-bottom: 1rem;
 }
 
 .loading,
@@ -20,20 +28,27 @@
 
 .header {
   background: white;
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 2rem;
   margin-bottom: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  color: #111827;
 }
 
 .backButton {
-  background: none;
-  border: none;
-  color: #667eea;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  color: white;
   font-size: 0.9rem;
   cursor: pointer;
   margin-bottom: 1rem;
-  padding: 0.5rem 0;
+  padding: 0.5rem 1rem;
+  transition: background 0.2s;
+}
+
+.backButton:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .backButton:hover {
@@ -41,17 +56,28 @@
 }
 
 .title {
-  font-size: 2rem;
+  font-size: 2.5rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
-  color: #333;
+  color: #111827;
 }
 
-.queryText {
+.subtitle {
   font-size: 1.1rem;
-  color: #666;
+  color: #4B5563;
   margin-bottom: 1rem;
-  font-style: italic;
+  line-height: 1.6;
+}
+
+.coverageBanner {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #FEF3C7;
+  border: 1px solid #FCD34D;
+  border-radius: 8px;
+  color: #92400E;
+  font-size: 0.9rem;
+  line-height: 1.6;
 }
 
 .cachedBadge {
@@ -81,84 +107,103 @@
 
 .controls {
   background: white;
-  border-radius: 12px;
-  padding: 1.5rem;
+  border-radius: 16px;
+  padding: 2rem;
   margin-bottom: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
 }
 
 .primaryButton {
+  width: 100%;
   padding: 1rem 2rem;
-  background: #667eea;
+  background: #4F46E5;
   color: white;
   border: none;
-  border-radius: 8px;
-  font-size: 1.1rem;
+  border-radius: 10px;
+  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
 }
 
 .primaryButton:hover {
-  background: #5568d3;
+  background: #4338CA;
 }
 
-.workdaySection {
-  border-top: 1px solid #eee;
+.playHint {
+  font-size: 0.9rem;
+  color: #6B7280;
+  text-align: center;
+  margin: -0.5rem 0 0 0;
+}
+
+.lengthSection {
+  border-top: 1px solid #E5E7EB;
   padding-top: 1.5rem;
 }
 
-.workdayLabel {
+.lengthLabel {
   display: block;
-  font-size: 0.9rem;
-  color: #666;
+  font-size: 0.95rem;
+  color: #4B5563;
   margin-bottom: 0.75rem;
   font-weight: 600;
 }
 
-.workdayButtons {
+.lengthButtons {
   display: flex;
   gap: 0.75rem;
   margin-bottom: 0.5rem;
+  flex-wrap: wrap;
 }
 
-.workdayButton {
+.lengthButton {
   padding: 0.5rem 1.5rem;
-  background: #f0f0f0;
-  border: 1px solid #ddd;
+  background: #F9FAFB;
+  border: 1px solid #E5E7EB;
   border-radius: 8px;
   font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.2s;
+  color: #111827;
 }
 
-.workdayButton:hover {
-  background: #667eea;
+.lengthButton:hover {
+  background: #4F46E5;
   color: white;
-  border-color: #667eea;
+  border-color: #4F46E5;
 }
 
-.workdayNote {
+.lengthNote {
   font-size: 0.85rem;
-  color: #666;
+  color: #6B7280;
   font-style: italic;
   margin-top: 0.5rem;
 }
 
 .content {
   display: grid;
-  grid-template-columns: 1fr 400px;
-  gap: 1.5rem;
+  grid-template-columns: 65% 35%;
+  gap: 2rem;
 }
 
 .videoList {
   background: white;
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 2rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.playlistTotal {
+  font-size: 0.9rem;
+  color: #6B7280;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #E5E7EB;
 }
 
 .sectionTitle {
@@ -198,7 +243,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #667eea;
+  background: #4F46E5;
   color: white;
   border-radius: 50%;
   font-weight: 600;
@@ -234,14 +279,26 @@
 
 .videoMeta {
   font-size: 0.85rem;
-  color: #666;
+  color: #6B7280;
+  margin-bottom: 0.5rem;
+}
+
+.scoreBadge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: #F3F4F6;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #111827;
+  margin-top: 0.25rem;
 }
 
 .watchButton {
   padding: 0.5rem 1rem;
-  background: #667eea;
+  background: #4F46E5;
   color: white;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 0.9rem;
   font-weight: 600;
   text-decoration: none;
@@ -250,14 +307,14 @@
 }
 
 .watchButton:hover {
-  background: #5568d3;
+  background: #4338CA;
 }
 
 .explanationPanel {
   background: white;
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
   height: fit-content;
   position: sticky;
   top: 2rem;
@@ -265,38 +322,46 @@
 
 .explanationToggle {
   width: 100%;
-  padding: 0.75rem;
-  background: #f0f0f0;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 0.9rem;
+  padding: 0.75rem 1rem;
+  background: #F9FAFB;
+  border: 1px solid #E5E7EB;
+  border-radius: 10px;
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
   margin-bottom: 1rem;
-  transition: background 0.2s;
+  transition: all 0.2s;
+  color: #111827;
 }
 
 .explanationToggle:hover {
-  background: #e0e0e0;
+  background: #F3F4F6;
+  border-color: #4F46E5;
 }
 
 .explanationContent {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   line-height: 1.6;
-  color: #333;
+  color: #111827;
 }
 
 .explanationTitle {
-  font-size: 1.2rem;
-  font-weight: 600;
+  font-size: 1.3rem;
+  font-weight: 700;
   margin-bottom: 1rem;
-  color: #333;
+  color: #111827;
+}
+
+.explanationIntro {
+  color: #4B5563;
+  margin-bottom: 1.5rem;
+  line-height: 1.7;
 }
 
 .explanationSection {
   margin-bottom: 1.5rem;
   padding-bottom: 1.5rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid #E5E7EB;
 }
 
 .explanationSection:last-child {
@@ -305,10 +370,10 @@
 }
 
 .explanationSection h4 {
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 600;
-  margin-bottom: 0.5rem;
-  color: #333;
+  margin-bottom: 0.75rem;
+  color: #111827;
 }
 
 .explanationSection ul {
@@ -317,22 +382,66 @@
 }
 
 .explanationSection li {
-  margin: 0.25rem 0;
-  color: #666;
+  margin: 0.5rem 0;
+  color: #4B5563;
+  line-height: 1.6;
 }
 
 .explanationSection p {
   margin: 0.5rem 0;
-  color: #666;
+  color: #4B5563;
+  line-height: 1.7;
+}
+
+.scoreBreakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.scoreItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: #F9FAFB;
+  border-radius: 8px;
+}
+
+.scoreLabel {
+  font-size: 0.9rem;
+  color: #4B5563;
+  flex: 1;
+}
+
+.scoreValue {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #111827;
+  margin-left: 1rem;
 }
 
 @media (max-width: 968px) {
   .content {
     grid-template-columns: 1fr;
+    gap: 1.5rem;
   }
 
   .explanationPanel {
     position: static;
+  }
+  
+  .header {
+    padding: 1.5rem;
+  }
+  
+  .controls {
+    padding: 1.5rem;
+  }
+  
+  .videoList {
+    padding: 1.5rem;
   }
 }
 

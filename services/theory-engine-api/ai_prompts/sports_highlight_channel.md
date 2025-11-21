@@ -27,6 +27,8 @@ Output JSON matching this structure:
   "sport": "NFL|NBA|MLB|NHL|NCAAF|NCAAB|PGA|F1|SOCCER|TENNIS|OTHER",
   "leagues": ["NFL", "AFC"],
   "teams": ["Kansas City Chiefs", "Buffalo Bills"],
+  "players": ["Patrick Mahomes", "LeBron James"],
+  "play_types": ["touchdowns", "interceptions", "buzzer beaters"],
   "date_range": {
     "start_date": "2024-11-17",
     "end_date": "2024-11-24",
@@ -80,12 +82,33 @@ Output JSON matching this structure:
 - Handle variations (e.g., "KC Chiefs" → "Kansas City Chiefs")
 - Leave empty array if not specified
 
+### Players
+
+- Extract player names when mentioned (e.g., "Patrick Mahomes", "LeBron James", "Tom Brady")
+- Use full names when possible (first and last name)
+- Leave empty array if not specified
+
+### Play Types
+
+- Extract specific play types when mentioned (e.g., "touchdowns", "interceptions", "buzzer beaters", "dunks", "home runs", "game-winning goals")
+- Common play types:
+  - NFL: touchdowns, interceptions, fumbles, sacks, field goals, game-winning plays
+  - NBA: buzzer beaters, dunks, three-pointers, blocks, assists
+  - MLB: home runs, strikeouts, catches, bloopers
+  - NHL: goals, saves, fights, big hits, game-winning goals
+- Leave empty array if not specified
+
 ### Date Ranges
 
 - **Single dates**: Use `single_date` field (YYYY-MM-DD format)
 - **Date ranges**: Use `start_date` and `end_date`
 - **Week references**: Use `week` field (e.g., "Week 12", "Week 5")
 - **Season references**: Use `season` field (e.g., "2024", "2023-2024")
+- **Decade ranges**: For queries like "1990s", "2000s", use start_date and end_date
+  - "1990s" → start_date: "1990-01-01", end_date: "1999-12-31"
+  - "2000s" → start_date: "2000-01-01", end_date: "2009-12-31"
+  - "early 1990s" → start_date: "1990-01-01", end_date: "1994-12-31"
+  - "late 1990s" → start_date: "1995-01-01", end_date: "1999-12-31"
 - **Relative dates**: Convert to absolute dates
   - "last Sunday" → calculate date
   - "yesterday" → calculate date
@@ -110,15 +133,21 @@ Output JSON matching this structure:
 
 ### Duration
 
-- **Explicit minutes/hours**: Use directly
+- **Explicit minutes/hours**: Use directly (1-10 hours = 60-600 minutes)
 - **"full work day"**: 8 hours = 480 minutes
-- **"full day"**: 24 hours = 1440 minutes
-- **"half day"**: 12 hours = 720 minutes
+- **"half day"**: 4 hours = 240 minutes
 - **"a few hours"**: 3 hours = 180 minutes
 - **"couple hours"**: 2 hours = 120 minutes
 - **"hour"**: 60 minutes
-- **Default**: If not specified, use 60 minutes
-- **Range**: Must be between 5 and 1440 minutes
+- **Default calculation** (if not specified):
+  - **If date range exists**: Calculate based on scope (wider range = longer duration, up to 10 hours)
+    - Single date: 60-90 minutes
+    - Week range: 90-180 minutes
+    - Month range: 180-360 minutes (3-6 hours)
+    - Season/Year range: 360-480 minutes (6-8 hours)
+    - Decade range: 480-600 minutes (8-10 hours)
+  - **If no date range**: Default to 60-120 minutes (randomly pick 60, 90, or 120)
+- **Range**: Must be between 60 and 600 minutes (1-10 hours)
 
 ### Loop Mode
 

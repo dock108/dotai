@@ -79,9 +79,11 @@ class HighlightRequestSpec(BaseModel):
     sport: Annotated[Sport, Field(description="Primary sport")]
     leagues: list[str] = Field(default_factory=list, description="Specific leagues (e.g., ['NFL', 'AFC'])")
     teams: list[str] = Field(default_factory=list, description="Specific teams (e.g., ['Kansas City Chiefs', 'Buffalo Bills'])")
+    players: list[str] = Field(default_factory=list, description="Specific players (e.g., ['Patrick Mahomes', 'LeBron James'])")
+    play_types: list[str] = Field(default_factory=list, description="Specific play types (e.g., ['touchdowns', 'interceptions', 'buzzer beaters'])")
     date_range: DateRange | None = Field(default=None, description="Date range for events")
     content_mix: ContentMix = Field(default_factory=ContentMix, description="Content type mix")
-    requested_duration_minutes: int = Field(ge=5, le=1440, description="Requested playlist duration in minutes (5-1440)")
+    requested_duration_minutes: int = Field(ge=60, le=600, description="Requested playlist duration in minutes (60-600, i.e., 1-10 hours)")
     loop_mode: LoopMode = Field(default=LoopMode.single_playlist, description="Playlist loop mode")
     exclusions: list[str] = Field(default_factory=list, description="Exclusions (e.g., ['no Jets', 'no Super Bowl replays'])")
     nsfw_filter: bool = Field(default=True, description="Enable NSFW filtering")

@@ -2,70 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { createClient, HighlightsAPI, type HighlightDetailResponse, type APIError, type NetworkError } from "@dock108/js-core";
+import { createClient, HighlightsAPI, type HighlightDetailResponse, APIError, NetworkError } from "@dock108/js-core";
 import { LoadingSpinner, ErrorDisplay } from "@dock108/ui-kit";
 import styles from "./page.module.css";
-
-interface PlaylistItem {
-  video_id: string;
-  title: string;
-  channel_title: string;
-  duration_seconds: number;
-  url: string;
-  thumbnail_url?: string;
-  scores: {
-    final_score: number;
-    highlight_score: number;
-    channel_reputation: number;
-    view_count_normalized: number;
-    freshness_score: number;
-  };
-}
-
-interface PlaylistDetail {
-  playlist_id: number;
-  query_id: number;
-  query_text: string;
-  items: PlaylistItem[];
-  total_duration_seconds: number;
-  explanation: {
-    assumptions: string[];
-    filters_applied: {
-      content_types: string[];
-      exclusions: string[];
-      nsfw_filter: boolean;
-    };
-    ranking_factors: {
-      highlight_score_weight: number;
-      channel_reputation_weight: number;
-      view_count_weight: number;
-      freshness_weight: number;
-    };
-    coverage_notes: string[];
-    total_candidates: number;
-    selected_videos: number;
-    actual_duration_minutes: number;
-    target_duration_minutes: number;
-  };
-  created_at: string;
-  stale_after: string | null;
-  query_metadata: {
-    mode: string;
-    requested_duration_minutes: number;
-    version: number;
-    created_at: string;
-    last_used_at: string;
-  };
-}
-
-function formatDuration(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-  return `${minutes}m`;
-}
+import type { PlaylistItem, PlaylistDetail } from "@/lib/types";
+import { formatDuration, extractErrorInfo } from "@/lib/utils";
 
 export default function PlaylistPage() {
   const params = useParams();
@@ -100,33 +41,22 @@ export default function PlaylistPage() {
         const data = await highlightsAPI.getPlaylist(playlistIdNum);
         setPlaylist(data);
       } catch (err: unknown) {
-        let errorMessage = "Failed to load playlist";
-        let errorCode: string | undefined;
-        
-        if (err instanceof NetworkError) {
-          errorCode = "NETWORK_ERROR";
-          errorMessage = "Network error. Please check your internet connection and try again.";
-        } else if (err instanceof APIError) {
-          errorCode = err.statusCode.toString();
-          if (err.statusCode === 404) {
-            errorMessage = "Playlist not found. It may have been deleted or the ID is incorrect.";
-          } else if (err.statusCode >= 500) {
-            errorMessage = "Server error. Please try again later.";
-          } else {
-            errorMessage = err.detail || err.message;
-          }
-        } else if (err instanceof Error) {
-          errorMessage = err.message;
+        const errorInfo = extractErrorInfo(err);
+        // Provide more specific messages for common cases
+        if (errorInfo.code === "404" || (err instanceof APIError && err.statusCode === 404)) {
+          setError({ message: "Playlist not found. It may have been deleted or the ID is incorrect.", code: "404" });
+        } else if (errorInfo.code === "NETWORK_ERROR" || err instanceof NetworkError) {
+          setError({ message: "Network error. Please check your internet connection and try again.", code: "NETWORK_ERROR" });
+        } else {
+          setError({ message: errorInfo.message || "Failed to load playlist", code: errorInfo.code });
         }
-        
-        setError({ message: errorMessage, code: errorCode });
       } finally {
         setLoading(false);
       }
     };
 
     fetchPlaylist();
-  }, [playlistId, highlightsAPI]);
+  }, [playlistId]); // Only refetch when playlistId changes
 
   const buildYouTubePlaylistUrl = (items: PlaylistItem[]): string => {
     const videoIds = items.map((item) => item.video_id).join(",");
@@ -195,50 +125,57 @@ export default function PlaylistPage() {
   }
 
   const totalDuration = formatDuration(playlist.total_duration_seconds);
+  const actualMinutes = playlist.explanation.actual_duration_minutes;
+  const targetMinutes = playlist.explanation.target_duration_minutes;
+  const isShort = actualMinutes < targetMinutes * 0.5;
 
   return (
     <div className={styles.page}>
       <div className={styles.container}>
-        <header className={styles.header}>
+        <div className={styles.heroSection}>
           <button onClick={() => router.push("/")} className={styles.backButton}>
             ← Back
           </button>
-          <h1 className={styles.title}>Your Sports Channel</h1>
-          <p className={styles.queryText}>{playlist.query_text || "Sports Highlights"}</p>
-          <div className={styles.meta}>
-            <span>{playlist.items.length} videos</span>
-            <span>•</span>
-            <span>{totalDuration} total</span>
-            {playlist.cache_status && (
-              <>
-                <span>•</span>
-                <span className={playlist.cache_status === "cached" ? styles.cachedBadge : styles.freshBadge}>
-                  {playlist.cache_status === "cached" ? "Cached" : "Fresh"}
-                </span>
-              </>
+          <header className={styles.header}>
+            <h1 className={styles.title}>Your Highlight Show</h1>
+            <p className={styles.subtitle}>
+              {playlist.query_text || "Sports Highlights"} • {playlist.items.length} videos • {totalDuration}
+            </p>
+            {isShort && (
+              <div className={styles.coverageBanner}>
+                We could only find {actualMinutes.toFixed(1)} minutes of strong clips for this request (goal: {targetMinutes} minutes). 
+                Try widening the date range or combining multiple sports.
+              </div>
             )}
-          </div>
-        </header>
+          </header>
+        </div>
 
         <div className={styles.controls}>
           <button className={styles.primaryButton} onClick={handlePlayAll}>
-            Play All on YouTube
+            Play Show on YouTube
           </button>
-          <div className={styles.workdaySection}>
-            <span className={styles.workdayLabel}>Use as background channel for:</span>
-            <div className={styles.workdayButtons}>
-              {[1, 2, 4, 8].map((hours) => (
-                <button
-                  key={hours}
-                  className={styles.workdayButton}
-                  onClick={() => handleWorkdayMode(hours)}
-                >
-                  {hours}h
-                </button>
-              ))}
+          <p className={styles.playHint}>
+            Starts a playlist that will loop when it finishes.
+          </p>
+          <div className={styles.lengthSection}>
+            <span className={styles.lengthLabel}>Run this show for:</span>
+            <div className={styles.lengthButtons}>
+              {[30, 60, 120, 240, 480].map((minutes) => {
+                const hours = minutes / 60;
+                const label = hours >= 1 ? `${hours}h` : `${minutes}m`;
+                return (
+                  <button
+                    key={minutes}
+                    className={styles.lengthButton}
+                    onClick={() => handleWorkdayMode(hours)}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
             {workdayHours && (
-              <p className={styles.workdayNote}>
+              <p className={styles.lengthNote}>
                 Opening YouTube playlist. Enable autoplay and loop in YouTube for {workdayHours}-hour
                 background playback.
               </p>
@@ -248,7 +185,10 @@ export default function PlaylistPage() {
 
         <div className={styles.content}>
           <div className={styles.videoList}>
-            <h2 className={styles.sectionTitle}>Videos</h2>
+            <h2 className={styles.sectionTitle}>Videos in this Highlight Show</h2>
+            <div className={styles.playlistTotal}>
+              Total: {playlist.items.length} videos • {totalDuration} (Goal: {Math.round(playlist.explanation.target_duration_minutes)} minutes)
+            </div>
             <ol className={styles.list}>
               {playlist.items.map((item, idx) => (
                 <li key={item.video_id} className={styles.videoItem}>
@@ -264,9 +204,11 @@ export default function PlaylistPage() {
                     <div className={styles.videoInfo}>
                       <h3 className={styles.videoTitle}>{item.title}</h3>
                       <p className={styles.videoMeta}>
-                        {item.channel_title} • {formatDuration(item.duration_seconds)} • Score:{" "}
-                        {(item.scores.final_score * 100).toFixed(0)}%
+                        {item.channel_title} • {formatDuration(item.duration_seconds)}
                       </p>
+                      <div className={styles.scoreBadge}>
+                        Score: {(item.scores.final_score * 100).toFixed(0)}%
+                      </div>
                     </div>
                   </div>
                   <a
@@ -287,11 +229,15 @@ export default function PlaylistPage() {
               className={styles.explanationToggle}
               onClick={() => setShowExplanation(!showExplanation)}
             >
-              {showExplanation ? "Hide" : "Show"} Explanation
+              {showExplanation ? "Hide" : "Why these videos?"}
             </button>
             {showExplanation && (
               <div className={styles.explanationContent}>
-                <h3 className={styles.explanationTitle}>Why these clips?</h3>
+                <h3 className={styles.explanationTitle}>How we built this show</h3>
+                <p className={styles.explanationIntro}>
+                  We searched YouTube for videos that match your request and scored each one based on relevance, 
+                  quality, and recency. The highest-scoring clips were added to your highlight show until we hit your target length.
+                </p>
 
                 {playlist.explanation.assumptions.length > 0 && (
                   <div className={styles.explanationSection}>
@@ -320,33 +266,35 @@ export default function PlaylistPage() {
                 </div>
 
                 <div className={styles.explanationSection}>
-                  <h4>Ranking Factors</h4>
-                  <p>
-                    Videos were scored using:
-                  </p>
-                  <ul>
-                    <li>
-                      Highlight keywords:{" "}
-                      {(playlist.explanation.ranking_factors.highlight_score_weight * 100).toFixed(0)}%
-                    </li>
-                    <li>
-                      Channel reputation:{" "}
-                      {(playlist.explanation.ranking_factors.channel_reputation_weight * 100).toFixed(0)}%
-                    </li>
-                    <li>
-                      View count:{" "}
-                      {(playlist.explanation.ranking_factors.view_count_weight * 100).toFixed(0)}%
-                    </li>
-                    <li>
-                      Freshness:{" "}
-                      {(playlist.explanation.ranking_factors.freshness_weight * 100).toFixed(0)}%
-                    </li>
-                  </ul>
+                  <h4>Score Breakdown</h4>
+                  <div className={styles.scoreBreakdown}>
+                    <div className={styles.scoreItem}>
+                      <span className={styles.scoreLabel}>Relevance to prompt (sport, team, player):</span>
+                      <span className={styles.scoreValue}>40%</span>
+                    </div>
+                    <div className={styles.scoreItem}>
+                      <span className={styles.scoreLabel}>Highlight keywords ("top plays", "highlights", etc.):</span>
+                      <span className={styles.scoreValue}>25%</span>
+                    </div>
+                    <div className={styles.scoreItem}>
+                      <span className={styles.scoreLabel}>Channel quality (reputation, posting history):</span>
+                      <span className={styles.scoreValue}>20%</span>
+                    </div>
+                    <div className={styles.scoreItem}>
+                      <span className={styles.scoreLabel}>Freshness (how recent):</span>
+                      <span className={styles.scoreValue}>15%</span>
+                    </div>
+                  </div>
                 </div>
 
                 {playlist.explanation.coverage_notes.length > 0 && (
                   <div className={styles.explanationSection}>
                     <h4>Coverage Notes</h4>
+                    <p>
+                      We found {playlist.explanation.selected_videos} strong candidates for this request, 
+                      totaling {playlist.explanation.actual_duration_minutes.toFixed(1)} minutes. 
+                      To reach your {playlist.explanation.target_duration_minutes}-minute target, you could:
+                    </p>
                     <ul>
                       {playlist.explanation.coverage_notes.map((note, idx) => (
                         <li key={idx}>{note}</li>
@@ -356,12 +304,16 @@ export default function PlaylistPage() {
                 )}
 
                 <div className={styles.explanationSection}>
-                  <h4>Statistics</h4>
+                  <h4>Stats</h4>
                   <p>
-                    Found {playlist.explanation.total_candidates} candidate videos, selected{" "}
-                    {playlist.explanation.selected_videos} to reach{" "}
-                    {playlist.explanation.actual_duration_minutes} minutes (target:{" "}
-                    {playlist.explanation.target_duration_minutes} minutes).
+                    Videos considered: {playlist.explanation.total_candidates}
+                  </p>
+                  <p>
+                    Selected: {playlist.explanation.selected_videos}
+                  </p>
+                  <p>
+                    Total runtime: {playlist.explanation.actual_duration_minutes.toFixed(1)} minutes 
+                    (Target: {playlist.explanation.target_duration_minutes} minutes)
                   </p>
                 </div>
               </div>

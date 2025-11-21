@@ -1,10 +1,24 @@
 """Entry point for the dock108 Theory Engine FastAPI service."""
 
 from collections.abc import Callable
+import os
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from datetime import datetime
+
+# Load environment variables from .env file
+# Look for .env in the service directory or parent directories
+env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+if os.path.exists(env_path):
+    load_dotenv(env_path)
+else:
+    # Try root .env file
+    root_env = os.path.join(os.path.dirname(__file__), "..", "..", ".env")
+    if os.path.exists(root_env):
+        load_dotenv(root_env)
 
 from .logging_config import configure_logging
 
@@ -29,6 +43,21 @@ from py_core import (
 from .routers import bets, conspiracies, crypto, highlights, playlist, stocks
 
 app = FastAPI(title="Dock108 Theory Engine", version="0.1.0")
+
+# Configure CORS for frontend apps (local + future deployments)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3005",
+        "http://127.0.0.1:3005",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "*",  # Allow other origins during development / testing
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Configure structured logging
 configure_logging()

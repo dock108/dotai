@@ -2,42 +2,51 @@
 
 ## Overview
 
-The Sports Highlight Channel lets you create custom YouTube playlists of sports highlights by describing what you want in natural language. Just tell us what you're looking for, and we'll search YouTube for the best matching videos and create a personalized playlist.
+The Sports Highlight Channel lets you create custom YouTube playlists of sports highlights using a guided builder interface. Select sports, add filters, choose a time window, and set a duration to build your personalized highlight show.
 
 ## Getting Started
 
-### Basic Usage
+### Using the Builder
 
-1. **Enter your query** in the text box describing what you want
-2. **Click "Build Playlist"** or use one of the quick presets
-3. **Wait for the playlist to be created** (usually 10-30 seconds)
-4. **Click "Play All on YouTube"** to watch your playlist
+1. **Select sports** - Choose one or more sports from the checklist (NFL, NBA, MLB, etc.)
+2. **Add filters** (optional):
+   - **Teams** - Add up to 5 teams (e.g., "Kansas City Chiefs")
+   - **Players** - Add up to 5 players (e.g., "Patrick Mahomes")
+   - **Play types** - Add up to 5 play types (e.g., "touchdowns", "interceptions")
+3. **Choose time window**:
+   - Quick presets: Last 48 hours, Last 7 days, Last 14 days, Last 30 days
+   - Custom range: Pick exact start and end dates
+   - Historical: For classic runs or throwbacks
+4. **Set duration** - Use slider (1-10 hours) or quick presets (1h, 2h, 4h, 6h, 8h, 10h)
+5. **Add comments** (optional) - Additional context or preferences
+6. **Build playlist** - Click "Build Highlight Show"
+7. **Watch on YouTube** - Click "Play Show on YouTube" to open the playlist
 
-### Example Queries
+### Quick Presets
 
-- "NFL highlights from last night, 30 minutes"
-- "NBA top plays from this week"
-- "MLB bloopers from September 2024"
-- "Kansas City Chiefs highlights from this season"
-- "Sports upsets from last month"
+Try these one-click presets:
+- **NFL Sunday catch-up** - Everything from yesterday's NFL slate
+- **NBA player focus** - Star performances from this week
+- **College football upset watch** - Upsets + walk-offs from the last 7 days
+- **MLB pennant race** - Latest week of MLB contenders
 
 ## Tips for Better Results
 
-1. **Be specific about the sport**: Include the sport name (NFL, NBA, MLB, NHL, etc.)
-2. **Include a time period**: Specify when you want highlights from (last night, this week, specific date)
-3. **Specify content type**: Tell us if you want highlights, bloopers, top plays, etc.
-4. **Request a duration**: Ask for a specific length (15 minutes to 8 hours)
-5. **Combine requests**: You can ask for multiple things (e.g., "NFL then MLB highlights")
+1. **Select multiple sports** - Combine NFL, NBA, MLB, etc. for variety
+2. **Use recent dates** - The system works best for highlights from the last 48 hours to 30 days
+3. **Be specific with filters** - Add specific teams, players, or play types for targeted results
+4. **Start broad, then narrow** - Try a general query first, then add filters
+5. **Check the explanation** - See why videos were selected and how they were scored
 
 ## Features
 
-### Query Builder
+### Playlist Viewer
 
-After your first successful query, a query builder will appear that lets you:
-- **Select a sport** from popular options
-- **Choose a date range** using date pickers
-- **Adjust duration** with a slider (15 minutes to 8 hours)
-- **Control content mix** between highlights and bloopers
+Once your playlist is created, you can:
+- **View all videos** with titles, channels, durations, and scores
+- **Play on YouTube** - Opens the entire playlist on YouTube
+- **Workday mode** - Quick buttons for 1h, 2h, 4h, 6h, 8h, 10h loops
+- **Explanation panel** - See assumptions, filters, ranking factors, and coverage notes
 
 ### Playlist Features
 

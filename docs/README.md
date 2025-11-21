@@ -2,83 +2,87 @@
 
 This directory contains all documentation for the dock108 monorepo.
 
-## Quick Reference
+## Quick Start
 
-### Getting Started
-- **`LOCAL_DEPLOY.md`** - Comprehensive local deployment and testing guide for Sports Highlight Channel feature (start here)
-- **`../README.md`** - Main project README with setup instructions
-- **`../infra/DEPLOYMENT.md`** - Production deployment guide for full monorepo (all services and apps)
+**New to the project?** Start here:
+- **[`LOCAL_DEPLOY.md`](LOCAL_DEPLOY.md)** - Comprehensive local development and testing guide (Sports Highlight Channel feature)
+- **[`../README.md`](../README.md)** - Main project README with overview and setup instructions
 
-### Sports Highlight Channel Feature
-- **`HIGHLIGHTS_API.md`** - Complete API documentation for highlight endpoints
-- **`HIGHLIGHT_PARSING.md`** - AI parsing system documentation
-- **`SPORTS_SEARCH.md`** - Sports-focused YouTube search documentation
-- **`PLAYLIST_DATABASE.md`** - Database schema and caching documentation
-- **`highlight-mvp.md`** - Current constraints, limitations, and future ideas
+## Documentation by Category
 
-### Architecture & Design
-- **`ARCHITECTURE.md`** - Overall system architecture
-- **`THEORY_ENGINE.md`** - Theory engine blueprint and design
-- **`SAFETY_GUARDRAILS.md`** - Guardrail system documentation
-- **`DATA_PRIVACY.md`** - Privacy model and data handling
+### 🚀 Getting Started & User Guides
 
-### Planning & Reference
-- **`EXISTING_APPS.md`** - Inventory of existing apps and migration decisions (Phase 0 planning doc)
-- **`ROADMAP.md`** - Future roadmap and planned features
+- **[`LOCAL_DEPLOY.md`](LOCAL_DEPLOY.md)** - Complete local development setup guide (includes quick start section)
+- **[`HIGHLIGHTS_USER_GUIDE.md`](HIGHLIGHTS_USER_GUIDE.md)** - End-user guide for the Sports Highlight Channel feature
 
-### Archived (Historical Reference)
-- **`archive/PLAYLIST_MVP.md`** - Original playlist-web MVP (legacy, archived)
-- **`archive/highlight-phase-notes.md`** - Historical audit notes (completed work, archived)
+### 📡 API Documentation
 
-## Documentation by Topic
+- **[`HIGHLIGHTS_API.md`](HIGHLIGHTS_API.md)** - Complete API documentation for highlight endpoints
+- **[`THEORY_ENGINE.md`](THEORY_ENGINE.md)** - Theory engine API blueprint and design
 
-### API Documentation
-- `HIGHLIGHTS_API.md` - Highlights API endpoints
-- `THEORY_ENGINE.md` - Theory evaluation endpoints
+### 🏗️ Architecture & System Design
 
-### Development
-- `LOCAL_DEPLOY.md` - Local development and testing guide (Sports Highlight Channel)
-- `HIGHLIGHT_PARSING.md` - Parsing system development
-- `SPORTS_SEARCH.md` - Search module development
+- **[`ARCHITECTURE.md`](ARCHITECTURE.md)** - Overall system architecture and monorepo structure
+- **[`THEORY_SURFACES.md`](THEORY_SURFACES.md)** - Theory surfaces design and implementation
+- **[`SAFETY_GUARDRAILS.md`](SAFETY_GUARDRAILS.md)** - Guardrail system documentation
+- **[`DATA_PRIVACY.md`](DATA_PRIVACY.md)** - Privacy model and data handling policies
 
-### Database
-- `PLAYLIST_DATABASE.md` - Playlist database schema
+### ⚙️ Feature Documentation
 
-### Feature Documentation
-- `highlight-mvp.md` - Sports highlight feature overview
+#### Sports Highlight Channel
 
-### System Design
-- `ARCHITECTURE.md` - System architecture
-- `SAFETY_GUARDRAILS.md` - Guardrail system
-- `DATA_PRIVACY.md` - Privacy model
+- **[`HIGHLIGHT_PARSING.md`](HIGHLIGHT_PARSING.md)** - AI parsing system for highlight requests
+- **[`SPORTS_SEARCH.md`](SPORTS_SEARCH.md)** - Sports-focused YouTube search implementation
+- **[`PLAYLIST_DATABASE.md`](PLAYLIST_DATABASE.md)** - Database schema and caching design
+- **[`highlight-mvp.md`](highlight-mvp.md)** - Current constraints, limitations, and future ideas
+- **[`YOUTUBE_SETUP.md`](YOUTUBE_SETUP.md)** - YouTube OAuth setup and token management guide
+
+### 📋 Planning & Reference
+
+- **[`ROADMAP.md`](ROADMAP.md)** - Future roadmap and planned features
+
+### 📦 Archived Documents
+
+Historical reference documents are in the [`archive/`](archive/) folder:
+- `archive/PLAYLIST_MVP.md` - Original playlist-web MVP (legacy)
+- `archive/highlight-phase-notes.md` - Historical audit notes (completed work)
+- `archive/EXISTING_APPS.md` - Phase 0 planning doc (outdated)
+- `archive/HIGHLIGHT_FLOW.md` - Planning doc with gaps that have been addressed
 
 ## Documentation Status
 
 ✅ **Up to Date**:
-- `LOCAL_DEPLOY.md` - Comprehensive local deployment guide (Sports Highlight Channel feature)
-- `HIGHLIGHTS_API.md` - Includes metrics endpoints and disclaimer
-- `HIGHLIGHT_PARSING.md` - Includes new guardrail keywords
-- `PLAYLIST_DATABASE.md` - Includes metadata fields and py-core staleness
-- `SPORTS_SEARCH.md` - Includes API call count return value
+- `LOCAL_DEPLOY.md` - Comprehensive local deployment guide
+- `HIGHLIGHTS_API.md` - Complete API documentation with metrics endpoints
+- `HIGHLIGHT_PARSING.md` - AI parsing system documentation
+- `SPORTS_SEARCH.md` - Search module documentation
+- `PLAYLIST_DATABASE.md` - Database schema documentation
 - `highlight-mvp.md` - Current constraints and limitations
 - `ARCHITECTURE.md` - System architecture
 - `THEORY_ENGINE.md` - Theory engine blueprint
 - `SAFETY_GUARDRAILS.md` - Guardrail system
 - `DATA_PRIVACY.md` - Privacy model
 - `ROADMAP.md` - Future roadmap
+- `YOUTUBE_SETUP.md` - OAuth setup and token management guide
 
-📦 **Archived (Historical Reference)**:
-- `archive/highlight-phase-notes.md` - Completed audit (archived)
-- `archive/PLAYLIST_MVP.md` - Legacy MVP (archived)
+📝 **Planning Documents** (archived):
+- See `archive/` folder for historical planning documents
 
-📝 **Planning Documents**:
-- `EXISTING_APPS.md` - Phase 0 planning doc (may be outdated)
-
-## Contributing
+## Contributing to Documentation
 
 When updating documentation:
-1. Update the relevant doc file
-2. Update this index if adding/removing docs
-3. Update `../CHANGELOG.md` if it's a significant change
-4. Ensure code examples are tested and working
 
+1. **Update the relevant doc file** with accurate, tested information
+2. **Update this index** if adding, removing, or reorganizing docs
+3. **Update `../CHANGELOG.md`** if it's a significant change
+4. **Test code examples** to ensure they work
+5. **Use clear headings** and structure for easy navigation
+6. **Link between related docs** for better discoverability
+
+## Documentation Standards
+
+- **Code examples** should be tested and working
+- **API documentation** should include request/response examples
+- **Guides** should be step-by-step and reproducible
+- **Architecture docs** should include diagrams where helpful
+- **Keep docs current** - remove outdated information or mark as deprecated

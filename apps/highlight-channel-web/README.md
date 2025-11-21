@@ -13,11 +13,30 @@ Build your own sports highlight channel from natural language requests.
 
 ## Usage
 
-1. Enter a natural language request (e.g., "NFL Week 12 highlights, 2 hours")
-2. Or click a preset chip
-3. After first parse, query builder appears for refinement
-4. View playlist with explanation panel
-5. Use "Play All on YouTube" or workday mode buttons
+### Quick Start
+
+1. **Select sports** - Choose one or more sports from the checklist
+2. **Add filters** (optional) - Add up to 5 teams, players, or play types
+3. **Choose time window** - Select from presets (Last 48 hours, Last 7 days, etc.) or custom range
+4. **Set duration** - Use slider or presets (1h, 2h, 4h, 6h, 8h, 10h)
+5. **Add comments** (optional) - Additional context for your request
+6. **Build playlist** - Click "Build Highlight Show" and wait for results
+7. **Watch on YouTube** - Click "Play Show on YouTube" to open the playlist
+
+### Tips for Better Results
+
+- **Be specific** - Include sport names, teams, players, or play types
+- **Use recent dates** - The system works best for highlights from the last 48 hours to 30 days
+- **Start broad** - Try a general query first, then refine with filters
+- **Check the explanation** - See why videos were selected and how they were scored
+
+### Common Issues
+
+- **"No videos found"** - Try a broader search, adjust date range, or check spelling
+- **"Rate limit exceeded"** - Wait a few minutes and try again
+- **Long loading times** - Complex queries may take 30+ seconds
+
+For detailed user guide, see [`docs/HIGHLIGHTS_USER_GUIDE.md`](../../docs/HIGHLIGHTS_USER_GUIDE.md).
 
 ## Development
 

@@ -8,6 +8,17 @@
 
 **For full monorepo deployment (all services and apps), see `infra/DEPLOYMENT.md`.**
 
+## Quick Start (TL;DR)
+
+If you just want to get running quickly:
+
+1. **Prerequisites**: PostgreSQL running, API keys configured
+2. **Backend**: `cd services/theory-engine-api && uv sync && uv pip install -e ../../packages/py-core && alembic upgrade head && uv run uvicorn app.main:app --reload`
+3. **Frontend**: `cd apps/highlight-channel-web && pnpm install && pnpm dev`
+4. **Test**: Open http://localhost:3005 and try "NFL highlights from last night, 30 minutes"
+
+For detailed setup, troubleshooting, and testing scenarios, continue reading below.
+
 ## Overview
 
 This guide provides complete step-by-step instructions for setting up and testing the dock108 Sports Highlight Channel feature locally.

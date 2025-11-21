@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
@@ -23,6 +23,7 @@ from ..metrics import (
 )
 from py_core.playlist.staleness import compute_stale_after, should_refresh_playlist
 from ..sports_search import SportsSearchSpec, search_youtube_sports, calculate_highlight_score
+from ..description_analyzer import analyze_video_descriptions_batch, DescriptionAnalysis
 from py_core.guardrails.sports_highlights import (
     check_sports_highlight_guardrails,
     has_hard_block_sports,
@@ -51,6 +52,16 @@ class HighlightPlanRequest(BaseModel):
     query_text: str = Field(..., min_length=5, description="User query text")
     mode: PlaylistMode = Field(default=PlaylistMode.sports_highlight, description="Playlist mode")
     user_id: str | None = Field(default=None, description="Optional user ID (anonymous if not provided)")
+    # Structured builder fields (optional, for guided builder UI)
+    sports: list[str] | None = Field(default=None, description="Selected sports from builder")
+    teams: list[str] | None = Field(default=None, description="Selected teams from builder")
+    players: list[str] | None = Field(default=None, description="Selected players from builder")
+    play_types: list[str] | None = Field(default=None, description="Selected play types from builder")
+    date_preset: str | None = Field(default=None, description="Date preset (last2days, last7days, etc.)")
+    custom_start_date: str | None = Field(default=None, description="Custom start date (YYYY-MM-DD)")
+    custom_end_date: str | None = Field(default=None, description="Custom end date (YYYY-MM-DD)")
+    duration_minutes: int | None = Field(default=None, description="Requested duration in minutes")
+    comments: str | None = Field(default=None, description="Additional comments/instructions")
 
 
 class HighlightPlanResponse(BaseModel):
@@ -121,21 +132,23 @@ def convert_highlight_spec_to_search_spec(spec: HighlightRequestSpec) -> SportsS
         sport=spec.sport.value if isinstance(spec.sport, Sport) else spec.sport,
         league=spec.leagues[0] if spec.leagues else None,
         teams=spec.teams if spec.teams else None,
+        players=spec.players if spec.players else None,
+        play_types=spec.play_types if spec.play_types else None,
         date_range=date_range,
         content_types=content_types,
         duration_target_minutes=10,  # Default target per video
     )
 
 
-def build_playlist_from_candidates(
+async def build_playlist_from_candidates(
     candidates: list[Any],
     requested_duration_minutes: int,
     spec: HighlightRequestSpec,
     search_spec: SportsSearchSpec,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Build playlist items from video candidates.
+    """Build playlist items from video candidates with iterative filtering.
     
-    Selects videos to reach requested duration ± tolerance.
+    Uses AI-powered description analysis to filter and backfill until playlist is full.
     
     Args:
         candidates: List of VideoCandidate objects from search (already sorted by score)
@@ -152,6 +165,8 @@ def build_playlist_from_candidates(
     selected_items: list[dict[str, Any]] = []
     total_duration = 0
     coverage_notes: list[str] = []
+    analyzed_count = 0
+    rejected_count = 0
     
     # Get event date for scoring
     event_date = None
@@ -169,37 +184,140 @@ def build_playlist_from_candidates(
     # Get sport name for scoring
     sport_name = search_spec.sport
     
-    # Candidates are already sorted by final_score from search_youtube_sports
-    for candidate in candidates:
-        if total_duration >= target_seconds + tolerance:
+    # Build query spec for description analysis
+    query_spec = {
+        "sport": search_spec.sport,
+        "players": search_spec.players or [],
+        "play_types": search_spec.play_types or [],
+        "teams": search_spec.teams or [],
+        "date_range": search_spec.date_range,
+    }
+    
+    # Iterative filtering: process candidates in batches
+    batch_size = 20  # Analyze 20 videos at a time
+    candidate_index = 0
+    analyzed_videos = []  # Track which videos we've analyzed
+    
+    while candidate_index < len(candidates) and total_duration < target_seconds + tolerance:
+        # Take next batch of candidates
+        batch = candidates[candidate_index:candidate_index + batch_size]
+        if not batch:
             break
         
-        # Calculate scores (recalculate for explanation)
-        scores = calculate_highlight_score(candidate, event_date, sport_name)
+        # Prepare videos for analysis
+        videos_to_analyze = []
+        for candidate in batch:
+            videos_to_analyze.append({
+                "candidate": candidate,
+                "title": candidate.title,
+                "description": candidate.description,
+                "channel_title": candidate.channel_title,
+            })
         
-        item = {
-            "video_id": candidate.video_id,
-            "title": candidate.title,
-            "description": candidate.description[:500],  # Truncate long descriptions
-            "channel_id": candidate.channel_id,
-            "channel_title": candidate.channel_title,
-            "duration_seconds": candidate.duration_seconds,
-            "published_at": candidate.published_at.isoformat(),
-            "view_count": candidate.view_count,
-            "url": f"https://www.youtube.com/watch?v={candidate.video_id}",
-            "thumbnail_url": candidate.thumbnail_url,
-            "scores": scores,
-            "tags": candidate.tags or [],
-        }
+        # Analyze descriptions in batch
+        try:
+            analysis_results = await analyze_video_descriptions_batch(
+                videos_to_analyze,
+                query_spec,
+                batch_size=15,  # Process 15 at a time within the batch
+            )
+        except Exception as e:
+            # If analysis fails, fall back to basic filtering
+            coverage_notes.append(f"Description analysis failed: {str(e)}, using basic filtering")
+            analysis_results = []
+            for video in videos_to_analyze:
+                # Conservative: assume not analyzed
+                from ..description_analyzer import DescriptionAnalysis
+                analysis = DescriptionAnalysis(
+                    is_relevant=True,  # Assume relevant if analysis fails
+                    is_high_quality=True,
+                    confidence=0.5,
+                    extracted_metadata={},
+                )
+                analysis_results.append((video, analysis))
         
-        selected_items.append(item)
-        total_duration += candidate.duration_seconds
+        # Filter and add videos that pass analysis
+        for (video_dict, analysis) in analysis_results:
+            candidate = video_dict["candidate"]
+            analyzed_count += 1
+            
+            # Quality thresholds - stricter for play-type specific queries
+            min_relevance = 0.7
+            min_quality = 0.6
+            
+            # If play types are specified, require higher relevance (play types must be the focus)
+            if search_spec.play_types:
+                min_relevance = 0.8  # Stricter threshold for play-type queries
+            
+            # Check if video passes analysis
+            if not analysis.is_relevant or analysis.confidence < min_relevance:
+                rejected_count += 1
+                continue
+            
+            # For play-type queries, check if rejection reason mentions it's not play-type focused
+            if search_spec.play_types and analysis.rejection_reason:
+                rejection_lower = analysis.rejection_reason.lower()
+                if any(term in rejection_lower for term in ["general", "game highlights", "not focused", "not primarily"]):
+                    rejected_count += 1
+                    continue
+            
+            # For recent date ranges, check if rejection reason mentions it's too old or season recap
+            if spec.date_range and spec.date_range.start_date:
+                try:
+                    start_dt = datetime.fromisoformat(spec.date_range.start_date)
+                    days_ago = (datetime.now() - start_dt).days
+                    if days_ago <= 30 and analysis.rejection_reason:
+                        rejection_lower = analysis.rejection_reason.lower()
+                        if any(term in rejection_lower for term in ["season recap", "best of season", "too old", "outside date range", "historical"]):
+                            rejected_count += 1
+                            continue
+                except (ValueError, AttributeError):
+                    pass
+            
+            if not analysis.is_high_quality or analysis.confidence < min_quality:
+                # Lower quality but might still be acceptable if no better options
+                # Only reject if we have many candidates left
+                if candidate_index + len(batch) < len(candidates) * 0.5:
+                    rejected_count += 1
+                    continue
+            
+            # Video passed analysis - add to playlist
+            scores = calculate_highlight_score(
+                candidate, event_date, sport_name, search_spec.players, search_spec.play_types
+            )
+            
+            item = {
+                "video_id": candidate.video_id,
+                "title": candidate.title,
+                "description": candidate.description[:500],  # Truncate long descriptions
+                "channel_id": candidate.channel_id,
+                "channel_title": candidate.channel_title,
+                "duration_seconds": candidate.duration_seconds,
+                "published_at": candidate.published_at.isoformat(),
+                "view_count": candidate.view_count,
+                "url": f"https://www.youtube.com/watch?v={candidate.video_id}",
+                "thumbnail_url": candidate.thumbnail_url,
+                "scores": scores,
+                "tags": candidate.tags or [],
+                "analysis_confidence": analysis.confidence,
+                "extracted_metadata": analysis.extracted_metadata,
+            }
+            
+            selected_items.append(item)
+            total_duration += candidate.duration_seconds
+            
+            # Stop if we've reached target
+            if total_duration >= target_seconds + tolerance:
+                break
+        
+        # Move to next batch
+        candidate_index += batch_size
     
     # Check if we reached target
     if total_duration < target_seconds - tolerance:
         coverage_notes.append(
-            f"Only found {total_duration // 60} minutes of content (target: {requested_duration_minutes} minutes). "
-            f"Consider expanding search criteria."
+            f"Only found {round(total_duration / 60, 1)} minutes of high-quality content (target: {requested_duration_minutes} minutes). "
+            f"Analyzed {analyzed_count} videos, rejected {rejected_count} low-quality/irrelevant videos."
         )
     
     # Build explanation
@@ -237,6 +355,8 @@ def build_playlist_from_candidates(
         "selected_videos": len(selected_items),
         "actual_duration_minutes": round(total_duration / 60, 1),
         "target_duration_minutes": requested_duration_minutes,
+        "analyzed_count": analyzed_count,
+        "rejected_count": rejected_count,
     }
     
     return selected_items, explanation
@@ -341,37 +461,106 @@ async def plan_highlight_playlist(
             headers={"Content-Type": "application/json"},
         )
     
-    # Step 2: Parse with AI
+    # Step 2: Parse with AI (or use structured builder fields if provided)
     try:
+        # If structured builder fields are provided, use them to enhance the query
+        if request.sports or request.teams or request.players or request.play_types:
+            # Build enhanced query from structured fields
+            enhanced_parts = []
+            if request.sports:
+                enhanced_parts.append(", ".join(request.sports))
+            if request.teams:
+                enhanced_parts.append(", ".join(request.teams))
+            if request.players:
+                enhanced_parts.append(", ".join(request.players))
+            if request.play_types:
+                enhanced_parts.append(", ".join(request.play_types))
+            
+            # Add date range from preset or custom dates
+            if request.date_preset:
+                if request.date_preset == "custom" and request.custom_start_date and request.custom_end_date:
+                    enhanced_parts.append(f"from {request.custom_start_date} to {request.custom_end_date}")
+                elif request.date_preset == "historical" and request.custom_start_date and request.custom_end_date:
+                    enhanced_parts.append(f"from {request.custom_start_date} to {request.custom_end_date}")
+                elif request.date_preset in ["last2days", "last7days", "last14days", "last30days"]:
+                    preset_labels = {
+                        "last2days": "last 48 hours",
+                        "last7days": "last 7 days",
+                        "last14days": "last 14 days",
+                        "last30days": "last 30 days",
+                    }
+                    enhanced_parts.append(preset_labels[request.date_preset])
+            
+            if request.duration_minutes:
+                enhanced_parts.append(f"{request.duration_minutes} minutes")
+            
+            if request.comments:
+                enhanced_parts.append(f"({request.comments})")
+            
+            # Combine with original query text
+            enhanced_query = " ".join(enhanced_parts)
+            if normalized_text and normalized_text not in enhanced_query:
+                enhanced_query = f"{enhanced_query} {normalized_text}"
+            normalized_text = enhanced_query
+        
         parse_result = await parse_highlight_request(normalized_text)
         spec = parse_result.spec
+        
+        # Override with structured fields if provided (more reliable than AI parsing)
+        if request.sports and len(request.sports) > 0:
+            # Use first sport (or try to map to Sport enum)
+            try:
+                from py_core.schemas.highlight_request import Sport
+                sport_value = request.sports[0].upper()
+                if sport_value in [s.value for s in Sport]:
+                    spec.sport = Sport(sport_value)
+            except (ValueError, AttributeError):
+                pass  # Keep AI-parsed sport
+        
+        if request.teams:
+            spec.teams = request.teams
+        if request.players:
+            spec.players = request.players
+        if request.play_types:
+            spec.play_types = request.play_types
+        if request.duration_minutes:
+            spec.requested_duration_minutes = request.duration_minutes
+        
+        # Set date range from preset
+        if request.date_preset:
+            from ..utils.date_range_utils import build_date_range_from_preset
+            
+            date_range = build_date_range_from_preset(
+                request.date_preset,
+                request.custom_start_date,
+                request.custom_end_date,
+            )
+            if date_range:
+                spec.date_range = date_range
+                # Add assumption based on preset
+                preset_assumptions = {
+                    "last2days": "Defaulted to last 48 hours for recent highlights catch-up",
+                    "last7days": "Defaulted to last 7 days for weekly catch-up",
+                    "last14days": "Defaulted to last 14 days for two-week catch-up",
+                    "last30days": "Defaulted to last 30 days for monthly catch-up",
+                }
+                if request.date_preset in preset_assumptions:
+                    spec.assumptions.append(preset_assumptions[request.date_preset])
+        
+        # If no date range specified, default to last 7 days for recent highlights focus
+        if not spec.date_range or (not spec.date_range.start_date and not spec.date_range.end_date and not spec.date_range.single_date):
+            from ..utils.date_range_utils import get_default_date_range
+            
+            spec.date_range = get_default_date_range()
+            spec.assumptions.append("No date range specified - defaulted to last 7 days for recent highlights catch-up")
     except ValueError as e:
         # User-friendly parsing errors
+        from ..utils.error_handlers import create_parse_error_response, create_configuration_error_response
+        
         error_msg = str(e)
         if "API key" in error_msg:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=json.dumps({
-                    "error_code": "CONFIGURATION_ERROR",
-                    "message": "Service configuration error. Please contact support.",
-                    "detail": "There was an issue with the AI parsing service.",
-                }),
-                headers={"Content-Type": "application/json"},
-            )
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=json.dumps({
-                "error_code": "PARSE_ERROR",
-                "message": "Unable to understand your request. Please try rephrasing your query.",
-                "detail": "We couldn't parse your request. Try being more specific about the sport, date, or content type.",
-                "suggestions": [
-                    "Include a sport name (e.g., NFL, NBA, MLB)",
-                    "Specify a time period (e.g., 'last night', 'this week', 'November 2024')",
-                    "Be clear about what you want (e.g., 'highlights', 'bloopers', 'top plays')",
-                ],
-            }),
-            headers={"Content-Type": "application/json"},
-        )
+            raise create_configuration_error_response()
+        raise create_parse_error_response()
     except Exception as e:
         log.error("highlight_playlist_parse_error", error=str(e), error_type=type(e).__name__, exc_info=True)
         raise HTTPException(
@@ -447,8 +636,10 @@ async def plan_highlight_playlist(
             existing_playlist = playlist_result.scalar_one_or_none()
             
             if existing_playlist:
-                # Check if stale
-                now = datetime.utcnow()
+                # Check if stale (use timezone-aware datetime)
+                from ..utils.datetime_utils import now_utc
+                
+                now = now_utc()
                 if not should_refresh_playlist(
                     existing_playlist.created_at,
                     existing_playlist.stale_after,
@@ -498,7 +689,7 @@ async def plan_highlight_playlist(
         
         # Search YouTube
         try:
-            candidates, youtube_api_calls = await search_youtube_sports(search_spec, max_results=100)
+            candidates, youtube_api_calls = await search_youtube_sports(search_spec, initial_search_limit=250)
             
             # Handle empty results
             if not candidates or len(candidates) == 0:
@@ -531,7 +722,13 @@ async def plan_highlight_playlist(
                 )
         except ValueError as e:
             error_msg = str(e)
-            log.error("highlight_playlist_youtube_search_failed", error=error_msg, query_text=request.query_text)
+            log.error(
+                "highlight_playlist_youtube_search_failed",
+                error=error_msg,
+                error_type=type(e).__name__,
+                query_text=request.query_text,
+                exc_info=True,  # Include full traceback
+            )
             
             # Handle rate limit errors
             if "rate limit" in error_msg.lower() or "429" in error_msg:
@@ -583,6 +780,19 @@ async def plan_highlight_playlist(
                     headers={"Content-Type": "application/json"},
                 )
             
+            # Generic YouTube API error - check if it might be a 503 case
+            # If error message suggests service unavailable, return 503
+            if any(term in error_msg.lower() for term in ["unavailable", "temporarily", "service", "503"]):
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=json.dumps({
+                        "error_code": "SERVICE_UNAVAILABLE",
+                        "message": "Video service is temporarily unavailable. Please try again in a few moments.",
+                        "detail": error_msg,
+                    }),
+                    headers={"Content-Type": "application/json"},
+                )
+            
             # Generic YouTube API error
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -593,6 +803,9 @@ async def plan_highlight_playlist(
                 }),
                 headers={"Content-Type": "application/json"},
             )
+        except HTTPException:
+            # Re-raise HTTPExceptions (like NO_VIDEOS_FOUND) - they're already properly formatted
+            raise
         except Exception as e:
             log.error("highlight_playlist_unexpected_error", error=str(e), error_type=type(e).__name__, query_text=request.query_text, exc_info=True)
             raise HTTPException(
@@ -606,7 +819,7 @@ async def plan_highlight_playlist(
             )
         
         # Build playlist from candidates
-        items, explanation = build_playlist_from_candidates(
+        items, explanation = await build_playlist_from_candidates(
             candidates,
             spec.requested_duration_minutes,
             spec,
@@ -632,7 +845,9 @@ async def plan_highlight_playlist(
                 )
         
         # Compute stale_after (metadata already extracted above)
-        now = datetime.utcnow()
+        from ..utils.datetime_utils import now_utc
+        
+        now = now_utc()
         stale_after = compute_stale_after(event_date, now, request.mode.value)
         
         # Create or get query
@@ -680,6 +895,27 @@ async def plan_highlight_playlist(
         
         # Log cache miss with metrics
         actual_duration_minutes = playlist.total_duration_seconds / 60
+        
+        # Calculate recency metrics
+        date_window_days = None
+        if spec.date_range and spec.date_range.start_date and spec.date_range.end_date:
+            try:
+                start_dt = datetime.fromisoformat(spec.date_range.start_date)
+                end_dt = datetime.fromisoformat(spec.date_range.end_date)
+                date_window_days = (end_dt - start_dt).days
+            except (ValueError, AttributeError):
+                pass
+        
+        # Builder usage stats
+        builder_used = bool(request.sports or request.teams or request.players or request.play_types)
+        builder_stats = {
+            "sports_count": len(request.sports) if request.sports else 0,
+            "teams_count": len(request.teams) if request.teams else 0,
+            "players_count": len(request.players) if request.players else 0,
+            "play_types_count": len(request.play_types) if request.play_types else 0,
+            "date_preset": request.date_preset or None,
+        }
+        
         log.info(
             "highlight_playlist_cache_miss",
             playlist_id=playlist.id,
@@ -691,6 +927,10 @@ async def plan_highlight_playlist(
             youtube_api_calls=youtube_api_calls,
             videos_found=len(candidates),
             videos_selected=len(items),
+            date_window_days=date_window_days,
+            builder_used=builder_used,
+            builder_stats=builder_stats,
+            inferred_date_window=bool(spec.assumptions and any("defaulted" in a.lower() or "assumed" in a.lower() for a in spec.assumptions)),
         )
         
         return HighlightPlanResponse(
@@ -728,6 +968,9 @@ async def get_highlight_playlist(playlist_id: int) -> HighlightDetailResponse:
         
         playlist, query = row
         
+        # Handle mode - it might be a string or an enum
+        mode_value = query.mode.value if hasattr(query.mode, 'value') else str(query.mode)
+        
         return HighlightDetailResponse(
             playlist_id=playlist.id,
             query_id=query.id,
@@ -738,11 +981,16 @@ async def get_highlight_playlist(playlist_id: int) -> HighlightDetailResponse:
             created_at=playlist.created_at.isoformat(),
             stale_after=playlist.stale_after.isoformat() if playlist.stale_after else None,
             query_metadata={
-                "mode": query.mode.value,
+                "mode": mode_value,
                 "requested_duration_minutes": query.requested_duration_minutes,
                 "version": query.version,
                 "created_at": query.created_at.isoformat(),
                 "last_used_at": query.last_used_at.isoformat(),
+                "sport": query.sport,
+                "league": query.league,
+                "teams": query.teams,
+                "event_date": query.event_date.isoformat() if query.event_date else None,
+                "is_playoff": query.is_playoff,
             },
             disclaimer="This app builds playlists using public YouTube videos. We do not host or control the content.",
         )

@@ -10,6 +10,16 @@ export interface HighlightPlanRequest {
   query_text: string;
   mode?: PlaylistMode;
   user_id?: string | null;
+  // Structured builder fields (optional)
+  sports?: string[];
+  teams?: string[];
+  players?: string[];
+  play_types?: string[];
+  date_preset?: string;
+  custom_start_date?: string;
+  custom_end_date?: string;
+  duration_minutes?: number;
+  comments?: string;
 }
 
 export interface PlaylistItem {
