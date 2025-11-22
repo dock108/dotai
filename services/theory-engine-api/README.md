@@ -70,3 +70,13 @@ Cache entries are stored in `external_context_cache` table with `key_hash` (SHA-
 - `POST /api/playlist/evaluate` - Evaluate playlist request
 
 See `docs/THEORY_ENGINE.md` for the full blueprint and `docs/HIGHLIGHTS_API.md` for highlights API documentation.
+
+## Maintenance Scripts
+
+Common maintenance tasks live in `scripts/`:
+
+- `python scripts/clear_cache.py --help` — purge playlist cache by sport/query/all.
+- `python scripts/clear_conspiracy_cache.py --help` — drop in-memory conspiracy narrative cache.
+- `python scripts/refresh_youtube_token.py` — refresh the YouTube OAuth access token (requires env vars).
+
+Each script automatically adds the repo root to `sys.path`, so you can run them directly from the service directory.

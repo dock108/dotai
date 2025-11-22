@@ -56,12 +56,20 @@ export interface StocksResponse extends TheoryResponse {
   volume_analysis: string;
 }
 
+export interface ClaimEvidence {
+  claim: string;
+  evidence: string;
+  verdict: string;
+}
+
 export interface ConspiraciesResponse extends TheoryResponse {
-  likelihood_rating: number; // 0-100
-  evidence_for: string[];
-  evidence_against: string[];
-  historical_parallels: string[];
-  missing_data: string[];
+  claim_text: string;
+  story_sections: string[];
+  claims_vs_evidence: ClaimEvidence[];
+  verdict_text: string;
+  confidence_score: number;
+  sources_used: string[];
+  fuels_today: string[];
 }
 
 // API Error types

@@ -10,6 +10,9 @@ data-workers/
     __init__.py
     main.py          # Celery app configuration
     config.py        # Settings management
+  services/
+    __init__.py
+    cache.py       # Shared Redis helpers
     workers/
       __init__.py
       youtube_cache.py    # Pre-fetch popular sports queries

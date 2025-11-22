@@ -37,6 +37,10 @@ This directory contains all documentation for the dock108 monorepo.
 - **[`highlight-mvp.md`](highlight-mvp.md)** - Current constraints, limitations, and future ideas
 - **[`YOUTUBE_SETUP.md`](YOUTUBE_SETUP.md)** - YouTube OAuth setup and token management guide
 
+#### Conspiracy Theory Evaluation
+
+- **[`CONSPIRACY_THEORY.md`](CONSPIRACY_THEORY.md)** - Narrative-driven conspiracy analysis, rubric-based scoring, and data sources
+
 ### 📋 Planning & Reference
 
 - **[`ROADMAP.md`](ROADMAP.md)** - Future roadmap and planned features
@@ -53,11 +57,13 @@ Historical reference documents are in the [`archive/`](archive/) folder:
 
 ✅ **Up to Date**:
 - `LOCAL_DEPLOY.md` - Comprehensive local deployment guide
-- `HIGHLIGHTS_API.md` - Complete API documentation with metrics endpoints
+- `HIGHLIGHTS_API.md` - Complete API documentation with metrics and watch token endpoints
 - `HIGHLIGHT_PARSING.md` - AI parsing system documentation
 - `SPORTS_SEARCH.md` - Search module documentation
 - `PLAYLIST_DATABASE.md` - Database schema documentation
 - `highlight-mvp.md` - Current constraints and limitations
+- `CONSPIRACY_THEORY.md` - Narrative-driven conspiracy analysis documentation
+- `API_KEYS_SETUP.md` - API key setup guide for all services
 - `ARCHITECTURE.md` - System architecture
 - `THEORY_ENGINE.md` - Theory engine blueprint
 - `SAFETY_GUARDRAILS.md` - Guardrail system

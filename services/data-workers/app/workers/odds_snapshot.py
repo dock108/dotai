@@ -1,13 +1,11 @@
 """Odds snapshot worker - caches betting odds data."""
 
-import json
 from datetime import datetime
 
-import redis
 import structlog
 
-from app.config import settings
 from app.main import app
+from app.services.cache import get_redis_client, write_json_cache
 
 logger = structlog.get_logger()
 
@@ -26,7 +24,7 @@ def fetch_and_cache_odds(sport: str | None = None, league: str | None = None):
         league: Optional league filter
     """
     try:
-        redis_client = redis.from_url(settings.redis_url, decode_responses=True)
+        redis_client = get_redis_client()
         
         cache_key = f"odds:{sport or 'all'}:{league or 'all'}"
         ttl_seconds = 300  # 5 minutes TTL for odds data
@@ -47,11 +45,7 @@ def fetch_and_cache_odds(sport: str | None = None, league: str | None = None):
             "api_provider": "placeholder",
         }
         
-        redis_client.setex(
-            cache_key,
-            ttl_seconds,
-            json.dumps(placeholder_data),
-        )
+        write_json_cache(redis_client, cache_key, placeholder_data, ttl_seconds)
         
         logger.info(
             "Cached odds snapshot",
@@ -86,4 +80,3 @@ def schedule_daily_odds_snapshots():
     
     logger.info("Scheduled daily odds snapshots", sports=sports)
     return {"status": "success", "sports": sports}
-

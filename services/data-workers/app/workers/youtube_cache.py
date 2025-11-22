@@ -1,13 +1,11 @@
 """YouTube cache worker - pre-fetches popular sports queries."""
 
-import json
-from datetime import datetime, timedelta
+from datetime import datetime
 
-import redis
 import structlog
 
-from app.config import settings
 from app.main import app
+from app.services.cache import get_redis_client, write_json_cache
 
 logger = structlog.get_logger()
 
@@ -32,7 +30,7 @@ def pre_fetch_popular_queries():
     reducing API latency for users.
     """
     try:
-        redis_client = redis.from_url(settings.redis_url, decode_responses=True)
+        redis_client = get_redis_client()
         
         # For now, we'll store placeholder cache entries
         # In a full implementation, this would:
@@ -72,11 +70,7 @@ def pre_fetch_popular_queries():
                 "api_calls": 0,
             }
             
-            redis_client.setex(
-                cache_key,
-                ttl_seconds,
-                json.dumps(placeholder_data),
-            )
+            write_json_cache(redis_client, cache_key, placeholder_data, ttl_seconds)
             
             logger.info(
                 "Cached query",
@@ -101,7 +95,7 @@ def refresh_query_cache(query: str, ttl_seconds: int = 3600):
         ttl_seconds: Time to live in seconds
     """
     try:
-        redis_client = redis.from_url(settings.redis_url, decode_responses=True)
+        redis_client = get_redis_client()
         cache_key = f"youtube_cache:{query}"
         
         # Placeholder: In full implementation, would call YouTube API here
@@ -114,11 +108,7 @@ def refresh_query_cache(query: str, ttl_seconds: int = 3600):
             "api_calls": 0,
         }
         
-        redis_client.setex(
-            cache_key,
-            ttl_seconds,
-            json.dumps(placeholder_data),
-        )
+        write_json_cache(redis_client, cache_key, placeholder_data, ttl_seconds)
         
         logger.info("Refreshed query cache", query=query, ttl_seconds=ttl_seconds)
         return {"status": "success", "query": query}

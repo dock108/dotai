@@ -167,6 +167,17 @@ docker-compose up -d postgres
 3. Create new secret key
 4. Copy the key
 
+### 3. Get Google Fact Check API Key (Optional - for Conspiracy Theory Evaluation)
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select existing
+3. Enable "Fact Check Tools API"
+4. Create credentials (API Key)
+5. Copy the API key
+6. Add to `.env` as `GOOGLE_FACTCHECK_API_KEY`
+
+**Note**: This is optional. The conspiracy theory evaluation will work without it, but fact-check results will be limited.
+
 ## Backend Setup
 
 ### 1. Navigate to Service Directory
@@ -193,6 +204,10 @@ DATABASE_URL=postgresql+asyncpg://dock108:changeme@localhost:5432/dock108
 # API Keys
 OPENAI_API_KEY=sk-your-openai-key-here
 YOUTUBE_API_KEY=your-youtube-api-key-here
+
+# Optional: Google Fact Check API (for conspiracy theory evaluation)
+# Get key from: https://console.cloud.google.com/apis/credentials
+# GOOGLE_FACTCHECK_API_KEY=your-google-factcheck-api-key-here
 
 # Optional: YouTube OAuth (for playlist creation)
 # YOUTUBE_OAUTH_ACCESS_TOKEN=your-oauth-token

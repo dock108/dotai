@@ -32,14 +32,20 @@ docs/                 # Living architecture + guardrail specs
   - AI-powered parsing, guardrails, YouTube search, intelligent caching
   - Iterative filtering with AI-powered description analysis
   - Recent highlights focus (last 48 hours to 30 days)
+  - Embedded YouTube player with temporary, shareable watch links (48-hour expiration)
   - See [Sports Highlight Channel Feature](#sports-highlight-channel-feature) below
+- **Conspiracy Theory Evaluation** (`apps/theory-conspiracy-web` + `services/theory-engine-api`):
+  - Narrative-driven analysis with mini-documentary summaries
+  - Evidence comparison and rubric-based confidence scoring (0-100)
+  - Wikipedia and fact-check database integration
+  - See [`docs/CONSPIRACY_THEORY.md`](docs/CONSPIRACY_THEORY.md) for details
 
 ### Other Apps
 
 - `apps/playlist-web`: Legacy YouTube curator MVP (Next.js) - original playlist builder
 - `apps/game-web/swift-prototype`: Shipping SwiftUI AI lesson game (spec for future React port)
 - `apps/game-web`: React/Next.js port (in progress)
-- `apps/theory-*-web`: Domain-specific theory surfaces (placeholders for bets, crypto, stocks, conspiracies)
+- `apps/theory-*-web`: Domain-specific theory surfaces (bets, crypto, stocks, conspiracies) - Conspiracy theory fully implemented with narrative engine
 
 ## Sports Highlight Channel Feature
 
@@ -68,6 +74,8 @@ For comprehensive local development and testing instructions, see **[`docs/LOCAL
 **Highlights API:**
 - `POST /api/highlights/plan` - Plan a highlight playlist from user query
 - `GET /api/highlights/{playlist_id}` - Get detailed playlist information
+- `POST /api/highlights/{playlist_id}/watch-token` - Generate temporary watch token (48-hour expiration)
+- `GET /api/highlights/watch/{token}` - Access playlist via watch token
 - `GET /api/highlights/metrics` - Get metrics (sports requested, avg duration, cache hit rate)
 - `GET /api/highlights/metrics/csv` - Get metrics as CSV for dashboard
 
@@ -97,15 +105,19 @@ See [`docs/HIGHLIGHTS_API.md`](docs/HIGHLIGHTS_API.md) for detailed API document
 ### Completed ✅
 
 - **Sports Highlight Channel MVP**: Full-stack feature with AI parsing, guardrails, caching, and metrics
+- **Embedded YouTube Player**: Temporary watch links (48-hour expiration) with auto-play, looping, and controls
+- **Conspiracy Theory Narrative Engine**: Mini-documentary summaries, evidence comparison, rubric-based confidence scoring
 - **Guided UI Builder**: Structured input with sports checklists, player/team/play type chips, date presets, duration sliders
 - **Code Cleanup**: 
-  - Backend: Centralized datetime utilities, date range helpers, error handlers
+  - Backend: Centralized datetime utilities, date range helpers, error handlers, watch token system
   - Frontend: Extracted constants, types, utilities, and presets into `src/lib/` modules
   - Removed duplicate code and improved modularity
+  - Organized scripts into `services/theory-engine-api/scripts/` directory
+  - Organized cache helpers into `services/data-workers/app/services/` directory
 - **Shared Python Core** (`packages/py-core`): Schemas, guardrails, scoring utilities, YouTube client, staleness logic
-- **Theory Engine API** (`services/theory-engine-api`): FastAPI backend with highlights endpoints, database models, migrations
+- **Theory Engine API** (`services/theory-engine-api`): FastAPI backend with highlights endpoints, conspiracy narrative endpoints, database models, migrations
 - **Infrastructure**: Docker Compose setup for full monorepo deployment
-- **Documentation**: Comprehensive guides for local development and production deployment
+- **Documentation**: Comprehensive guides for local development, production deployment, and feature documentation
 
 ### In Progress 🚧
 

@@ -118,6 +118,34 @@ Retrieve detailed playlist information.
 **Error Responses**:
 - `404 Not Found`: Playlist not found
 
+### POST /api/highlights/{playlist_id}/watch-token
+
+Generate a temporary watch token for a playlist. The token expires after 48 hours and can be used to access the playlist via the `/api/highlights/watch/{token}` endpoint.
+
+**Response** (200 OK):
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "watch_url": "/watch/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expires_at": "2024-11-20T12:00:00Z"
+}
+```
+
+**Error Responses**:
+- `404 Not Found`: Playlist not found
+
+### GET /api/highlights/watch/{token}
+
+Get playlist data using a watch token. This endpoint validates the token and returns playlist data if valid.
+
+**Response** (200 OK):
+Same structure as `GET /api/highlights/{playlist_id}`
+
+**Error Responses**:
+- `403 Forbidden`: Token is invalid or expired
+
+**Note**: Tokens expire after 48 hours. Generate a new token from the playlist page if expired.
+
 ### GET /api/highlights/metrics
 
 Get metrics for highlight playlists (sports requested, average duration, cache hit rate).

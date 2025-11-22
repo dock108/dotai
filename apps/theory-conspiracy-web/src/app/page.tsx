@@ -34,7 +34,7 @@ export default function Home() {
       <Container>
         <DomainHeader
           title="conspiracies.dock108.ai"
-          subtitle="Evaluate conspiracy theories with fact-checking and evidence analysis"
+          subtitle="Narrative-driven analysis with evidence comparison and rubric-based confidence scoring"
           domain="conspiracies"
         />
 

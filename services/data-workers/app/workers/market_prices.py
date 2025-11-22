@@ -1,13 +1,11 @@
 """Market prices worker - caches crypto and stock prices."""
 
-import json
 from datetime import datetime
 
-import redis
 import structlog
 
-from app.config import settings
 from app.main import app
+from app.services.cache import get_redis_client, write_json_cache
 
 logger = structlog.get_logger()
 
@@ -25,7 +23,7 @@ def fetch_and_cache_crypto_prices(symbols: list[str] | None = None):
         symbols: Optional list of crypto symbols (BTC, ETH, etc.). If None, fetches top 100.
     """
     try:
-        redis_client = redis.from_url(settings.redis_url, decode_responses=True)
+        redis_client = get_redis_client()
         
         symbols = symbols or ["BTC", "ETH", "SOL", "BNB", "ADA"]
         ttl_seconds = 60  # 1 minute TTL for crypto prices (high frequency)
@@ -43,11 +41,7 @@ def fetch_and_cache_crypto_prices(symbols: list[str] | None = None):
                 "api_provider": "placeholder",
             }
             
-            redis_client.setex(
-                cache_key,
-                ttl_seconds,
-                json.dumps(placeholder_data),
-            )
+            write_json_cache(redis_client, cache_key, placeholder_data, ttl_seconds)
         
         logger.info("Cached crypto prices", symbols=symbols, ttl_seconds=ttl_seconds)
         return {"status": "success", "symbols": symbols}
@@ -70,7 +64,7 @@ def fetch_and_cache_stock_prices(symbols: list[str] | None = None):
         symbols: Optional list of stock symbols (AAPL, MSFT, etc.). If None, fetches S&P 500.
     """
     try:
-        redis_client = redis.from_url(settings.redis_url, decode_responses=True)
+        redis_client = get_redis_client()
         
         symbols = symbols or ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"]
         ttl_seconds = 300  # 5 minutes TTL for stock prices (market hours)
@@ -88,11 +82,7 @@ def fetch_and_cache_stock_prices(symbols: list[str] | None = None):
                 "api_provider": "placeholder",
             }
             
-            redis_client.setex(
-                cache_key,
-                ttl_seconds,
-                json.dumps(placeholder_data),
-            )
+            write_json_cache(redis_client, cache_key, placeholder_data, ttl_seconds)
         
         logger.info("Cached stock prices", symbols=symbols, ttl_seconds=ttl_seconds)
         return {"status": "success", "symbols": symbols}

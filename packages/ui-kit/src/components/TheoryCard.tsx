@@ -10,31 +10,17 @@ export interface DataSource {
 }
 
 export interface TheoryResponse {
-  // 1. Summary
   summary: string;
-
-  // 2. Verdict + Confidence
   verdict: string;
   confidence: number;
-
-  // 3. Data we used
   data_used: DataSource[];
-
-  // 4. How we got the conclusion
   how_we_got_conclusion: string[];
-
-  // 5. Long-term $100 example
   long_term_outcome_example: string;
-
-  // 6. Limits / missing data
   limitations: string[];
-
-  // 7. Meta
   guardrail_flags: string[];
   model_version?: string;
   evaluation_date?: string;
 
-  // Domain-specific extensions (for backward compatibility)
   likelihood_grade?: string;
   edge_estimate?: number;
   kelly_sizing_example?: string;
@@ -49,12 +35,38 @@ export interface TheoryResponse {
   evidence_against?: string[];
   historical_parallels?: string[];
   missing_data?: string[];
+  key_facts?: string[];
+  assumptions?: string[];
+  logical_fallacies?: string[];
+  claim_text?: string;
+  story_sections?: string[];
+  claims_vs_evidence?: ClaimEvidence[];
+  verdict_text?: string;
+  confidence_score?: number;
+  sources_used?: string[];
+  fuels_today?: string[];
+}
+
+interface ClaimEvidence {
+  claim: string;
+  evidence: string;
+  verdict: string;
 }
 
 interface TheoryCardProps {
   response: TheoryResponse;
   domain: "bets" | "crypto" | "stocks" | "conspiracies";
 }
+
+type ConspiracyResponseShape = TheoryResponse & {
+  claim_text: string;
+  story_sections: string[];
+  claims_vs_evidence: ClaimEvidence[];
+  verdict_text: string;
+  confidence_score: number;
+  sources_used: string[];
+  fuels_today?: string[];
+};
 
 function DomainSection({ title, children, response }: { title: string; children: React.ReactNode; response: TheoryResponse }) {
   const [expanded, setExpanded] = useState(true);
@@ -70,6 +82,100 @@ function DomainSection({ title, children, response }: { title: string; children:
         <span className={styles.toggleIcon}>{expanded ? "−" : "+"}</span>
       </button>
       {expanded && <div className={styles.domainSectionContent}>{children}</div>}
+    </div>
+  );
+}
+
+function getConfidenceClass(score: number): string {
+  if (score <= 20) return styles.confidenceLow;
+  if (score <= 50) return styles.confidenceMedium;
+  if (score <= 80) return styles.confidenceHigh;
+  return styles.confidenceVeryHigh;
+}
+
+function formatVerdictLabel(verdict: string): string {
+  if (!verdict) return "Verdict";
+  return verdict;
+}
+
+function ConspiracyNarrativeCard({ response }: { response: ConspiracyResponseShape }) {
+  const claim = response.claim_text || response.summary;
+  const story = response.story_sections?.length ? response.story_sections : [response.summary];
+  const claimsVsEvidence = response.claims_vs_evidence || [];
+  const confidenceScore = response.confidence_score ?? Math.round((response.confidence || 0) * 100);
+  const verdictText = response.verdict_text || response.verdict;
+  const sources = response.sources_used && response.sources_used.length > 0 ? response.sources_used : ["Sources not specified"];
+  const fuels = response.fuels_today && response.fuels_today.length > 0 ? response.fuels_today : [];
+
+  return (
+    <div className={styles.conspiracyCard}>
+      <div className={styles.claimHeader}>
+        <div>
+          <p className={styles.claimLabel}>The Claim</p>
+          <h2 className={styles.claimTitle}>{claim}</h2>
+        </div>
+        <div className={`${styles.confidenceBadge} ${getConfidenceClass(confidenceScore)}`}>
+          <span className={styles.badgeValue}>{confidenceScore}</span>
+          <span className={styles.badgeText}>/ 100</span>
+        </div>
+      </div>
+
+      <div className={styles.sectionBlock}>
+        <h3 className={styles.narrativeSectionTitle}>The Story Behind This Theory</h3>
+        {story.map((paragraph, idx) => (
+          <p key={idx} className={styles.storyParagraph}>
+            {paragraph}
+          </p>
+        ))}
+      </div>
+
+      {claimsVsEvidence.length > 0 && (
+        <div className={styles.sectionBlock}>
+          <h3 className={styles.narrativeSectionTitle}>Claims vs Evidence</h3>
+          <div className={styles.claimsGrid}>
+            {claimsVsEvidence.map((item, idx) => (
+              <div key={`${item.claim}-${idx}`} className={styles.claimRow}>
+                <div className={styles.claimColumn}>
+                  <span className={styles.claimLabel}>Claim</span>
+                  <p>{item.claim}</p>
+                </div>
+                <div className={styles.evidenceColumn}>
+                  <span className={styles.claimLabel}>Evidence</span>
+                  <p>{item.evidence}</p>
+                  <span className={`${styles.verdictTag} ${styles[`verdict-${item.verdict?.toLowerCase() || "unclear"}`]}`}>
+                    {item.verdict?.toUpperCase() || "UNCLEAR"}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className={styles.sectionBlock}>
+        <h3 className={styles.narrativeSectionTitle}>Final Verdict</h3>
+        <p className={styles.verdictText}>{formatVerdictLabel(verdictText)}</p>
+      </div>
+
+      <div className={styles.sectionBlock}>
+        <h3 className={styles.narrativeSectionTitle}>Sources Consulted</h3>
+        <ul className={styles.sourceList}>
+          {sources.map((source, idx) => (
+            <li key={`${source}-${idx}`}>{source}</li>
+          ))}
+        </ul>
+      </div>
+
+      {fuels.length > 0 && (
+        <div className={styles.sectionBlock}>
+          <h3 className={styles.narrativeSectionTitle}>What Fuels This Theory Today?</h3>
+          <ul className={styles.sourceList}>
+            {fuels.map((item, idx) => (
+              <li key={`${item}-${idx}`}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -98,6 +204,10 @@ export function TheoryCard({ response, domain }: TheoryCardProps) {
         )}
       </div>
     );
+  }
+
+  if (domain === "conspiracies") {
+    return <ConspiracyNarrativeCard response={response as ConspiracyResponseShape} />;
   }
 
   return (
@@ -258,53 +368,119 @@ export function TheoryCard({ response, domain }: TheoryCardProps) {
       )}
 
       {domain === "conspiracies" && (
-        <DomainSection title="Fact-Checking Analysis" response={response}>
+        <>
+          {/* Likelihood Rating - Prominent Display */}
           {response.likelihood_rating !== undefined && (
-            <div className={styles.domainField}>
-              <strong>Likelihood Rating:</strong> <span className={styles.rating}>{response.likelihood_rating}/100</span>
+            <div className={styles.likelihoodSection}>
+              <div className={styles.likelihoodHeader}>
+                <h3 className={styles.likelihoodTitle}>Likelihood Assessment</h3>
+                <div className={styles.likelihoodRating}>
+                  <span className={styles.ratingNumber}>{response.likelihood_rating}</span>
+                  <span className={styles.ratingOutOf}>/ 100</span>
+                </div>
+              </div>
+              <div className={styles.ratingBar}>
+                <div 
+                  className={styles.ratingFill} 
+                  style={{ width: `${response.likelihood_rating}%` }}
+                />
+              </div>
             </div>
           )}
-          {response.evidence_for && response.evidence_for.length > 0 && (
-            <div className={styles.domainField}>
-              <strong>Evidence For:</strong>
-              <ul className={styles.domainList}>
-                {response.evidence_for.map((item, idx) => (
-                  <li key={idx}>{item}</li>
+
+          {/* Key Facts - Most Important */}
+          {response.key_facts && response.key_facts.length > 0 && (
+            <DomainSection title="📋 Key Facts" response={response}>
+              <div className={styles.factsGrid}>
+                {response.key_facts.map((fact, idx) => (
+                  <div key={idx} className={styles.factCard}>
+                    <div className={styles.factIcon}>✓</div>
+                    <p className={styles.factText}>{fact}</p>
+                  </div>
                 ))}
-              </ul>
-            </div>
+              </div>
+            </DomainSection>
           )}
-          {response.evidence_against && response.evidence_against.length > 0 && (
-            <div className={styles.domainField}>
-              <strong>Evidence Against:</strong>
-              <ul className={styles.domainList}>
-                {response.evidence_against.map((item, idx) => (
-                  <li key={idx}>{item}</li>
+
+          {/* Evidence Sections */}
+          <div className={styles.evidenceContainer}>
+            {response.evidence_against && response.evidence_against.length > 0 && (
+              <DomainSection title="❌ Evidence Against" response={response}>
+                <div className={styles.evidenceList}>
+                  {response.evidence_against.map((item, idx) => (
+                    <div key={idx} className={styles.evidenceItemAgainst}>
+                      <div className={styles.evidenceIcon}>✗</div>
+                      <p>{item}</p>
+                    </div>
+                  ))}
+                </div>
+              </DomainSection>
+            )}
+            
+            {response.evidence_for && response.evidence_for.length > 0 && (
+              <DomainSection title="✓ Evidence For" response={response}>
+                <div className={styles.evidenceList}>
+                  {response.evidence_for.map((item, idx) => (
+                    <div key={idx} className={styles.evidenceItemFor}>
+                      <div className={styles.evidenceIcon}>✓</div>
+                      <p>{item}</p>
+                    </div>
+                  ))}
+                </div>
+              </DomainSection>
+            )}
+          </div>
+
+          {/* Logical Fallacies - Important */}
+          {response.logical_fallacies && response.logical_fallacies.length > 0 && (
+            <DomainSection title="⚠️ Logical Fallacies Detected" response={response}>
+              <div className={styles.fallaciesList}>
+                {response.logical_fallacies.map((fallacy, idx) => (
+                  <div key={idx} className={styles.fallacyCard}>
+                    <div className={styles.fallacyIcon}>⚠</div>
+                    <p className={styles.fallacyText}>{fallacy}</p>
+                  </div>
                 ))}
-              </ul>
-            </div>
+              </div>
+            </DomainSection>
           )}
+
+          {/* Assumptions */}
+          {response.assumptions && response.assumptions.length > 0 && (
+            <DomainSection title="🤔 Assumptions Identified" response={response}>
+              <div className={styles.assumptionsList}>
+                {response.assumptions.map((assumption, idx) => (
+                  <div key={idx} className={styles.assumptionCard}>
+                    <div className={styles.assumptionIcon}>?</div>
+                    <p className={styles.assumptionText}>{assumption}</p>
+                  </div>
+                ))}
+              </div>
+            </DomainSection>
+          )}
+
+          {/* Historical Parallels */}
           {response.historical_parallels && response.historical_parallels.length > 0 && (
-            <div className={styles.domainField}>
-              <strong>Historical Parallels:</strong>
+            <DomainSection title="📚 Historical Parallels" response={response}>
               <ul className={styles.domainList}>
                 {response.historical_parallels.map((item, idx) => (
                   <li key={idx}>{item}</li>
                 ))}
               </ul>
-            </div>
+            </DomainSection>
           )}
+
+          {/* Missing Data */}
           {response.missing_data && response.missing_data.length > 0 && (
-            <div className={styles.domainField}>
-              <strong>Missing Data:</strong>
+            <DomainSection title="🔍 Missing Data" response={response}>
               <ul className={styles.domainList}>
                 {response.missing_data.map((item, idx) => (
                   <li key={idx}>{item}</li>
                 ))}
               </ul>
-            </div>
+            </DomainSection>
           )}
-        </DomainSection>
+        </>
       )}
     </div>
   );

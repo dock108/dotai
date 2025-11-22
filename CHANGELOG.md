@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Embedded YouTube Player & Watch Tokens
+
+#### Added
+- **Watch token system** for temporary playlist access:
+  - `POST /api/highlights/{playlist_id}/watch-token` - Generate 48-hour expiring tokens
+  - `GET /api/highlights/watch/{token}` - Access playlist via token
+  - JWT-based token generation with expiration validation
+  - `WATCH_TOKEN_SECRET` environment variable for token signing
+- **Embedded YouTube player** (`apps/highlight-channel-web/src/app/watch/[token]/page.tsx`):
+  - Auto-play, sequential video playback, and playlist looping
+  - Play/pause, next/previous, and volume controls
+  - Token expiration countdown display
+  - Shareable temporary URLs that expire after 48 hours
+- **Watch link generation** in playlist page:
+  - "Generate Watch Link" button to create temporary access URLs
+  - Automatic clipboard copy on generation
+  - Expiration timestamp display
+
+#### Changed
+- Playlist page now supports both direct YouTube redirect and embedded player options
+- Watch token endpoints added to highlights API documentation
+
+### Conspiracy Theory Narrative Engine
+
+#### Added
+- **Narrative-driven analysis** replacing generic fact-checking:
+  - "The Claim" - One-sentence reframing of user query
+  - "The Story Behind This Theory" - 4-7 paragraph mini-documentary
+  - "Claims vs Evidence" - Side-by-side comparison bullets
+  - "Final Verdict" - Direct, evidence-based conclusion
+  - "Confidence Score (0-100)" - Rubric-based scoring with weighted factors
+  - "Sources Consulted" - Human-readable source list
+  - "What Fuels This Theory Today?" - Optional cultural persistence section
+- **Rubric-based confidence scoring**:
+  - Historical documentation (30%)
+  - Independent corroboration (20%)
+  - Scientific plausibility (20%)
+  - Expert consensus (20%)
+  - Internal coherence (10%)
+- **Enhanced Wikipedia integration**:
+  - Multiple search strategies for better article discovery
+  - Improved User-Agent headers to prevent 403 errors
+  - Enhanced key facts extraction (3-8 sentences)
+- **Heuristic fallback** when OpenAI is unavailable or fails
+- **Conspiracy narrative prompt** (`services/theory-engine-api/ai_prompts/conspiracy_narrative.md`)
+
+#### Changed
+- Conspiracy theory UI overhauled for narrative display
+- Removed old fields: `likelihood_rating`, `evidence_for`, `evidence_against`, `historical_parallels`, `missing_data`, `key_facts`, `assumptions`, `logical_fallacies`
+- Updated `TheoryCard` component with narrative-specific rendering for conspiracies domain
+
 ### Code Cleanup & Organization
 
 #### Added
