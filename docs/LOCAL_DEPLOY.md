@@ -198,6 +198,10 @@ YOUTUBE_API_KEY=your-youtube-api-key-here
 # YOUTUBE_OAUTH_ACCESS_TOKEN=your-oauth-token
 # YOUTUBE_PLAYLIST_CHANNEL_ID=your-channel-id
 
+# Watch Token Secret (for temporary playlist access links)
+# Generate a secure random string: python -c "import secrets; print(secrets.token_urlsafe(32))"
+WATCH_TOKEN_SECRET=your_random_32_plus_character_secret_here
+
 # Environment
 ENVIRONMENT=development
 ```

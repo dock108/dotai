@@ -17,6 +17,9 @@ export default function PlaylistPage() {
   const [error, setError] = useState<{ message: string; code?: string } | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
   const [workdayHours, setWorkdayHours] = useState<number | null>(null);
+  const [watchToken, setWatchToken] = useState<{token: string; watch_url: string; expires_at: string} | null>(null);
+  const [generatingToken, setGeneratingToken] = useState(false);
+  const [tokenError, setTokenError] = useState<string | null>(null);
   
   // Initialize API client
   const apiClient = createClient();
@@ -75,6 +78,55 @@ export default function PlaylistPage() {
     if (playlist) {
       const url = buildYouTubePlaylistUrl(playlist.items);
       window.open(url, "_blank");
+    }
+  };
+
+  const handleGenerateWatchLink = async () => {
+    if (!playlist) return;
+    
+    setGeneratingToken(true);
+    setTokenError(null);
+    
+    try {
+      const tokenData = await highlightsAPI.getWatchToken(playlist.playlist_id);
+      setWatchToken(tokenData);
+    } catch (err: unknown) {
+      const errorInfo = extractErrorInfo(err);
+      setTokenError(errorInfo.message || "Failed to generate watch link");
+    } finally {
+      setGeneratingToken(false);
+    }
+  };
+
+  const handleCopyWatchLink = () => {
+    if (!watchToken) return;
+    
+    const fullUrl = `${window.location.origin}${watchToken.watch_url}`;
+    navigator.clipboard.writeText(fullUrl).then(() => {
+      // Show brief success feedback
+      const button = document.querySelector(`[data-copy-button]`) as HTMLButtonElement;
+      if (button) {
+        const originalText = button.textContent;
+        button.textContent = "Copied!";
+        setTimeout(() => {
+          button.textContent = originalText;
+        }, 2000);
+      }
+    });
+  };
+
+  const formatTimeUntilExpiry = (expiresAt: string): string => {
+    try {
+      const expiry = new Date(expiresAt);
+      const now = new Date();
+      const hoursUntil = Math.floor((expiry.getTime() - now.getTime()) / (1000 * 60 * 60));
+      if (hoursUntil < 1) {
+        const minutesUntil = Math.floor((expiry.getTime() - now.getTime()) / (1000 * 60));
+        return `${minutesUntil} minutes`;
+      }
+      return `${hoursUntil} hours`;
+    } catch {
+      return "48 hours";
     }
   };
 
@@ -151,9 +203,43 @@ export default function PlaylistPage() {
         </div>
 
         <div className={styles.controls}>
-          <button className={styles.primaryButton} onClick={handlePlayAll}>
-            Play Show on YouTube
-          </button>
+          <div className={styles.buttonGroup}>
+            <button className={styles.primaryButton} onClick={handlePlayAll}>
+              Play Show on YouTube
+            </button>
+            <button 
+              className={styles.secondaryButton} 
+              onClick={handleGenerateWatchLink}
+              disabled={generatingToken || !!watchToken}
+            >
+              {generatingToken ? "Generating..." : watchToken ? "Watch Link Generated" : "Generate Watch Link"}
+            </button>
+          </div>
+          {tokenError && (
+            <p className={styles.errorText}>{tokenError}</p>
+          )}
+          {watchToken && (
+            <div className={styles.watchLinkSection}>
+              <div className={styles.watchLinkBox}>
+                <input
+                  type="text"
+                  readOnly
+                  value={`${window.location.origin}${watchToken.watch_url}`}
+                  className={styles.watchLinkInput}
+                />
+                <button
+                  data-copy-button
+                  className={styles.copyButton}
+                  onClick={handleCopyWatchLink}
+                >
+                  Copy Link
+                </button>
+              </div>
+              <p className={styles.expiryText}>
+                Link expires in {formatTimeUntilExpiry(watchToken.expires_at)}
+              </p>
+            </div>
+          )}
           <p className={styles.playHint}>
             Starts a playlist that will loop when it finishes.
           </p>

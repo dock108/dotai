@@ -194,6 +194,11 @@ def build_search_queries(spec: SportsSearchSpec) -> list[str]:
         "NBA": ["NBA", "basketball"],
         "MLB": ["MLB", "baseball"],
         "NHL": ["NHL", "hockey"],
+        "PGA": ["PGA", "golf", "PGA Tour", "professional golf", "golf highlights"],
+        "LPGA": ["LPGA", "golf", "women's golf", "LPGA Tour"],
+        "F1": ["F1", "Formula 1", "Formula One", "racing"],
+        "SOCCER": ["soccer", "football", "football highlights"],
+        "TENNIS": ["tennis", "ATP", "WTA"],
     }
     # Use sport-specific search terms, fallback to sport code
     sport_terms = sport_search_terms.get(sport, [sport])
@@ -380,6 +385,51 @@ def calculate_highlight_score(
     # Prepare text for matching
     text = f"{video.title} {video.description}".lower()
     title_lower = video.title.lower()  # Define title_lower for play type matching
+    
+    # 0. Sport matching (CRITICAL - heavily penalize wrong sport)
+    sport_match_score = 1.0
+    sport_lower = sport.upper()
+    
+    # Sport-specific keywords that indicate wrong sport
+    wrong_sport_indicators = {
+        "PGA": ["nba", "basketball", "nfl", "football", "mlb", "baseball", "nhl", "hockey", "wwe", "wrestling", "ufc", "boxing", "tennis"],
+        "NBA": ["golf", "pga", "nfl", "football", "mlb", "baseball", "nhl", "hockey", "wwe", "wrestling", "ufc", "boxing", "tennis"],
+        "NFL": ["golf", "pga", "nba", "basketball", "mlb", "baseball", "nhl", "hockey", "wwe", "wrestling", "ufc", "boxing", "tennis"],
+        "MLB": ["golf", "pga", "nba", "basketball", "nfl", "football", "nhl", "hockey", "wwe", "wrestling", "ufc", "boxing", "tennis"],
+        "NHL": ["golf", "pga", "nba", "basketball", "nfl", "football", "mlb", "baseball", "wwe", "wrestling", "ufc", "boxing", "tennis"],
+        "SOCCER": ["golf", "pga", "nba", "basketball", "nfl", "football", "mlb", "baseball", "nhl", "hockey", "wwe", "wrestling"],
+        "TENNIS": ["golf", "pga", "nba", "basketball", "nfl", "football", "mlb", "baseball", "nhl", "hockey", "wwe", "wrestling"],
+    }
+    
+    # Sport-specific keywords that indicate correct sport
+    correct_sport_indicators = {
+        "PGA": ["golf", "pga", "pga tour", "masters", "us open", "pga championship", "ryder cup", "tiger woods", "phil mickelson", "scottie scheffler"],
+        "NBA": ["nba", "basketball", "lakers", "warriors", "celtics", "lebron", "curry", "durant"],
+        "NFL": ["nfl", "football", "chiefs", "patriots", "mahomes", "brady", "touchdown", "super bowl"],
+        "MLB": ["mlb", "baseball", "yankees", "dodgers", "home run", "world series"],
+        "NHL": ["nhl", "hockey", "stanley cup", "goal", "puck"],
+        "SOCCER": ["soccer", "football", "premier league", "champions league", "world cup", "goal"],
+        "TENNIS": ["tennis", "wimbledon", "us open", "french open", "australian open", "atp", "wta"],
+    }
+    
+    # Check for wrong sport indicators
+    if sport_lower in wrong_sport_indicators:
+        for wrong_indicator in wrong_sport_indicators[sport_lower]:
+            if wrong_indicator in text:
+                # Heavy penalty: wrong sport detected
+                sport_match_score = 0.1
+                break
+    
+    # Check for correct sport indicators (only if not already penalized)
+    if sport_match_score > 0.1 and sport_lower in correct_sport_indicators:
+        has_correct_indicator = False
+        for correct_indicator in correct_sport_indicators[sport_lower]:
+            if correct_indicator in text:
+                has_correct_indicator = True
+                break
+        if not has_correct_indicator:
+            # Moderate penalty: no clear sport match
+            sport_match_score = 0.5
     
     # 1. Player and play type matching (CRITICAL - heavily penalize mismatches)
     player_match_score = 1.0
@@ -616,7 +666,8 @@ def calculate_highlight_score(
     )
     
     # Apply boosts and multipliers
-    final_score = base_score * player_match_score * play_type_match_score * channel_quality_boost * title_boost
+    # Sport match score is critical - apply it first to heavily penalize wrong sport videos
+    final_score = base_score * sport_match_score * player_match_score * play_type_match_score * channel_quality_boost * title_boost
     
     return {
         "highlight_score": highlight_score,
@@ -624,6 +675,7 @@ def calculate_highlight_score(
         "view_count_normalized": view_count_normalized,
         "freshness_score": freshness_score,
         "duration_score": duration_score,
+        "sport_match_score": sport_match_score,
         "player_match_score": player_match_score,
         "play_type_match_score": play_type_match_score,
         "final_score": final_score,
@@ -655,13 +707,23 @@ async def search_youtube_sports(
     base_queries = build_search_queries(spec)
     
     # Generate AI-powered query variations (non-blocking, fallback if fails)
+    ai_queries = []
     try:
         ai_queries = await generate_ai_search_queries(spec, api_key)
-        # Combine base and AI queries, prioritizing base queries
-        queries = base_queries + ai_queries[:5]  # Limit AI queries to avoid too many
-    except Exception:
-        # If AI generation fails, use only base queries
-        queries = base_queries
+        if ai_queries:
+            # Log successful AI query generation
+            # Note: Using basic logging here since this function doesn't have access to structured logger
+            # The calling code in highlights.py will log at a higher level
+            pass  # Success is implicit - queries are added to the list
+    except Exception as e:
+        # Log the failure but continue with base queries
+        # Note: Using basic logging here since this function doesn't have access to structured logger
+        # The calling code in highlights.py will log at a higher level
+        # For now, we silently fall back to base queries (this is expected behavior)
+        pass
+    
+    # Combine base and AI queries, prioritizing base queries
+    queries = base_queries + ai_queries[:5]  # Limit AI queries to avoid too many
     
     # Determine duration filters based on content type
     duration_filters = get_duration_filters(spec.content_types or ["highlights"])
@@ -889,6 +951,11 @@ async def search_youtube_sports(
         scores = calculate_highlight_score(
             candidate, event_date, spec.sport, spec.players, spec.play_types
         )
+        
+        # Hard filter: Sport match is CRITICAL - exclude videos that don't match the sport
+        sport_match = scores.get("sport_match_score", 1.0)
+        if sport_match < 0.3:
+            continue  # Skip videos that clearly don't match the sport
         
         # Hard filter: If we have players or play_types specified, exclude videos that don't match
         # (unless the match score is at least 0.3, meaning it might be a partial match)

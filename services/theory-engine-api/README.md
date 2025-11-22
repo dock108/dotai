@@ -57,6 +57,8 @@ Cache entries are stored in `external_context_cache` table with `key_hash` (SHA-
 ### Sports Highlights
 - `POST /api/highlights/plan` - Plan a highlight playlist from user query
 - `GET /api/highlights/{playlist_id}` - Get detailed playlist information
+- `POST /api/highlights/{playlist_id}/watch-token` - Generate a temporary watch token (48-hour expiration)
+- `GET /api/highlights/watch/{token}` - Get playlist data using a watch token
 - `GET /api/highlights/metrics` - Get metrics (sports requested, avg duration, cache hit rate)
 - `GET /api/highlights/metrics/csv` - Get metrics as CSV for dashboard
 

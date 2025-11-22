@@ -81,6 +81,10 @@ Quality indicators:
 - High quality: Official broadcasts, game highlights from official sources, mic'd up content
 
 Relevance indicators:
+- **SPORT MATCH IS CRITICAL**: The video MUST be about the specified sport. Reject videos about other sports.
+  - If sport is "PGA" or "golf": video must be about golf, not basketball, football, wrestling, etc.
+  - If sport is "NBA": video must be about basketball, not golf, football, wrestling, etc.
+  - Wrong sport = automatic rejection (is_relevant: false)
 - Player names must match (or last name match)
 - Play types must be the MAIN FOCUS of the video (not just mentioned in passing)
   - For "interceptions and fumbles": video should be specifically about interceptions/fumbles, not general game highlights

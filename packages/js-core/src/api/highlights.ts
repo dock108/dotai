@@ -107,6 +107,12 @@ export interface HighlightMetrics {
   cache_misses: number;
 }
 
+export interface WatchTokenResponse {
+  token: string;
+  watch_url: string;
+  expires_at: string;
+}
+
 export class HighlightsAPI {
   constructor(private client: APIClient) {}
 
@@ -145,6 +151,25 @@ export class HighlightsAPI {
    */
   async getMetricsCSV(days: number = 30): Promise<string> {
     return this.client.get<string>(`/api/highlights/metrics/csv?days=${days}`);
+  }
+
+  /**
+   * Generate a watch token for a playlist.
+   */
+  async getWatchToken(playlistId: number): Promise<WatchTokenResponse> {
+    return this.client.post<WatchTokenResponse>(
+      `/api/highlights/${playlistId}/watch-token`,
+      {}
+    );
+  }
+
+  /**
+   * Get playlist data using a watch token.
+   */
+  async getPlaylistByToken(token: string): Promise<HighlightDetailResponse> {
+    return this.client.get<HighlightDetailResponse>(
+      `/api/highlights/watch/${token}`
+    );
   }
 }
 

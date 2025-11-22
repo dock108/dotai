@@ -15,6 +15,7 @@ from ..db_models import Playlist, PlaylistMode, PlaylistQuery
 from ..highlight_parser import parse_highlight_request
 from ..playlist_helpers import generate_normalized_signature, PlaylistQuerySpec
 from ..logging_config import get_logger
+from ..watch_token import generate_watch_token, validate_watch_token
 from ..metrics import (
     get_sports_request_counts,
     get_average_playlist_duration,
@@ -99,6 +100,136 @@ class HighlightDetailResponse(BaseModel):
     )
 
 
+class WatchTokenResponse(BaseModel):
+    """Response for watch token generation."""
+
+    token: str = Field(description="JWT token for accessing playlist")
+    watch_url: str = Field(description="Full watch URL path")
+    expires_at: str = Field(description="ISO timestamp when token expires")
+
+
+def build_highlight_spec_from_structured_input(request: HighlightPlanRequest) -> HighlightRequestSpec:
+    """Build HighlightRequestSpec from structured input without AI parsing.
+    
+    This is used when the frontend provides structured fields (sports, teams, players, etc.)
+    to avoid unnecessary OpenAI API calls.
+    
+    Args:
+        request: Request with structured fields
+    
+    Returns:
+        HighlightRequestSpec built from structured input
+    """
+    from py_core.schemas.highlight_request import Sport, ContentMix, DateRange, LoopMode
+    
+    # Determine sport (use first sport from list, default to OTHER if not found)
+    # Map common sport names to enum values
+    sport_name_mapping = {
+        "GOLF": "PGA",
+        "COLLEGE BASEBALL": "NCAAB",  # Approximate mapping
+        "SOCCER (INTL)": "SOCCER",
+        "PREMIER LEAGUE": "SOCCER",
+        "MLS": "SOCCER",
+        "WNBA": "NBA",  # Approximate - WNBA is part of NBA ecosystem
+    }
+    
+    sport = Sport.OTHER
+    if request.sports and len(request.sports) > 0:
+        try:
+            sport_value = request.sports[0].upper()
+            # Check mapping first
+            if sport_value in sport_name_mapping:
+                sport_value = sport_name_mapping[sport_value]
+            # Check if it's a valid enum value
+            if sport_value in [s.value for s in Sport]:
+                sport = Sport(sport_value)
+        except (ValueError, AttributeError):
+            pass
+    
+    # Build date range from preset
+    date_range = None
+    if request.date_preset:
+        from ..utils.date_range_utils import build_date_range_from_preset
+        
+        date_range_obj = build_date_range_from_preset(
+            request.date_preset,
+            request.custom_start_date,
+            request.custom_end_date,
+        )
+        if date_range_obj:
+            date_range = DateRange(
+                start_date=date_range_obj.start_date,
+                end_date=date_range_obj.end_date,
+                single_date=None,
+                week=None,
+                season=None,
+            )
+    
+    # Default to last 7 days if no date range
+    if not date_range:
+        from ..utils.date_range_utils import get_default_date_range
+        
+        default_range = get_default_date_range()
+        date_range = DateRange(
+            start_date=default_range.start_date,
+            end_date=default_range.end_date,
+            single_date=None,
+            week=None,
+            season=None,
+        )
+    
+    # Determine duration (default to 90 minutes if not specified)
+    duration = request.duration_minutes or 90
+    if duration < 60:
+        duration = 60
+    elif duration > 600:
+        duration = 600
+    
+    # Build assumptions list
+    assumptions = []
+    if request.date_preset:
+        preset_assumptions = {
+            "last2days": "Defaulted to last 48 hours for recent highlights catch-up",
+            "last7days": "Defaulted to last 7 days for weekly catch-up",
+            "last14days": "Defaulted to last 14 days for two-week catch-up",
+            "last30days": "Defaulted to last 30 days for monthly catch-up",
+        }
+        if request.date_preset in preset_assumptions:
+            assumptions.append(preset_assumptions[request.date_preset])
+    
+    if not date_range or (not date_range.start_date and not date_range.end_date):
+        assumptions.append("No date range specified - defaulted to last 7 days for recent highlights catch-up")
+    
+    # Build content mix from comments if provided (basic heuristic)
+    content_mix = ContentMix()
+    if request.comments:
+        comments_lower = request.comments.lower()
+        if "blooper" in comments_lower or "funny" in comments_lower:
+            content_mix.bloopers = 0.3
+            content_mix.highlights = 0.7
+        elif "top play" in comments_lower or "best" in comments_lower:
+            content_mix.top_plays = 0.4
+            content_mix.highlights = 0.6
+        else:
+            content_mix.highlights = 1.0
+    
+    return HighlightRequestSpec(
+        sport=sport,
+        leagues=[],
+        teams=request.teams or [],
+        players=request.players or [],
+        play_types=request.play_types or [],
+        date_range=date_range,
+        content_mix=content_mix,
+        requested_duration_minutes=duration,
+        loop_mode=LoopMode.single_playlist,
+        exclusions=[],
+        nsfw_filter=True,
+        language="en",
+        assumptions=assumptions,
+    )
+
+
 def convert_highlight_spec_to_search_spec(spec: HighlightRequestSpec) -> SportsSearchSpec:
     """Convert HighlightRequestSpec to SportsSearchSpec for search."""
     # Convert content mix to content types
@@ -159,6 +290,9 @@ async def build_playlist_from_candidates(
     Returns:
         Tuple of (playlist_items, explanation_dict)
     """
+    # Get logger for this function
+    from ..logging_config import get_logger
+    log = get_logger(__name__)
     target_seconds = requested_duration_minutes * 60
     tolerance = target_seconds * 0.1  # 10% tolerance
     
@@ -221,7 +355,24 @@ async def build_playlist_from_candidates(
                 query_spec,
                 batch_size=15,  # Process 15 at a time within the batch
             )
+            # Log successful analysis
+            analyzed_in_batch = len([r for r in analysis_results if r[1].is_relevant and r[1].is_high_quality])
+            log.debug(
+                "video_description_analysis_batch_completed",
+                batch_size=len(videos_to_analyze),
+                analyzed_count=len(analysis_results),
+                relevant_count=analyzed_in_batch,
+            )
         except Exception as e:
+            # Log the failure with details
+            log.warning(
+                "video_description_analysis_failed",
+                error=str(e),
+                error_type=type(e).__name__,
+                batch_size=len(videos_to_analyze),
+                fallback_to_basic_filtering=True,
+                exc_info=True,
+            )
             # If analysis fails, fall back to basic filtering
             coverage_notes.append(f"Description analysis failed: {str(e)}, using basic filtering")
             analysis_results = []
@@ -461,98 +612,41 @@ async def plan_highlight_playlist(
             headers={"Content-Type": "application/json"},
         )
     
-    # Step 2: Parse with AI (or use structured builder fields if provided)
+    # Step 2: Parse request (AI or structured input)
     try:
-        # If structured builder fields are provided, use them to enhance the query
-        if request.sports or request.teams or request.players or request.play_types:
-            # Build enhanced query from structured fields
-            enhanced_parts = []
-            if request.sports:
-                enhanced_parts.append(", ".join(request.sports))
-            if request.teams:
-                enhanced_parts.append(", ".join(request.teams))
-            if request.players:
-                enhanced_parts.append(", ".join(request.players))
-            if request.play_types:
-                enhanced_parts.append(", ".join(request.play_types))
-            
-            # Add date range from preset or custom dates
-            if request.date_preset:
-                if request.date_preset == "custom" and request.custom_start_date and request.custom_end_date:
-                    enhanced_parts.append(f"from {request.custom_start_date} to {request.custom_end_date}")
-                elif request.date_preset == "historical" and request.custom_start_date and request.custom_end_date:
-                    enhanced_parts.append(f"from {request.custom_start_date} to {request.custom_end_date}")
-                elif request.date_preset in ["last2days", "last7days", "last14days", "last30days"]:
-                    preset_labels = {
-                        "last2days": "last 48 hours",
-                        "last7days": "last 7 days",
-                        "last14days": "last 14 days",
-                        "last30days": "last 30 days",
-                    }
-                    enhanced_parts.append(preset_labels[request.date_preset])
-            
-            if request.duration_minutes:
-                enhanced_parts.append(f"{request.duration_minutes} minutes")
-            
-            if request.comments:
-                enhanced_parts.append(f"({request.comments})")
-            
-            # Combine with original query text
-            enhanced_query = " ".join(enhanced_parts)
-            if normalized_text and normalized_text not in enhanced_query:
-                enhanced_query = f"{enhanced_query} {normalized_text}"
-            normalized_text = enhanced_query
+        # Check if we have structured input (from guided builder UI)
+        has_structured_input = bool(
+            request.sports
+            or request.teams
+            or request.players
+            or request.play_types
+            or request.date_preset
+            or request.duration_minutes
+        )
         
-        parse_result = await parse_highlight_request(normalized_text)
-        spec = parse_result.spec
-        
-        # Override with structured fields if provided (more reliable than AI parsing)
-        if request.sports and len(request.sports) > 0:
-            # Use first sport (or try to map to Sport enum)
-            try:
-                from py_core.schemas.highlight_request import Sport
-                sport_value = request.sports[0].upper()
-                if sport_value in [s.value for s in Sport]:
-                    spec.sport = Sport(sport_value)
-            except (ValueError, AttributeError):
-                pass  # Keep AI-parsed sport
-        
-        if request.teams:
-            spec.teams = request.teams
-        if request.players:
-            spec.players = request.players
-        if request.play_types:
-            spec.play_types = request.play_types
-        if request.duration_minutes:
-            spec.requested_duration_minutes = request.duration_minutes
-        
-        # Set date range from preset
-        if request.date_preset:
-            from ..utils.date_range_utils import build_date_range_from_preset
+        # If we have structured input, build spec directly without AI parsing
+        if has_structured_input:
+            log.info("highlight_playlist_using_structured_input", structured_fields={
+                "sports": bool(request.sports),
+                "teams": bool(request.teams),
+                "players": bool(request.players),
+                "play_types": bool(request.play_types),
+                "date_preset": bool(request.date_preset),
+                "duration": bool(request.duration_minutes),
+            })
+            spec = build_highlight_spec_from_structured_input(request)
+        else:
+            # No structured input - use AI parsing
+            log.info("highlight_playlist_using_ai_parsing")
+            parse_result = await parse_highlight_request(normalized_text)
+            spec = parse_result.spec
             
-            date_range = build_date_range_from_preset(
-                request.date_preset,
-                request.custom_start_date,
-                request.custom_end_date,
-            )
-            if date_range:
-                spec.date_range = date_range
-                # Add assumption based on preset
-                preset_assumptions = {
-                    "last2days": "Defaulted to last 48 hours for recent highlights catch-up",
-                    "last7days": "Defaulted to last 7 days for weekly catch-up",
-                    "last14days": "Defaulted to last 14 days for two-week catch-up",
-                    "last30days": "Defaulted to last 30 days for monthly catch-up",
-                }
-                if request.date_preset in preset_assumptions:
-                    spec.assumptions.append(preset_assumptions[request.date_preset])
-        
-        # If no date range specified, default to last 7 days for recent highlights focus
-        if not spec.date_range or (not spec.date_range.start_date and not spec.date_range.end_date and not spec.date_range.single_date):
-            from ..utils.date_range_utils import get_default_date_range
-            
-            spec.date_range = get_default_date_range()
-            spec.assumptions.append("No date range specified - defaulted to last 7 days for recent highlights catch-up")
+            # If no date range specified, default to last 7 days for recent highlights focus
+            if not spec.date_range or (not spec.date_range.start_date and not spec.date_range.end_date and not spec.date_range.single_date):
+                from ..utils.date_range_utils import get_default_date_range
+                
+                spec.date_range = get_default_date_range()
+                spec.assumptions.append("No date range specified - defaulted to last 7 days for recent highlights catch-up")
     except ValueError as e:
         # User-friendly parsing errors
         from ..utils.error_handlers import create_parse_error_response, create_configuration_error_response
@@ -689,7 +783,15 @@ async def plan_highlight_playlist(
         
         # Search YouTube
         try:
+            # Log before search to track AI query generation
+            log.debug("highlight_playlist_search_starting", search_spec={
+                "sport": search_spec.sport,
+                "has_players": bool(search_spec.players),
+                "has_play_types": bool(search_spec.play_types),
+                "has_teams": bool(search_spec.teams),
+            })
             candidates, youtube_api_calls = await search_youtube_sports(search_spec, initial_search_limit=250)
+            log.debug("highlight_playlist_search_completed", candidates_found=len(candidates), youtube_api_calls=youtube_api_calls)
             
             # Handle empty results
             if not candidates or len(candidates) == 0:
@@ -964,6 +1066,141 @@ async def get_highlight_playlist(playlist_id: int) -> HighlightDetailResponse:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Playlist {playlist_id} not found",
+            )
+        
+        playlist, query = row
+        
+        # Handle mode - it might be a string or an enum
+        mode_value = query.mode.value if hasattr(query.mode, 'value') else str(query.mode)
+        
+        return HighlightDetailResponse(
+            playlist_id=playlist.id,
+            query_id=query.id,
+            query_text=query.query_text,
+            items=playlist.items,
+            total_duration_seconds=playlist.total_duration_seconds,
+            explanation=playlist.explanation,
+            created_at=playlist.created_at.isoformat(),
+            stale_after=playlist.stale_after.isoformat() if playlist.stale_after else None,
+            query_metadata={
+                "mode": mode_value,
+                "requested_duration_minutes": query.requested_duration_minutes,
+                "version": query.version,
+                "created_at": query.created_at.isoformat(),
+                "last_used_at": query.last_used_at.isoformat(),
+                "sport": query.sport,
+                "league": query.league,
+                "teams": query.teams,
+                "event_date": query.event_date.isoformat() if query.event_date else None,
+                "is_playoff": query.is_playoff,
+            },
+            disclaimer="This app builds playlists using public YouTube videos. We do not host or control the content.",
+        )
+
+
+@router.post("/{playlist_id}/watch-token", response_model=WatchTokenResponse)
+async def generate_watch_token_for_playlist(playlist_id: int) -> WatchTokenResponse:
+    """Generate a temporary watch token for a playlist.
+    
+    The token expires after 48 hours and can be used to access the playlist
+    via the /api/highlights/watch/{token} endpoint.
+    """
+    # Verify playlist exists
+    async with get_async_session() as session:
+        stmt = select(Playlist).where(Playlist.id == playlist_id)
+        result = await session.execute(stmt)
+        playlist = result.scalar_one_or_none()
+        
+        if not playlist:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=json.dumps({
+                    "error_code": "NOT_FOUND",
+                    "message": "Playlist not found",
+                    "detail": f"Playlist {playlist_id} does not exist",
+                }),
+                headers={"Content-Type": "application/json"},
+            )
+    
+    # Generate token
+    token = generate_watch_token(playlist_id)
+    
+    # Extract expiration from token payload
+    payload = validate_watch_token(token)
+    expires_at = payload.get("expires_at", "") if payload else ""
+    
+    return WatchTokenResponse(
+        token=token,
+        watch_url=f"/watch/{token}",
+        expires_at=expires_at,
+    )
+
+
+@router.get("/watch/{token}", response_model=HighlightDetailResponse)
+async def get_playlist_by_watch_token(token: str) -> HighlightDetailResponse:
+    """Get playlist data using a watch token.
+    
+    This endpoint validates the token and returns playlist data if valid.
+    Returns 403 if token is expired or invalid.
+    """
+    # Validate token
+    payload = validate_watch_token(token)
+    
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=json.dumps({
+                "error_code": "TOKEN_INVALID",
+                "message": "Invalid watch link.",
+                "detail": "The watch link is invalid or has expired. Generate a new link from the playlist page.",
+            }),
+            headers={"Content-Type": "application/json"},
+        )
+    
+    playlist_id = payload.get("playlist_id")
+    if not playlist_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=json.dumps({
+                "error_code": "TOKEN_INVALID",
+                "message": "Invalid watch link.",
+                "detail": "The watch link is malformed.",
+            }),
+            headers={"Content-Type": "application/json"},
+        )
+    
+    # Check expiration explicitly (double-check)
+    expires_at_str = payload.get("expires_at")
+    if expires_at_str:
+        from datetime import timezone as tz
+        expires_at = datetime.fromisoformat(expires_at_str.replace("Z", "+00:00"))
+        now = datetime.now(tz.utc)
+        if expires_at < now:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=json.dumps({
+                    "error_code": "TOKEN_EXPIRED",
+                    "message": "This watch link has expired. Generate a new link from the playlist page.",
+                    "detail": f"Token expired at {expires_at_str}",
+                }),
+                headers={"Content-Type": "application/json"},
+            )
+    
+    # Fetch playlist (reuse existing endpoint logic)
+    async with get_async_session() as session:
+        stmt = select(Playlist, PlaylistQuery).join(PlaylistQuery).where(Playlist.id == playlist_id)
+        result = await session.execute(stmt)
+        row = result.first()
+        
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=json.dumps({
+                    "error_code": "NOT_FOUND",
+                    "message": "Playlist not found.",
+                    "detail": f"Playlist {playlist_id} does not exist",
+                }),
+                headers={"Content-Type": "application/json"},
             )
         
         playlist, query = row
