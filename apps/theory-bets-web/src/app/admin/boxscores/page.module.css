@@ -1,0 +1,247 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding-bottom: 3rem;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.75rem;
+  color: var(--dock-text-muted);
+}
+
+.header h1 {
+  margin: 0.25rem 0;
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--dock-text-muted);
+  max-width: 520px;
+}
+
+.metrics {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-weight: 600;
+  gap: 0.25rem;
+  color: var(--dock-text-muted);
+}
+
+.filtersCard,
+.tableCard {
+  background: var(--dock-surface);
+  border: 1px solid var(--dock-border);
+  border-radius: var(--dock-radius);
+  padding: 1.75rem;
+  box-shadow: 0 25px 55px rgba(5, 6, 11, 0.45);
+}
+
+.filtersGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+
+.filtersGrid label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--dock-text-muted);
+  display: block;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.filtersGrid input {
+  width: 100%;
+  background: var(--dock-bg);
+  border: 1px solid var(--dock-border);
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  color: var(--dock-text);
+  font-size: 0.95rem;
+}
+
+.dateInputs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dates {
+  display: flex;
+  flex-direction: column;
+}
+
+.leagueChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.chip {
+  border: 1px solid var(--dock-border);
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  background: transparent;
+  color: var(--dock-text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.chipActive {
+  background: var(--dock-accent);
+  color: var(--dock-bg);
+  border-color: transparent;
+}
+
+.missingToggles {
+  grid-column: span 2;
+}
+
+.toggleList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.toggleList label {
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--dock-text);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.filterActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.primaryButton,
+.secondaryButton {
+  border-radius: 999px;
+  padding: 0.65rem 1.5rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+}
+
+.primaryButton {
+  background: var(--dock-accent);
+  color: var(--dock-bg);
+}
+
+.secondaryButton {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--dock-text);
+  border: 1px solid var(--dock-border);
+}
+
+.tableHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 0.9rem 0.75rem;
+  border-bottom: 1px solid var(--dock-border);
+  text-align: left;
+}
+
+.table th {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+  color: var(--dock-text-muted);
+}
+
+.matchupCell {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 24px;
+  border-radius: 8px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  margin-right: 0.25rem;
+}
+
+.badgeOk {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34d399;
+}
+
+.badgeWarn {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
+.metaColumn {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+}
+
+.metaSecondary {
+  color: var(--dock-text-muted);
+  font-size: 0.75rem;
+}
+
+.linkButton {
+  color: var(--dock-accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 1.5rem 0;
+  color: var(--dock-text-muted);
+}
+
+.loadMoreRow {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.25rem;
+}
+

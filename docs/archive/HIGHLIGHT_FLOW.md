@@ -2,7 +2,7 @@
 
 > **Note**: This document describes the current implementation. Some gaps mentioned below have been addressed with the guided UI builder.
 
-## 1. Frontend (apps/highlight-channel-web)
+## 1. Frontend (apps/highlights-web)
 
 - Home page (`src/app/page.tsx`) exposes a **guided UI builder** with:
   - Sport checklists (multi-select)

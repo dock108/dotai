@@ -1,0 +1,53 @@
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.backLink {
+  color: #8ab4f8;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.card {
+  background: #0b0b0f;
+  border: 1px solid #1f2128;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.meta {
+  color: #5f6368;
+  margin-top: 0.4rem;
+}
+
+.scoreLine {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+  font-size: 1.1rem;
+}
+
+.scoreLine strong {
+  font-size: 1.6rem;
+  margin-left: 0.5rem;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.table th,
+.table td {
+  padding: 0.65rem;
+  border-bottom: 1px solid #1f2128;
+  text-align: left;
+}
+

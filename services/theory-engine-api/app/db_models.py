@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from enum import Enum
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String, Text, func, text
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from typing import Any
@@ -208,3 +208,286 @@ class Video(Base):
 
     __table_args__ = (Index("idx_videos_channel_published", "channel_id", "published_at"), Index("idx_videos_sports_highlight", "is_sports_highlight"))
 
+
+class StrategyStatus(str, Enum):
+    """Strategy status levels."""
+
+    draft = "draft"
+    saved = "saved"
+
+
+class Strategy(Base):
+    """Crypto strategy interpretations and specifications."""
+
+    __tablename__ = "strategies"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)  # UUID as string
+    user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
+    idea_text: Mapped[str] = mapped_column(Text, nullable=False)
+    interpretation: Mapped[str] = mapped_column(Text, nullable=False)
+    strategy_json: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    backtest_blueprint: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    diagnostics: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    alerts: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    status: Mapped[StrategyStatus] = mapped_column(String(20), default=StrategyStatus.draft, nullable=False, index=True)
+    alerts_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Relationships
+    backtests: Mapped[list[Backtest]] = relationship("Backtest", back_populates="strategy", cascade="all, delete-orphan")
+    alert_events: Mapped[list[Alert]] = relationship("Alert", back_populates="strategy", cascade="all, delete-orphan")
+
+    __table_args__ = (Index("idx_strategies_user_created", "user_id", "created_at"), Index("idx_strategies_status", "status"))
+
+
+class Backtest(Base):
+    """Backtest results for strategies."""
+
+    __tablename__ = "backtests"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)  # UUID as string
+    strategy_id: Mapped[str] = mapped_column(String(36), ForeignKey("strategies.id", ondelete="CASCADE"), nullable=False, index=True)
+    results_json: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Relationships
+    strategy: Mapped[Strategy] = relationship("Strategy", back_populates="backtests")
+
+    __table_args__ = (Index("idx_backtests_strategy_created", "strategy_id", "created_at"),)
+
+
+class Alert(Base):
+    """Alert events triggered for strategies."""
+
+    __tablename__ = "alerts"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)  # UUID as string
+    strategy_id: Mapped[str] = mapped_column(String(36), ForeignKey("strategies.id", ondelete="CASCADE"), nullable=False, index=True)
+    triggered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    details_json: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
+
+    # Relationships
+    strategy: Mapped[Strategy] = relationship("Strategy", back_populates="alert_events")
+
+    __table_args__ = (Index("idx_alerts_strategy_triggered", "strategy_id", "triggered_at"),)
+
+
+# ============================================================================
+# Sports Betting Data Models
+# ============================================================================
+
+
+class SportsLeague(Base):
+    """Sports leagues (NFL, NCAAF, NBA, NCAAB, MLB, NHL)."""
+
+    __tablename__ = "sports_leagues"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False, index=True)  # e.g., "NFL", "NCAAF"
+    name: Mapped[str] = mapped_column(String(100), nullable=False)  # e.g., "National Football League"
+    level: Mapped[str] = mapped_column(String(20), nullable=False)  # "pro" or "college"
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    teams: Mapped[list["SportsTeam"]] = relationship("SportsTeam", back_populates="league", cascade="all, delete-orphan")
+    games: Mapped[list["SportsGame"]] = relationship("SportsGame", back_populates="league", cascade="all, delete-orphan")
+    scrape_runs: Mapped[list["SportsScrapeRun"]] = relationship("SportsScrapeRun", back_populates="league")
+
+
+class SportsTeam(Base):
+    """Sports teams with external provider mappings."""
+
+    __tablename__ = "sports_teams"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    league_id: Mapped[int] = mapped_column(Integer, ForeignKey("sports_leagues.id", ondelete="CASCADE"), nullable=False, index=True)
+    external_ref: Mapped[str | None] = mapped_column(String(100), nullable=True)  # Primary provider ID
+    name: Mapped[str] = mapped_column(String(200), nullable=False)  # Full name: "Rutgers Scarlet Knights"
+    short_name: Mapped[str] = mapped_column(String(100), nullable=False)  # Display name: "Rutgers"
+    abbreviation: Mapped[str] = mapped_column(String(20), nullable=False)  # "LAL", "RUT"
+    location: Mapped[str | None] = mapped_column(String(100), nullable=True)  # "Los Angeles"
+    external_codes: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)  # {provider: id}
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    league: Mapped[SportsLeague] = relationship("SportsLeague", back_populates="teams")
+    home_games: Mapped[list["SportsGame"]] = relationship("SportsGame", foreign_keys="[SportsGame.home_team_id]", back_populates="home_team")
+    away_games: Mapped[list["SportsGame"]] = relationship("SportsGame", foreign_keys="[SportsGame.away_team_id]", back_populates="away_team")
+
+    __table_args__ = (
+        Index("idx_sports_teams_league_abbr", "league_id", "abbreviation", unique=True),
+    )
+
+
+class GameStatus(str, Enum):
+    """Game status values."""
+
+    scheduled = "scheduled"
+    completed = "completed"
+    postponed = "postponed"
+    canceled = "canceled"
+
+
+class SportsGame(Base):
+    """Individual games with unique constraints to prevent duplicates."""
+
+    __tablename__ = "sports_games"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    league_id: Mapped[int] = mapped_column(Integer, ForeignKey("sports_leagues.id", ondelete="CASCADE"), nullable=False, index=True)
+    season: Mapped[int] = mapped_column(Integer, nullable=False)  # e.g., 2023
+    season_type: Mapped[str] = mapped_column(String(50), nullable=False)  # "regular", "playoffs", "tournament", "bowl"
+    game_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    home_team_id: Mapped[int] = mapped_column(Integer, ForeignKey("sports_teams.id", ondelete="CASCADE"), nullable=False, index=True)
+    away_team_id: Mapped[int] = mapped_column(Integer, ForeignKey("sports_teams.id", ondelete="CASCADE"), nullable=False, index=True)
+    home_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    away_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    venue: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    status: Mapped[GameStatus] = mapped_column(String(20), default=GameStatus.scheduled, nullable=False, index=True)
+    source_game_key: Mapped[str | None] = mapped_column(String(100), nullable=True, unique=True)
+    scrape_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    last_scraped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    external_ids: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)  # {provider: game_id}
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    league: Mapped[SportsLeague] = relationship("SportsLeague", back_populates="games")
+    home_team: Mapped[SportsTeam] = relationship("SportsTeam", foreign_keys=[home_team_id], back_populates="home_games")
+    away_team: Mapped[SportsTeam] = relationship("SportsTeam", foreign_keys=[away_team_id], back_populates="away_games")
+    team_boxscores: Mapped[list["SportsTeamBoxscore"]] = relationship("SportsTeamBoxscore", back_populates="game", cascade="all, delete-orphan")
+    player_boxscores: Mapped[list["SportsPlayerBoxscore"]] = relationship("SportsPlayerBoxscore", back_populates="game", cascade="all, delete-orphan")
+    odds: Mapped[list["SportsGameOdds"]] = relationship("SportsGameOdds", back_populates="game", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        UniqueConstraint("league_id", "season", "game_date", "home_team_id", "away_team_id", name="uq_game_identity"),
+        Index("idx_games_league_season_date", "league_id", "season", "game_date"),
+        Index("idx_games_teams", "home_team_id", "away_team_id"),
+    )
+
+
+class SportsTeamBoxscore(Base):
+    """Team-level boxscore data (one per team per game)."""
+
+    __tablename__ = "sports_team_boxscores"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    game_id: Mapped[int] = mapped_column(Integer, ForeignKey("sports_games.id", ondelete="CASCADE"), nullable=False, index=True)
+    team_id: Mapped[int] = mapped_column(Integer, ForeignKey("sports_teams.id", ondelete="CASCADE"), nullable=False, index=True)
+    is_home: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    points: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rebounds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    assists: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    turnovers: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    passing_yards: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rushing_yards: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    receiving_yards: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hits: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    runs: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    errors: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    shots_on_goal: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    penalty_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    raw_stats_json: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
+    source: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    game: Mapped[SportsGame] = relationship("SportsGame", back_populates="team_boxscores")
+    team: Mapped[SportsTeam] = relationship("SportsTeam")
+
+    __table_args__ = (
+        UniqueConstraint("game_id", "team_id", name="uq_team_boxscore_game_team"),
+    )
+
+
+class SportsPlayerBoxscore(Base):
+    """Player-level boxscores (MVP fields plus raw JSON)."""
+
+    __tablename__ = "sports_player_boxscores"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    game_id: Mapped[int] = mapped_column(Integer, ForeignKey("sports_games.id", ondelete="CASCADE"), nullable=False, index=True)
+    team_id: Mapped[int] = mapped_column(Integer, ForeignKey("sports_teams.id", ondelete="CASCADE"), nullable=False, index=True)
+    player_external_ref: Mapped[str] = mapped_column(String(100), nullable=False)
+    player_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    minutes: Mapped[float | None] = mapped_column(nullable=True)
+    points: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rebounds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    assists: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    yards: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    touchdowns: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    shots_on_goal: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    penalties: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    raw_stats_json: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
+    source: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    game: Mapped[SportsGame] = relationship("SportsGame", back_populates="player_boxscores")
+    team: Mapped[SportsTeam] = relationship("SportsTeam")
+
+    __table_args__ = (
+        UniqueConstraint("game_id", "team_id", "player_external_ref", name="uq_player_boxscore_identity"),
+    )
+
+
+class SportsGameOdds(Base):
+    """Odds data for games (multiple books/markets per game)."""
+
+    __tablename__ = "sports_game_odds"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    game_id: Mapped[int] = mapped_column(Integer, ForeignKey("sports_games.id", ondelete="CASCADE"), nullable=False, index=True)
+    book: Mapped[str] = mapped_column(String(50), nullable=False)  # "draftkings", "fanduel", "pinnacle"
+    market_type: Mapped[str] = mapped_column(String(20), nullable=False)  # "spread", "total", "moneyline"
+    side: Mapped[str | None] = mapped_column(String(20), nullable=True)  # "home", "away", "over", "under"
+    line: Mapped[float | None] = mapped_column(nullable=True)  # Spread points / total points
+    price: Mapped[float | None] = mapped_column(nullable=True)  # American odds stored as float
+    is_closing_line: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    observed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    source_key: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    raw_payload: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    game: Mapped[SportsGame] = relationship("SportsGame", back_populates="odds")
+
+    __table_args__ = (
+        Index("idx_sports_odds_identity", "game_id", "book", "market_type", "is_closing_line"),
+    )
+
+
+class SportsScrapeRun(Base):
+    """Tracks ingestion/scrape job runs."""
+
+    __tablename__ = "sports_scrape_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    scraper_type: Mapped[str] = mapped_column(String(50), nullable=False)  # "boxscore", "odds", etc.
+    league_id: Mapped[int] = mapped_column(Integer, ForeignKey("sports_leagues.id", ondelete="CASCADE"), nullable=False, index=True)
+    season: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    season_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    start_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    end_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False, index=True)
+    requested_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    job_id: Mapped[str | None] = mapped_column(String(100), nullable=True)  # Celery/Bull job identifier
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error_details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    config: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Relationships
+    league: Mapped[SportsLeague] = relationship("SportsLeague", back_populates="scrape_runs")
+
+    __table_args__ = (
+        Index("idx_scrape_runs_league_status", "league_id", "status"),
+        Index("idx_scrape_runs_created", "created_at"),
+    )

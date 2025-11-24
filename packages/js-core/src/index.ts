@@ -12,4 +12,5 @@ export * from "./api";
 
 // React Hooks
 export * from "./hooks/useTheoryEvaluation";
+export * from "./hooks/useStrategyBuilder";
 

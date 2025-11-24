@@ -3,9 +3,9 @@
 ## Scope
 
 **This guide covers production deployment for the entire dock108 monorepo:**
-- All frontend apps (`dock108-web`, `game-web`, `playlist-web`, `highlight-channel-web`, `theory-*-web`)
+- All frontend apps (`dock108-web`, `prompt-game-web`, `playlist-web`, `highlights-web`, `theory-*-web`)
 - Backend services (`theory-engine-api`, `data-workers`)
-- Infrastructure (PostgreSQL, Redis, nginx reverse proxy)
+- Infrastructure (PostgreSQL, Redis, Traefik reverse proxy)
 
 **For local development of individual features (e.g., Sports Highlight Channel), see `docs/LOCAL_DEPLOY.md`.**
 
@@ -72,52 +72,25 @@ ENVIRONMENT=production
 
 ## SSL/TLS Setup
 
-### Option 1: Let's Encrypt with Certbot
+Traefik ships in `docker-compose.yml` with an ACME (Let's Encrypt) resolver enabled. To activate:
 
-1. Install certbot:
-   ```bash
-   apt-get update && apt-get install -y certbot
-   ```
+1. Set `LETSENCRYPT_EMAIL` in your root `.env`.
+2. Ensure `infra/traefik/acme` exists and is writable by Docker (Traefik stores certificates in `acme/acme.json`).
+3. Start the stack (`docker-compose up -d traefik ...`). Traefik will automatically request certificates for every router label that specifies `tls.certresolver=letsencrypt`.
 
-2. Generate certificates:
-   ```bash
-   certbot certonly --standalone -d dock108.ai -d *.dock108.ai
-   ```
-
-3. Update nginx config to use SSL (see `nginx/conf.d/dock108.conf`)
-
-### Option 2: Traefik (Alternative)
-
-Replace nginx with Traefik for automatic SSL:
-
-```yaml
-traefik:
-  image: traefik:v2.10
-  command:
-    - "--api.insecure=true"
-    - "--providers.docker=true"
-    - "--certificatesresolvers.letsencrypt.acme.email=your@email.com"
-    - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
-    - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
-  ports:
-    - "80:80"
-    - "443:443"
-  volumes:
-    - /var/run/docker.sock:/var/run/docker.sock:ro
-    - ./letsencrypt:/letsencrypt
-```
+No separate certbot step is required. If you ever need to import custom certificates, mount them into the Traefik container and reference them via a TLS store entry.
 
 ## Subdomain Routing
 
-The nginx configuration routes subdomains as follows:
+Traefik routes subdomains via the labels defined in `docker-compose.yml`:
 
 - `dock108.ai` → `dock108-web` (main landing)
-- `game.dock108.ai` → `game-web`
+- `game.dock108.ai` → `prompt-game-web`
 - `playlist.dock108.ai` → `playlist-web`
 - `bets.dock108.ai` → `theory-bets-web`
 - `crypto.dock108.ai` → `theory-crypto-web`
 - `stocks.dock108.ai` → `theory-stocks-web`
-- `conspiracies.dock108.ai` → `theory-conspiracy-web`
+- `conspiracies.dock108.ai` → `conspiracy-web`
 - `api.dock108.ai` → `theory-engine-api`
 
 ## Database Migrations
@@ -178,7 +151,7 @@ All services run on one server. Suitable for:
 For larger scale, migrate to Kubernetes:
 
 1. Split services across nodes:
-   - Node 1: Frontend apps (nginx + Next.js apps)
+   - Node 1: Frontend apps (Traefik + Next.js apps)
    - Node 2: Backend (API + workers)
    - Node 3: Database + Redis (or use managed services)
 
@@ -220,10 +193,10 @@ docker-compose exec postgres psql -U dock108 dock108 -c "VACUUM ANALYZE;"
 2. Check connection string in `.env`
 3. Verify network: `docker network inspect dock108_dock108-network`
 
-### Nginx routing issues
+### Traefik routing issues
 
-1. Check nginx config: `docker-compose exec nginx nginx -t`
-2. View access logs: `docker-compose logs nginx`
+1. Check router status: `docker-compose logs traefik`
+2. Inspect dynamic config: `docker-compose exec traefik traefik healthcheck`
 3. Verify DNS resolution: `dig dock108.ai`
 
 ## Security

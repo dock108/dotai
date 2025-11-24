@@ -13,7 +13,7 @@ export interface ClientConfig {
 
 export class APIClient {
   private baseURL: string;
-  private timeout: number;
+  public timeout: number; // Made public so it can be overridden
   private retries: number;
   private retryDelay: number;
 

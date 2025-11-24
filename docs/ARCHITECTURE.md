@@ -6,11 +6,39 @@ Dock108 hosts a family of “theory surfaces” (bets, crypto, stocks, conspirac
 
 ## 1. Monorepo Layers
 
-1. **Apps** – user-facing UIs (Next.js web apps and the Swift prototype). They share UI and client libraries housed in `packages/`.
-2. **Services** – Python FastAPI `theory-engine-api` plus async/cron `data-workers` that hydrate caches (YouTube, sports odds, prices, news).
-3. **Packages** – `ui-kit` (shared React components + Tailwind tokens), `js-core` (SDK, hooks, validation), `py-core` (Pydantic schemas, guardrail utilities, scoring logic).
-4. **Infra** – Dockerfiles, docker-compose, Kubernetes manifests, and nginx/Traefik configs tuned for Hetzner bare metal.
-5. **Docs** – canonical knowledge base for architecture, guardrails, theory scoring, and the roadmap.
+1. **Apps** (`apps/`) – User-facing Next.js web applications:
+   - `dock108-web` - Unified landing portal and app directory
+   - `highlights-web` - Sports highlight playlist generator
+   - `theory-bets-web` - Sports betting theory evaluation + admin UI
+   - `theory-crypto-web` - Crypto strategy interpreter with backtesting
+   - `theory-stocks-web` - Stock analysis theory evaluation
+   - `conspiracy-web` - Conspiracy theory fact-checking
+   - `prompt-game-web` - AI prompting game (React + Swift prototype)
+   - `playlist-web` - Legacy YouTube curator MVP
+   
+   All apps share UI components and client libraries from `packages/`.
+
+2. **Services** (`services/`) – Python backend services:
+   - `theory-engine-api` - FastAPI backend for all theory domains, highlights, and admin APIs
+   - `theory-bets-scraper` - Sports data ingestion (boxscores, odds) via Celery
+   - `data-workers` - Celery workers for YouTube caching, odds snapshots, market prices
+
+3. **Packages** (`packages/`) – Shared libraries:
+   - `ui` - Core UI components (DockHeader, DockFooter, theme system)
+   - `ui-kit` - Domain-specific components (TheoryForm, TheoryCard, etc.)
+   - `js-core` - TypeScript SDK with API clients, React hooks, type-safe endpoints
+   - `py-core` - Python schemas, guardrails, scoring utilities, API clients
+
+4. **Infra** (`infra/`) – Deployment infrastructure:
+   - Dockerfiles for all services and apps
+   - Docker Compose orchestration with Traefik routing
+   - Kubernetes manifests (future)
+   - Centralized environment variable management
+
+5. **Docs** (`docs/`) – Comprehensive documentation:
+   - Architecture, deployment guides, API documentation
+   - Feature-specific documentation
+   - Roadmap and planning documents
 
 ## 2. Request Flow (high level)
 
@@ -47,26 +75,41 @@ See `docs/DATA_PRIVACY.md` for full privacy model.
 
 1. Build Docker images for each app/service with shared base images.
 2. Use docker-compose for single-node dev/staging; promote to Kubernetes (optional) when multiple nodes/auto-scaling are needed.
-3. Terminate TLS on nginx (or Traefik) and route subdomains (`bets.dock108.ai`, etc.) to the relevant frontend containers. All hit the same backend service via internal networking.
+3. Terminate TLS on Traefik and route subdomains (`bets.dock108.ai`, etc.) to the relevant frontend containers. All hit the same backend service via internal networking.
 
-### Subdomain Routing
+### Subdomain Routing (via Traefik)
 
-- `dock108.ai` → Main landing page
-- `game.dock108.ai` → AI prompting game
-- `playlist.dock108.ai` → Playlist curator
-- `bets.dock108.ai` → Bets theory surface
-- `crypto.dock108.ai` → Crypto theory surface
-- `stocks.dock108.ai` → Stocks theory surface
-- `conspiracies.dock108.ai` → Conspiracies theory surface
-- `api.dock108.ai` → Theory engine API
+- `dock108.ai` → Main landing portal (`dock108-web`)
+- `highlights.dock108.ai` → Sports highlights (`highlights-web`)
+- `bets.dock108.ai` → Sports betting theory (`theory-bets-web`)
+- `crypto.dock108.ai` → Crypto strategy interpreter (`theory-crypto-web`)
+- `stocks.dock108.ai` → Stock analysis (`theory-stocks-web`)
+- `conspiracies.dock108.ai` → Conspiracy fact-checking (`conspiracy-web`)
+- `game.dock108.ai` → AI prompting game (`prompt-game-web`)
+- `playlist.dock108.ai` → Legacy playlist curator (`playlist-web`)
+- `api.dock108.ai` → Theory engine API (internal routing)
+
+All subdomains route through Traefik with automatic Let's Encrypt SSL certificates.
 
 See `infra/DEPLOYMENT.md` for deployment instructions.
 
 ## 5. Environments
 
-- **Local** – `docker compose up` for API + data workers, `pnpm dev`/`npm run dev` for Apps.
-- **Staging** – Hetzner CX or AX machine mirroring prod, nightly data worker runs.
-- **Production** – Two-node setup (apps/services split) with managed Postgres + Redis instances. Guardrails + monitoring (Grafana/Prometheus) ship here first.
+- **Local Development**:
+  - Infrastructure: `cd infra && ./docker-compose.sh up -d postgres redis`
+  - Backend: `cd services/theory-engine-api && uv run uvicorn app.main:app --reload`
+  - Frontend: `cd apps/<app-name> && pnpm dev`
+  - Workers: `cd services/data-workers && uv run celery -A app.main.app worker`
+  - Scraper: `cd services/theory-bets-scraper && uv run celery -A bets_scraper.celery_app.app worker`
+
+- **Staging** – Hetzner CX or AX machine mirroring production, nightly data worker runs.
+
+- **Production** – Full stack deployment via Docker Compose:
+  - Traefik reverse proxy with automatic SSL
+  - All frontend apps and backend services containerized
+  - PostgreSQL and Redis for data and caching
+  - Celery workers for async tasks
+  - Centralized environment variable management via root `.env`
 
 ## 6. Next Milestones
 

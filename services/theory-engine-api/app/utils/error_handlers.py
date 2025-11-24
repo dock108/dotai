@@ -1,4 +1,10 @@
-"""Common error handling utilities."""
+"""
+Common error handling utilities for theory-engine-api.
+
+Provides standardized error response creation functions that return
+consistent JSON error structures across all API endpoints. This ensures
+clients receive predictable error formats with helpful messages and suggestions.
+"""
 
 import json
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import {
   TheoryForm,
@@ -13,6 +14,17 @@ import {
 import { useBetsEvaluation, type BetsRequest, type BetsResponse } from "@dock108/js-core";
 import styles from "./page.module.css";
 
+/**
+ * Main page component for betting theory evaluation.
+ * 
+ * Provides a query builder interface where users can:
+ * - Enter a betting theory (e.g., "Lakers will cover the spread")
+ * - Specify sport, league, and time horizon (single game vs full season)
+ * - Receive AI-powered analysis with data-driven feedback
+ * 
+ * Uses the shared useBetsEvaluation hook from @dock108/js-core
+ * which handles API communication with the theory-engine-api backend.
+ */
 export default function Home() {
   const { data, loading, error, evaluate } = useBetsEvaluation();
   const [submitError, setSubmitError] = useState<Error | null>(null);
@@ -113,6 +125,10 @@ export default function Home() {
             </Section>
           )}
         </div>
+
+        <Link href="/admin/theory-bets/ingestion" className={styles.adminLink}>
+          Open sports data admin →
+        </Link>
       </Container>
     </div>
   );

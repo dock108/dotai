@@ -6,7 +6,7 @@ This file captures today's runnable artifacts before we lift them into the refac
 
 ## AI Trainer Game (SwiftUI Prototype)
 
-- **Location**: `apps/game-web/swift-prototype/ios-app`
+- **Location**: `apps/prompt-game-web/swift-prototype/ios-app`
 - **Status**: Shipping SwiftUI app built around deterministic “lesson” puzzles backed by OpenAI chat completions.
 
 ### What it does today
@@ -20,7 +20,7 @@ This file captures today's runnable artifacts before we lift them into the refac
 
 - Keep the core puzzle/lesson logic and UX flows, but port them to React:
   - Move the deterministic state machine + prompt builder into `packages/js-core`.
-  - Rebuild the UI in `apps/game-web` while we keep the Swift project compiling for TestFlight users until feature parity lands.
+  - Rebuild the UI in `apps/prompt-game-web` while we keep the Swift project compiling for TestFlight users until feature parity lands.
 
 ## YouTube Playlist Curator (Next.js)
 

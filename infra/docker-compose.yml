@@ -1,26 +1,28 @@
-version: '3.8'
 
 services:
-  # Reverse proxy / load balancer
-  nginx:
-    image: nginx:alpine
-    container_name: dock108-nginx
+  # Traefik reverse proxy with automatic Let's Encrypt certificates
+  traefik:
+    image: traefik:v3.1
+    container_name: dock108-traefik
+    env_file:
+      - ../.env
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-      - ./nginx/logs:/var/log/nginx
-    depends_on:
-      - theory-engine-api
-      - game-web
-      - playlist-web
-      - theory-bets-web
-      - theory-crypto-web
-      - theory-stocks-web
-      - theory-conspiracy-web
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/acme:/letsencrypt
     restart: unless-stopped
     networks:
       - dock108-network
@@ -71,6 +73,8 @@ services:
       context: ..
       dockerfile: infra/docker/theory-engine-api.Dockerfile
     container_name: dock108-theory-api
+    env_file:
+      - ../.env
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-dock108}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-dock108}
       REDIS_URL: redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
@@ -101,6 +105,8 @@ services:
       context: ..
       dockerfile: infra/docker/worker.Dockerfile
     container_name: dock108-worker
+    env_file:
+      - ../.env
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-dock108}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-dock108}
       REDIS_URL: redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
@@ -130,20 +136,22 @@ services:
       context: ..
       dockerfile: infra/docker/dock108-web.Dockerfile
     container_name: dock108-web
-    environment:
-      NEXT_PUBLIC_THEORY_ENGINE_URL: http://theory-engine-api:8000
-    depends_on:
-      - theory-engine-api
     restart: unless-stopped
     networks:
       - dock108-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.home.rule=Host(`dock108.ai`)"
+      - "traefik.http.routers.home.entrypoints=websecure"
+      - "traefik.http.routers.home.tls.certresolver=letsencrypt"
+      - "traefik.http.services.home.loadbalancer.server.port=3000"
 
   # Game web app
-  game-web:
+  prompt-game-web:
     build:
       context: ..
-      dockerfile: infra/docker/game-web.Dockerfile
-    container_name: dock108-game-web
+      dockerfile: infra/docker/prompt-game-web.Dockerfile
+    container_name: dock108-game
     environment:
       NEXT_PUBLIC_THEORY_ENGINE_URL: http://theory-engine-api:8000
     depends_on:
@@ -151,6 +159,12 @@ services:
     restart: unless-stopped
     networks:
       - dock108-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.game.rule=Host(`game.dock108.ai`)"
+      - "traefik.http.routers.game.entrypoints=websecure"
+      - "traefik.http.routers.game.tls.certresolver=letsencrypt"
+      - "traefik.http.services.game.loadbalancer.server.port=3000"
 
   # Playlist web app
   playlist-web:
@@ -179,6 +193,12 @@ services:
     restart: unless-stopped
     networks:
       - dock108-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.bets.rule=Host(`bets.dock108.ai`)"
+      - "traefik.http.routers.bets.entrypoints=websecure"
+      - "traefik.http.routers.bets.tls.certresolver=letsencrypt"
+      - "traefik.http.services.bets.loadbalancer.server.port=3001"
 
   # Theory crypto web app
   theory-crypto-web:
@@ -193,6 +213,12 @@ services:
     restart: unless-stopped
     networks:
       - dock108-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.crypto.rule=Host(`crypto.dock108.ai`)"
+      - "traefik.http.routers.crypto.entrypoints=websecure"
+      - "traefik.http.routers.crypto.tls.certresolver=letsencrypt"
+      - "traefik.http.services.crypto.loadbalancer.server.port=3005"
 
   # Theory stocks web app
   theory-stocks-web:
@@ -207,13 +233,19 @@ services:
     restart: unless-stopped
     networks:
       - dock108-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.stocks.rule=Host(`stocks.dock108.ai`)"
+      - "traefik.http.routers.stocks.entrypoints=websecure"
+      - "traefik.http.routers.stocks.tls.certresolver=letsencrypt"
+      - "traefik.http.services.stocks.loadbalancer.server.port=3003"
 
   # Theory conspiracy web app
-  theory-conspiracy-web:
+  conspiracy-web:
     build:
       context: ..
-      dockerfile: infra/docker/theory-conspiracy-web.Dockerfile
-    container_name: dock108-conspiracy-web
+      dockerfile: infra/docker/conspiracy-web.Dockerfile
+    container_name: dock108-conspiracy
     environment:
       NEXT_PUBLIC_THEORY_ENGINE_URL: http://theory-engine-api:8000
     depends_on:
@@ -221,13 +253,19 @@ services:
     restart: unless-stopped
     networks:
       - dock108-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.conspiracy.rule=Host(`conspiracy.dock108.ai`)"
+      - "traefik.http.routers.conspiracy.entrypoints=websecure"
+      - "traefik.http.routers.conspiracy.tls.certresolver=letsencrypt"
+      - "traefik.http.services.conspiracy.loadbalancer.server.port=3004"
 
   # Highlight channel web app
-  highlight-channel-web:
+  highlights-web:
     build:
       context: ..
-      dockerfile: infra/docker/highlight-channel-web.Dockerfile
-    container_name: dock108-highlight-channel-web
+      dockerfile: infra/docker/highlights-web.Dockerfile
+    container_name: dock108-highlights
     environment:
       NEXT_PUBLIC_THEORY_ENGINE_URL: http://theory-engine-api:8000
     depends_on:
@@ -235,6 +273,12 @@ services:
     restart: unless-stopped
     networks:
       - dock108-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.highlights.rule=Host(`highlights.dock108.ai`)"
+      - "traefik.http.routers.highlights.entrypoints=websecure"
+      - "traefik.http.routers.highlights.tls.certresolver=letsencrypt"
+      - "traefik.http.services.highlights.loadbalancer.server.port=3005"
 
 volumes:
   postgres-data:

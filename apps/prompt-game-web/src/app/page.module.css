@@ -1,0 +1,101 @@
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem 0 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.header {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.header h1 {
+  font-size: clamp(2.2rem, 5vw, 3rem);
+  margin: 0;
+  color: var(--dock-text);
+}
+
+.subtitle {
+  color: var(--dock-text-muted);
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.lessonsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.lessonCard {
+  background: var(--dock-surface);
+  border-radius: var(--dock-radius);
+  padding: 1.5rem;
+  border: 1px solid var(--dock-border);
+  box-shadow: 0 20px 40px rgba(5, 6, 11, 0.4);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.lessonCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 25px 50px rgba(5, 6, 11, 0.45);
+}
+
+.lessonNumber {
+  font-size: 0.85rem;
+  color: var(--dock-text-muted);
+  margin-bottom: 0.4rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lessonTitle {
+  font-size: 1.4rem;
+  margin-bottom: 0.35rem;
+  color: var(--dock-text);
+}
+
+.lessonSkill {
+  font-size: 0.85rem;
+  color: var(--dock-accent);
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.lessonDescription {
+  color: var(--dock-text-muted);
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.lessonGoal {
+  font-size: 0.85rem;
+  color: var(--dock-text-muted);
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--dock-border);
+}
+
+.promo {
+  background: rgba(138, 124, 255, 0.12);
+  border: 1px solid var(--dock-border);
+  border-radius: var(--dock-radius);
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--dock-accent);
+  font-weight: 500;
+}
+
+.promo strong {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+

@@ -91,3 +91,235 @@ export class NetworkError extends Error {
   }
 }
 
+// Strategy types
+export interface StrategyIndicator {
+  name: string;
+  source: string;
+  params: Record<string, unknown>;
+}
+
+export interface StrategyEntry {
+  side: "long" | "short";
+  condition?: string; // Entry condition (e.g., "If ruling is positive AND BTC breaks above 94,500")
+  method?: string; // "breakout" | "mean-reversion" | "catalyst" | "trend" | "sentiment"
+  tranchePercent?: number; // Percentage of allocation (if capital provided)
+  allocateUsd?: number; // USD amount to allocate (only if capital provided)
+  logic: string;
+  confidence: number; // 1-5
+  tags: string[];
+  notes?: string;
+}
+
+export interface StrategyExit {
+  logic: string;
+  type: "stop" | "target" | "timed" | "conditional";
+  notes?: string;
+}
+
+export interface StrategyRisk {
+  maxCapitalAtRiskPct: number;
+  maxOpenPositions: number;
+  positionSizing: string;
+}
+
+export interface EntryTranche {
+  trigger: string;
+  capitalPct: number;
+  allocateUsd?: number; // Only present if capital provided
+  comments?: string;
+}
+
+export interface EntryPlan {
+  tranches: EntryTranche[];
+  maxDeploymentPct: number;
+}
+
+export interface StrategySpec {
+  name: string;
+  market: string;
+  timeframe: string;
+  thesis: string;
+  ticker?: string;
+  sector?: string;
+  units?: string; // "USD" | "thousands" | "percentage"
+  entryPlan?: EntryPlan;
+  indicators: StrategyIndicator[];
+  entries: StrategyEntry[];
+  exits: StrategyExit[];
+  risk: StrategyRisk;
+}
+
+export interface DatasetSpec {
+  name: string;
+  source: string;
+  resolution: string;
+  fields: string[];
+}
+
+export interface BacktestBlueprint {
+  datasets: DatasetSpec[];
+  metrics: string[];
+  assumptions: string[];
+  scenarios?: string[]; // ["lump sum", "3-tranche DCA", etc.]
+  period?: string; // "2017-01-01 to today"
+}
+
+export interface EdgeDiagnostics {
+  strengths: string[];
+  risks: string[];
+  monitoring: string[];
+}
+
+export interface AlertTrigger {
+  name: string;
+  condition: string;
+  channel: string;
+  cooldownMinutes: number;
+}
+
+export interface AlertSpec {
+  triggers: AlertTrigger[];
+}
+
+export interface CurrentMarketContext {
+  price?: string;
+  drawdownFromATH?: string;
+  volatility30d?: string;
+  funding?: string;
+  oiTrend?: string;
+  etfFlows?: string;
+}
+
+export interface PlaybookText {
+  title: string;
+  summary: string;
+  currentMarketContext?: CurrentMarketContext;
+  narrativeSummary?: string;
+  deepDive?: string[];
+  gamePlan: string[];
+  guardrails: string[];
+  dataSources: string[];
+}
+
+export interface Assumptions {
+  normalizations: string[];
+  uncertainties: string[];
+  userSaid90Means?: string;
+}
+
+export interface HistoricalAnalog {
+  event: string;
+  cryptoReaction: string;
+  coinsReactedMost: string[];
+  coinsReactedLeast: string[];
+  liquiditySimilar?: string;
+  confidence: "High" | "Medium" | "Low";
+}
+
+export interface ProbableMarketReactions {
+  ifCatalystPositive: string;
+  ifCatalystNegative: string;
+  ifCatalystNeutral: string;
+}
+
+export interface ConfidenceScores {
+  overall: "High" | "Medium" | "Low";
+  assetMapping: "High" | "Medium" | "Low";
+  timing: "High" | "Medium" | "Low";
+  magnitude: "High" | "Medium" | "Low";
+}
+
+export interface CatalystAnalysis {
+  type: string; // "macro_legal" | "macro_regulatory" | "trade_policy" | etc.
+  description: string;
+  affectedCategories: string[];
+  historicalAnalogs: HistoricalAnalog[];
+  probableMarketReactions?: ProbableMarketReactions;
+  confidenceScores?: ConfidenceScores;
+}
+
+export interface AssetBreakdownItem {
+  asset: string;
+  reasoning: string;
+  reaction: string;
+  entryPlan: string[];
+  risks: string[];
+  confidence: "High" | "Medium" | "Low";
+}
+
+export interface PatternAnalysis {
+  trend?: string;
+  valuation?: string;
+  volume?: string;
+  historicalSetups?: string[];
+  confidence?: string;
+}
+
+export interface StrategyInterpretation {
+  interpretation?: string; // Keep for backward compatibility, now optional
+  playbookText?: PlaybookText;
+  catalystAnalysis?: CatalystAnalysis;
+  assetBreakdown?: AssetBreakdownItem[];
+  patternAnalysis?: PatternAnalysis;
+  strategySpec: StrategySpec;
+  backtestBlueprint: BacktestBlueprint;
+  edgeDiagnostics: EdgeDiagnostics;
+  alertSpec: AlertSpec;
+  assumptions?: Assumptions;
+}
+
+export interface StrategyResponse extends StrategyInterpretation {
+  id: string;
+  ideaText: string;
+  createdAt?: string;
+}
+
+export interface StrategySaveRequest extends StrategyInterpretation {
+  strategyId?: string;
+  ideaText: string;
+  userId?: number;
+}
+
+export interface BacktestRequest {
+  strategyId: string;
+  strategySpec: StrategySpec;
+}
+
+export interface BacktestMetrics {
+  winRate: number;
+  expectancy: number;
+  maxDrawdown: number;
+  sharpe: number;
+  bestTrade: number;
+  worstTrade: number;
+  numberOfTrades: number;
+}
+
+export interface BacktestResult {
+  id: string;
+  strategyId: string;
+  equityCurve: Array<{ timestamp: string; equity: number }>;
+  metrics: BacktestMetrics;
+  trades: Array<{
+    id: string;
+    timestamp: string;
+    side: "long" | "short";
+    pnl: number;
+    notes?: string;
+  }>;
+  regimeNotes: string[];
+  generatedAt: string;
+}
+
+export interface AlertEvent {
+  id: string;
+  strategyId: string;
+  triggeredAt: string;
+  reason: string;
+}
+
+export interface ToggleAlertsRequest {
+  strategyId: string;
+  enabled: boolean;
+}
+

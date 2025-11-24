@@ -1,4 +1,10 @@
-"""Utilities for building date ranges from presets and defaults."""
+"""
+Utilities for building date ranges from presets and defaults.
+
+Provides functions to convert user-friendly date presets (e.g., "last7days")
+into structured DateRange objects for API requests. Used primarily by
+the highlights and playlist features.
+"""
 
 from datetime import datetime, timedelta
 

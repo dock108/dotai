@@ -1,4 +1,16 @@
-"""Entry point for the dock108 Theory Engine FastAPI service."""
+"""
+Entry point for the dock108 Theory Engine FastAPI service.
+
+This service provides the core API for all dock108 theory evaluation surfaces:
+- Sports betting theory evaluation
+- Crypto strategy interpretation
+- Stock analysis
+- Conspiracy theory fact-checking
+- Sports highlight playlist generation
+
+All domain-specific logic is delegated to routers, with shared utilities
+for database access, logging, and context fetching.
+"""
 
 from collections.abc import Callable
 import os
@@ -9,16 +21,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from datetime import datetime
 
-# Load environment variables from .env file
-# Look for .env in the service directory or parent directories
-env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
-if os.path.exists(env_path):
-    load_dotenv(env_path)
+# Load environment variables - prioritize root .env file (single source of truth)
+# This ensures all services use the same configuration without duplication
+root_env = os.path.join(os.path.dirname(__file__), "..", "..", ".env")
+if os.path.exists(root_env):
+    load_dotenv(root_env)
 else:
-    # Try root .env file
-    root_env = os.path.join(os.path.dirname(__file__), "..", "..", ".env")
-    if os.path.exists(root_env):
-        load_dotenv(root_env)
+    # Fallback to service-level .env for backward compatibility
+    env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+    if os.path.exists(env_path):
+        load_dotenv(env_path)
 
 from .logging_config import configure_logging
 
@@ -40,35 +52,43 @@ from py_core import (
     ContextResult,
 )
 
-from .routers import bets, conspiracies, crypto, highlights, playlist, stocks
+from .routers import bets, conspiracies, crypto, highlights, playlist, sports_data, stocks, strategy, stocks_strategy
 
+# Initialize FastAPI application
 app = FastAPI(title="Dock108 Theory Engine", version="0.1.0")
 
-# Configure CORS for frontend apps (local + future deployments)
+# Configure CORS for frontend apps
+# Allows requests from local development ports and all origins (for development/testing)
+# In production, this should be restricted to specific domains
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3005",
+        "http://localhost:3005",  # theory-crypto-web
         "http://127.0.0.1:3005",
-        "http://localhost:3000",
+        "http://localhost:3000",  # dock108-web and other apps
         "http://127.0.0.1:3000",
-        "*",  # Allow other origins during development / testing
+        "*",  # Allow all origins during development (restrict in production)
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Configure structured logging
+# Configure structured logging with JSON output for observability
 configure_logging()
 
-# Include routers
+# Register domain-specific routers
+# Each router handles a specific domain (bets, crypto, stocks, etc.)
+# and provides endpoints for theory evaluation and related operations
 app.include_router(playlist.router)
 app.include_router(bets.router)
 app.include_router(crypto.router)
 app.include_router(stocks.router)
+app.include_router(stocks_strategy.router)
 app.include_router(conspiracies.router)
 app.include_router(highlights.router)
+app.include_router(strategy.router)
+app.include_router(sports_data.router)
 
 
 @app.get("/healthz", tags=["health"])
@@ -77,8 +97,13 @@ async def healthcheck() -> dict[str, str]:
     return {"status": "ok"}
 
 
+# Type alias for context fetching functions
 ContextFetcher = Callable[[str], ContextResult]
 
+# Domain-specific context fetchers
+# Maps each domain to its appropriate context fetching function
+# These functions retrieve relevant external data (odds, prices, videos, etc.)
+# to enrich theory evaluations with real-world context
 DOMAIN_FETCHERS: dict[Domain, ContextFetcher] = {
     Domain.bets: lambda text: fetch_odds_context(text, limit=5),
     Domain.crypto: lambda text: fetch_crypto_context(text, limit=5),
@@ -90,7 +115,17 @@ DOMAIN_FETCHERS: dict[Domain, ContextFetcher] = {
 
 @app.post("/api/theory/evaluate", response_model=TheoryResponse, tags=["theory"])
 async def evaluate_theory(req: TheoryRequest) -> TheoryResponse:
-    """End-to-end theory evaluation with guardrails."""
+    """
+    End-to-end theory evaluation with guardrails and context enrichment.
+    
+    This is the main entry point for theory evaluation across all domains.
+    It:
+    1. Routes the request to the appropriate domain
+    2. Evaluates guardrails (content filtering, safety checks)
+    3. Fetches relevant context (odds, prices, videos, etc.)
+    4. Computes domain-specific verdict using LLM
+    5. Returns structured response with confidence and limitations
+    """
 
     domain = req.domain or route_domain(req.text)
     guardrail_results = evaluate_guardrails(req.text, domain)

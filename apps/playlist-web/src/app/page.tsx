@@ -6,6 +6,12 @@ import styles from "./page.module.css";
 import type { LengthBucket, EndingDelayChoice } from "@/lib/types";
 import { FEATURE_FLAGS } from "@/lib/constants";
 
+/**
+ * Length bucket options for playlist generation.
+ * 
+ * Each bucket represents a target duration range that the backend
+ * will use to curate an appropriate number of videos.
+ */
 const LENGTH_OPTIONS: { value: LengthBucket; label: string }[] = [
   { value: "5_15", label: "5–15 min" },
   { value: "15_30", label: "15–30 min" },
@@ -15,6 +21,12 @@ const LENGTH_OPTIONS: { value: LengthBucket; label: string }[] = [
   { value: "600_plus", label: "10+ hours" },
 ];
 
+/**
+ * Ending delay choices for long-form playlists (10+ hours).
+ * 
+ * When "keep ending hidden" is enabled, these options control when
+ * spoiler content (e.g., final outcomes, major reveals) first appears.
+ */
 const ENDING_CHOICES: { value: EndingDelayChoice; label: string }[] = [
   { value: "1h", label: "Reveal after 1 hour" },
   { value: "2h", label: "Reveal after 2 hours" },
@@ -23,6 +35,18 @@ const ENDING_CHOICES: { value: EndingDelayChoice; label: string }[] = [
   { value: "surprise", label: "Surprise me (60–120 min)" },
 ];
 
+/**
+ * Main page component for AI-curated playlist generation.
+ * 
+ * Provides a query builder interface where users can:
+ * - Enter a topic (e.g., "Lufthansa Heist but not Goodfellas")
+ * - Select target length (5 min to 10+ hours)
+ * - Enable sports mode (hide spoilers)
+ * - Configure ending delay for long-form playlists
+ * 
+ * On submission, calls POST /api/playlist which forwards to
+ * theory-engine-api for actual playlist curation.
+ */
 export default function Home() {
   const [playlist, setPlaylist] = useState<PlaylistResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -137,7 +161,7 @@ export default function Home() {
         <div className={styles.grid}>
           <section className={styles.formPanel}>
             <TheoryForm
-              domain="bets" // Using bets domain for form styling, but this is playlist
+              domain="playlist"
               placeholder={
                 FEATURE_FLAGS.LONG_FORM_ONLY
                   ? 'e.g. "Lufthansa Heist but not Goodfellas" or "History of Bitcoin, exclude price speculation"'

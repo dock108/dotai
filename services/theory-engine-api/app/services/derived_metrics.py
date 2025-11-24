@@ -1,0 +1,90 @@
+"""Utility helpers for computing derived metrics for sports games."""
+
+from __future__ import annotations
+
+from typing import Any, Sequence
+
+from .. import db_models
+
+
+def _select_closing_lines(odds: Sequence[db_models.SportsGameOdds], market: str) -> list[db_models.SportsGameOdds]:
+    candidates = [odd for odd in odds if odd.market_type == market]
+    closing = [odd for odd in candidates if odd.is_closing_line]
+    return closing or candidates
+
+
+def _implied_probability(price: float | None) -> float | None:
+    if price is None or price == 0:
+        return None
+    if price > 0:
+        return 100 / (price + 100)
+    return -price / (-price + 100)
+
+
+def compute_derived_metrics(
+    game: db_models.SportsGame,
+    odds: Sequence[db_models.SportsGameOdds],
+) -> dict[str, Any]:
+    """Return spread/total/moneyline metrics used by the Theory Engine."""
+
+    metrics: dict[str, Any] = {}
+    if game.home_score is not None and game.away_score is not None:
+        home = game.home_score
+        away = game.away_score
+        metrics["home_score"] = home
+        metrics["away_score"] = away
+        metrics["margin_of_victory"] = home - away
+        metrics["combined_score"] = home + away
+        metrics["winner"] = "home" if home > away else ("away" if away > home else "tie")
+
+    spread_lines = _select_closing_lines(odds, "spread")
+    if spread_lines and game.home_score is not None and game.away_score is not None:
+        # assume spread lines have side field referencing team (home/away)
+        for line in spread_lines:
+            if not line.side:
+                continue
+            side = line.side.lower()
+            if side in {"home", game.home_team.name.lower() if game.home_team else ""}:
+                metrics["closing_spread_home"] = line.line
+                metrics["closing_spread_home_price"] = line.price
+            if side in {"away", game.away_team.name.lower() if game.away_team else ""}:
+                metrics["closing_spread_away"] = line.line
+                metrics["closing_spread_away_price"] = line.price
+
+        if "closing_spread_home" in metrics:
+            cover = metrics["margin_of_victory"] - (metrics["closing_spread_home"] or 0)
+            metrics["did_home_cover"] = cover > 0
+            metrics["did_away_cover"] = cover < 0
+
+    total_lines = _select_closing_lines(odds, "total")
+    if total_lines and "combined_score" in metrics:
+        total_line = total_lines[0]
+        total_value = total_line.line or 0
+        combined = metrics["combined_score"]
+        metrics["closing_total"] = total_value
+        metrics["closing_total_price"] = total_line.price
+        metrics["total_result"] = (
+            "over" if combined > total_value else "under" if combined < total_value else "push"
+        )
+
+    moneyline = _select_closing_lines(odds, "moneyline")
+    if moneyline:
+        for line in moneyline:
+            if line.side is None:
+                continue
+            side = line.side.lower()
+            prob = _implied_probability(line.price)
+            if side in {"home", game.home_team.name.lower() if game.home_team else ""}:
+                metrics["closing_ml_home"] = line.price
+                metrics["closing_ml_home_implied"] = prob
+            if side in {"away", game.away_team.name.lower() if game.away_team else ""}:
+                metrics["closing_ml_away"] = line.price
+                metrics["closing_ml_away_implied"] = prob
+        if "winner" in metrics:
+            if metrics["winner"] == "home" and "closing_ml_home" in metrics and "closing_ml_away" in metrics:
+                metrics["moneyline_upset"] = (metrics["closing_ml_home"] or 0) > (metrics["closing_ml_away"] or 0)
+            elif metrics["winner"] == "away" and "closing_ml_home" in metrics and "closing_ml_away" in metrics:
+                metrics["moneyline_upset"] = (metrics["closing_ml_away"] or 0) > (metrics["closing_ml_home"] or 0)
+
+    return metrics
+

@@ -1,43 +1,45 @@
-## AI Curation MVP
+# Playlist Web
 
-> Lives inside the `dock108/apps/playlist-web` workspace of the monorepo. The `legacy-mvp/` folder keeps the earliest lightweight prototype for reference; the root Next.js project is the actively maintained build that will be upstreamed into the shared theory engine service.
+AI-curated YouTube playlist generator. Builds intentional playlists from natural language topics with configurable length, sports mode, and ending delay options.
 
-Topic + length → intentional YouTube playlist. This MVP wires a simple UI to an orchestrated backend that:
+## Quick Start
 
-- canonicalizes the requested topic with an LLM,
-- searches YouTube for matching + filler videos,
-- filters/grades the pool via lightweight rules,
-- sequences the playlist (including 10+ hour “keep the ending hidden” logic), and
-- optionally writes an unlisted playlist via a bot account.
+1. **Install dependencies** (from repo root):
+   ```bash
+   pnpm install
+   ```
 
-### Stack
+2. **Set up environment variables**:
+   ```bash
+   cd apps/playlist-web
+   ```
+   
+   Create `.env.local` with:
+   ```bash
+   NEXT_PUBLIC_THEORY_ENGINE_URL=http://localhost:8000
+   ```
 
-- Next.js App Router (UI + API route)
-- OpenAI `gpt-4o-mini` for topic insights + tag classification
-- YouTube Data API (search + playlist creation)
-- Zod for request validation
+3. **Start the development server**:
+   ```bash
+   pnpm dev
+   ```
 
-### Setup
+4. **Open your browser**:
+   Navigate to http://localhost:3002
 
-1. Copy `.env.example` → `.env.local` and fill in:
+## Architecture
 
-```bash
-OPENAI_API_KEY=...
-YOUTUBE_API_KEY=...
+This app acts as a thin client that forwards requests to the `theory-engine-api` backend:
 
-# Optional – needed for auto playlist creation
-YOUTUBE_OAUTH_ACCESS_TOKEN=...
-YOUTUBE_PLAYLIST_CHANNEL_ID=...
-```
+- **Frontend**: Next.js UI with query builder interface
+- **API Route**: `/api/playlist` validates and forwards to `POST /api/theory/playlist`
+- **Backend**: `theory-engine-api` handles all playlist curation logic:
+  - Topic parsing and canonicalization
+  - YouTube search and video filtering
+  - Playlist sequencing and tagging
+  - Optional YouTube playlist creation
 
-2. Install dependencies & run dev server:
-
-```bash
-npm install
-npm run dev
-```
-
-3. Visit `http://localhost:3000`.
+The `legacy-mvp/` folder contains the original prototype for reference only.
 
 ### UX Notes
 
@@ -46,14 +48,32 @@ npm run dev
 - “Save to YouTube” button appears once OAuth creds are provided; otherwise, the UI reminds you to drop in the token + channel id.
 - “Regenerate with new vibe” simply re-runs the scoring pipeline with the same inputs.
 
-### Backend Flow
+## Features
 
-1. **Topic parsing** (`src/lib/topicParser.ts`) uses OpenAI with a JSON schema to return canonical topic, enrichment keywords, spoiler terms, and subtopics.
-2. **Search + hydrate** (`src/lib/youtube.ts`) issues multiple Data API searches, then merges details.
-3. **Filter + score** (`src/lib/videoFiltering.ts`) enforces keyword hits, runtime tolerance (±20%), spoiler/banned-term filters, and scores videos via simple heuristics.
-4. **Video tagging** (`src/lib/videoClassifier.ts`) classifies each candidate (intro/context/deep dive/ending/misc) using the same LLM.
-5. **Playlist planning** (`src/lib/playlistBuilder.ts`) assembles sequences per length bucket, inserts anchors for long runs, and annotates ending segments with lock thresholds when requested.
-6. **Playlist creation** (`src/lib/youtubePlaylist.ts`) writes an unlisted playlist + items when OAuth credentials exist.
+- **Natural language input** - Describe any topic (e.g., "Lufthansa Heist but not Goodfellas")
+- **Length buckets** - Choose from 5 min to 10+ hours
+- **Sports mode** - Hide spoilers for sports content
+- **Ending delay** - For long-form playlists, delay major reveals until specified time
+- **Regeneration** - Re-run curation with same parameters for different results
+
+## Development
+
+The app uses:
+- **Next.js 16** - React framework
+- **TypeScript** - Type safety
+- **@dock108/ui** - Shared UI components (DockHeader, DockFooter)
+- **@dock108/ui-kit** - Shared form components (TheoryForm, PlaylistCard)
+- **Zod** - Request validation
+
+## Backend Integration
+
+All playlist generation logic is handled by `theory-engine-api`:
+- Topic parsing and enrichment
+- YouTube search and video filtering
+- Playlist sequencing and tagging
+- Optional YouTube playlist creation
+
+See `docs/PLAYLIST_API.md` for detailed backend API documentation.
 
 ### Testing Checklist
 

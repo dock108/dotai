@@ -3,7 +3,7 @@
 ## Phase 0 (now)
 - Consolidate code into this monorepo ✅
 - Document architecture, guardrails, backend vision ✅
-- Keep Swift AI game operational inside `apps/game-web/swift-prototype`
+- Keep Swift AI game operational inside `apps/prompt-game-web/swift-prototype`
 
 ## Phase 1 – Shared Backend Foundations
 - Bootstrap FastAPI service with playlist endpoints + health checks
@@ -20,7 +20,7 @@
 ## Phase 3 – Guardrails + Game Port
 - Expand guardrail policies per domain (sports compliance, misinformation, financial advice)
 - Backfill anonymized theory data into warehouse for scoring improvements
-- Start React port of the AI game (`apps/game-web`), reusing shared UI + guardrail aware flows
+- Start React port of the AI game (`apps/prompt-game-web`), reusing shared UI + guardrail aware flows
 - Introduce experiments (A/B) for card formatting across surfaces
 
 ## Phase 4 – Scale + Custom Models

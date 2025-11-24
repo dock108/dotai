@@ -29,17 +29,20 @@ This directory contains all documentation for the dock108 monorepo.
 
 ### ⚙️ Feature Documentation
 
-#### Sports Highlight Channel
+#### Theory Evaluation Surfaces
+
+- **[`THEORY_SURFACES.md`](THEORY_SURFACES.md)** - Theory surfaces design and implementation
+- **[`THEORY_ENGINE.md`](THEORY_ENGINE.md)** - Theory engine API blueprint and design
+- **[`CONSPIRACY_THEORY.md`](CONSPIRACY_THEORY.md)** - Narrative-driven conspiracy analysis, rubric-based scoring, and data sources
+- **[`SAFETY_GUARDRAILS.md`](SAFETY_GUARDRAILS.md)** - Guardrail system for content filtering and safety
+
+#### Sports Features
 
 - **[`HIGHLIGHT_PARSING.md`](HIGHLIGHT_PARSING.md)** - AI parsing system for highlight requests
 - **[`SPORTS_SEARCH.md`](SPORTS_SEARCH.md)** - Sports-focused YouTube search implementation
 - **[`PLAYLIST_DATABASE.md`](PLAYLIST_DATABASE.md)** - Database schema and caching design
 - **[`highlight-mvp.md`](highlight-mvp.md)** - Current constraints, limitations, and future ideas
 - **[`YOUTUBE_SETUP.md`](YOUTUBE_SETUP.md)** - YouTube OAuth setup and token management guide
-
-#### Conspiracy Theory Evaluation
-
-- **[`CONSPIRACY_THEORY.md`](CONSPIRACY_THEORY.md)** - Narrative-driven conspiracy analysis, rubric-based scoring, and data sources
 
 ### 📋 Planning & Reference
 
@@ -57,18 +60,19 @@ Historical reference documents are in the [`archive/`](archive/) folder:
 
 ✅ **Up to Date**:
 - `LOCAL_DEPLOY.md` - Comprehensive local deployment guide
+- `ARCHITECTURE.md` - System architecture and monorepo structure
 - `HIGHLIGHTS_API.md` - Complete API documentation with metrics and watch token endpoints
 - `HIGHLIGHT_PARSING.md` - AI parsing system documentation
 - `SPORTS_SEARCH.md` - Search module documentation
 - `PLAYLIST_DATABASE.md` - Database schema documentation
 - `highlight-mvp.md` - Current constraints and limitations
 - `CONSPIRACY_THEORY.md` - Narrative-driven conspiracy analysis documentation
-- `API_KEYS_SETUP.md` - API key setup guide for all services
-- `ARCHITECTURE.md` - System architecture
+- `THEORY_SURFACES.md` - Theory surfaces design and implementation
 - `THEORY_ENGINE.md` - Theory engine blueprint
-- `SAFETY_GUARDRAILS.md` - Guardrail system
-- `DATA_PRIVACY.md` - Privacy model
-- `ROADMAP.md` - Future roadmap
+- `API_KEYS_SETUP.md` - API key setup guide for all services
+- `SAFETY_GUARDRAILS.md` - Guardrail system documentation
+- `DATA_PRIVACY.md` - Privacy model and data handling
+- `ROADMAP.md` - Future roadmap and planned features
 - `YOUTUBE_SETUP.md` - OAuth setup and token management guide
 
 📝 **Planning Documents** (archived):

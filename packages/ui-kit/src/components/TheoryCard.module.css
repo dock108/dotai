@@ -1,15 +1,16 @@
 .card {
-  background: white;
-  border: 2px solid #ddd;
-  border-radius: 12px;
+  background: var(--dock-surface);
+  border: 1px solid var(--dock-border);
+  border-radius: var(--dock-radius);
   padding: 2rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 30px 60px rgba(5, 6, 11, 0.4);
+  color: var(--dock-text);
 }
 
 .section {
   margin-bottom: 2rem;
   padding-bottom: 1.5rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--dock-border);
 }
 
 .section:last-of-type {
@@ -18,9 +19,9 @@
 }
 
 .sectionTitle {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
-  color: #333;
+  color: var(--dock-text-muted);
   margin: 0 0 1rem 0;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -28,9 +29,9 @@
 }
 
 .summary {
-  font-size: 1.1rem;
-  line-height: 1.6;
-  color: #1a1a1a;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: var(--dock-text);
   margin: 0;
   font-weight: 500;
 }
@@ -43,18 +44,18 @@
 }
 
 .verdict {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   margin: 0;
-  color: #1a1a1a;
+  color: var(--dock-text);
   font-weight: 600;
 }
 
 .confidence {
-  font-size: 0.9rem;
-  color: #666;
-  background: #f0f7ff;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  font-size: 0.85rem;
+  color: var(--dock-accent);
+  background: rgba(138, 124, 255, 0.12);
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -72,15 +73,16 @@
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 0.75rem;
-  background: #f9f9f9;
-  border-radius: 4px;
+  padding: 0.85rem;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 0.75rem;
+  border: 1px solid var(--dock-border);
   flex-wrap: wrap;
 }
 
 .dataName {
   font-weight: 600;
-  color: #333;
+  color: var(--dock-text);
   flex: 1;
   min-width: 200px;
 }
@@ -107,7 +109,7 @@
 
 .dataDetails {
   font-size: 0.875rem;
-  color: #666;
+  color: var(--dock-text-muted);
   font-style: italic;
 }
 
@@ -121,7 +123,7 @@
 .conclusionList li,
 .limitationsList li {
   margin: 0.5rem 0;
-  color: #333;
+  color: var(--dock-text);
   line-height: 1.6;
 }
 
@@ -136,41 +138,43 @@
 }
 
 .meta {
-  background: #f9f9f9;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 0.85rem;
   padding: 1rem;
   margin-top: 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   font-size: 0.875rem;
+  border: 1px solid var(--dock-border);
 }
 
 .metaItem {
-  color: #666;
+  color: var(--dock-text-muted);
 }
 
 .metaItem strong {
-  color: #333;
+  color: var(--dock-text);
   margin-right: 0.5rem;
 }
 
 .domainFields {
-  background: #f9f9f9;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 0.85rem;
   padding: 1rem;
   margin-top: 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  border: 1px solid var(--dock-border);
 }
 
 .domainFields > div {
-  color: #333;
+  color: var(--dock-text);
 }
 
 .domainFields strong {
-  color: #0066cc;
+  color: var(--dock-accent);
   margin-right: 0.5rem;
 }
 
@@ -221,7 +225,7 @@
 
 .domainSection {
   margin-top: 1.5rem;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--dock-border);
   padding-top: 1.5rem;
 }
 
@@ -243,18 +247,17 @@
 
 .domainSectionTitle {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  color: #0066cc;
+  color: var(--dock-accent);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  font-size: 0.875rem;
 }
 
 .toggleIcon {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #666;
+  color: var(--dock-text-muted);
   user-select: none;
 }
 
@@ -266,12 +269,12 @@
 }
 
 .domainField {
-  color: #333;
+  color: var(--dock-text);
   line-height: 1.6;
 }
 
 .domainField strong {
-  color: #0066cc;
+  color: var(--dock-accent);
   margin-right: 0.5rem;
 }
 
@@ -283,7 +286,7 @@
 
 .domainList li {
   margin: 0.25rem 0;
-  color: #666;
+  color: var(--dock-text-muted);
 }
 
 .grade {

@@ -53,11 +53,11 @@ else
     exit 1
 fi
 
-if [ -f "apps/highlight-channel-web/.env.local" ]; then
+if [ -f "apps/highlights-web/.env.local" ]; then
     echo -e "${GREEN}✅ Frontend .env.local file exists${NC}"
 else
     echo -e "${YELLOW}⚠️  Frontend .env.local missing - creating it...${NC}"
-    echo "NEXT_PUBLIC_THEORY_ENGINE_URL=http://localhost:8000" > apps/highlight-channel-web/.env.local
+    echo "NEXT_PUBLIC_THEORY_ENGINE_URL=http://localhost:8000" > apps/highlights-web/.env.local
     echo -e "${GREEN}✅ Created .env.local${NC}"
 fi
 
@@ -108,7 +108,8 @@ echo "  cd services/theory-engine-api"
 echo "  uv run uvicorn app.main:app --reload --port 8000"
 echo ""
 echo "TERMINAL 2 - Frontend:"
-echo "  cd apps/highlight-channel-web"
+echo "  cd apps/highlights-web"
+echo "  cd apps/highlights-web"
 echo "  pnpm dev"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

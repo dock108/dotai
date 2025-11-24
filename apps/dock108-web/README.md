@@ -1,16 +1,41 @@
-# dock108 Web Hub (todo)
+# Dock108 Web Hub
 
-This folder will house the marketing/docs experience for dock108 (Next.js or Remix). It should link every theory surface, explain the guardrail philosophy, and host long-form launches.
+Next.js landing portal that links every Dock108 surface (game, highlights, bets, stocks, crypto, conspiracy). Uses the shared `@dock108/ui` package for typography, tiles, and header/footer components.
 
-## Planned features
-- Landing page describing theory engine + guardrails
-- Links to bets/crypto/stocks/conspiracy/playlist tools
-- Auth-protected editorials + theory library once the backend exists
+## Quick Start
 
-## Tech stack (target)
-- Next.js 15 (App Router) + React Server Components
-- Tailwind + shared `packages/ui-kit`
-- Contentlayer (or MDX) for docs + release notes
+1. **Install dependencies** (from repo root):
+   ```bash
+   pnpm install
+   ```
 
-## Status
-Only the directory scaffold exists. Clone `apps/playlist-web` tooling to jumpstart once designs are ready.
+2. **Start the development server**:
+   ```bash
+   cd apps/dock108-web
+   pnpm dev
+   ```
+
+3. **Open your browser**:
+   Navigate to http://localhost:3000
+
+## Scripts
+
+```bash
+pnpm dev      # Start development server on port 3000
+pnpm build    # Build for production
+pnpm start    # Start production server
+pnpm lint     # Run ESLint
+```
+
+## Development
+
+The app uses:
+- **Next.js 16** - React framework
+- **TypeScript** - Type safety
+- **@dock108/ui** - Shared UI components (AppTile, DockHeader, DockFooter)
+
+## Notes
+
+- Imports `@dock108/ui/theme.css` in `layout.tsx` to stay on-brand
+- `page.tsx` defines the tile metadata—keep hrefs in sync with Traefik routing in `infra/docker-compose.yml`
+- No backend API required—this is a static landing page with links to other apps

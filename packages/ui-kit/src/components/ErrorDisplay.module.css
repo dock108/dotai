@@ -3,12 +3,13 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 2rem;
+  padding: 1.75rem;
   gap: 1rem;
-  background-color: #fff5f5;
-  border: 1px solid #feb2b2;
-  border-radius: 8px;
+  background-color: rgba(255, 107, 132, 0.08);
+  border: 1px solid rgba(255, 107, 132, 0.3);
+  border-radius: var(--dock-radius);
   text-align: center;
+  box-shadow: 0 20px 40px rgba(15, 16, 30, 0.35);
 }
 
 .icon {
@@ -17,35 +18,41 @@
 
 .title {
   margin: 0;
-  color: #c53030;
-  font-size: 1.25rem;
-  font-weight: 600;
+  color: #ff8080;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .message {
   margin: 0;
-  color: #742a2a;
+  color: var(--dock-text-muted);
   font-size: 0.95rem;
   max-width: 500px;
+  line-height: 1.6;
 }
 
 .retryButton {
   margin-top: 0.5rem;
-  padding: 0.5rem 1rem;
-  background-color: #c53030;
-  color: white;
+  padding: 0.6rem 1.4rem;
+  background-color: #ff8080;
+  color: #1b0e0e;
   border: none;
-  border-radius: 4px;
+  border-radius: 999px;
   cursor: pointer;
   font-size: 0.9rem;
-  transition: background-color 0.2s;
+  font-weight: 600;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .retryButton:hover {
-  background-color: #9b2c2c;
+  transform: translateY(-1px);
+  box-shadow: 0 16px 30px rgba(255, 128, 128, 0.35);
 }
 
 .retryButton:active {
-  background-color: #742a2a;
+  transform: translateY(0);
+  box-shadow: none;
 }
 

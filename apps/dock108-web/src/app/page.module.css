@@ -1,0 +1,26 @@
+/* Hero section - landing page introduction */
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 760px;
+}
+
+.hero h1 {
+  font-size: clamp(2.4rem, 5vw, 3.4rem);
+  margin: 0;
+}
+
+.hero p {
+  margin: 0;
+  color: var(--dock-text-muted);
+  font-size: 1.1rem;
+}
+
+/* Responsive grid layout for application tiles */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+}
+

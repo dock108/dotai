@@ -1,51 +1,99 @@
 # dock108 Monorepo
 
-A single home for every dock108 surface: the AI theory engine, the guardrails that sit in front of GPT/OpenAI, the future React frontends, and the existing Swift prompting game. The repo is intentionally structured so each product experience can share the same Python backend and shared packages while deploying to Hetzner via Docker (and Kubernetes later).
+A unified platform for AI-powered theory evaluation across multiple domains. This monorepo contains all dock108 surfaces: theory evaluation engines (bets, crypto, stocks, conspiracies), sports highlight generation, and a prompting game. Every surface shares the same Python backend, guardrails, and shared UI components, enabling rapid development and consistent user experiences.
+
+**Key Features:**
+- **Multi-domain theory evaluation** with domain-specific analysis and guardrails
+- **Sports betting data ingestion** with boxscore and odds scraping
+- **Sports highlight playlist generation** with AI-powered parsing
+- **Shared UI components** for consistent branding across all apps
+- **Centralized infrastructure** with Docker Compose and Traefik routing
 
 ## Directory Map
 
 ```
-apps/                 # All user-facing experiences
-  dock108-web/        # Marketing + docs hub (Next.js placeholder)
-  game-web/           # AI prompting game (Swift prototype + React/Next.js)
-  playlist-web/       # Legacy YouTube curator MVP (Next.js)
-  highlight-channel-web/  # Sports highlight channel builder (Next.js) ⭐ Active
-  theory-*-web/       # Domain-specific theory surfaces (bets, crypto, stocks, conspiracies) ⭐ Active
-services/             # Python + worker backends
-  theory-engine-api/  # FastAPI backend (Sports highlights, theory evaluation) ⭐ Active
-  data-workers/       # Celery workers for odds/prices/YouTube caching ⭐ Active
-packages/             # Shared UI + client/server libraries
-  py-core/           # Python schemas, guardrails, scoring, clients ⭐ Active
-  ui-kit/            # Shared React components ⭐ Active
-  js-core/            # JavaScript SDK and utilities ⭐ Active
-infra/                # Docker, k8s, nginx deploy assets for Hetzner
-docs/                 # Living architecture + guardrail specs
+apps/                      # All user-facing experiences (Next.js)
+  dock108-web/             # Unified landing portal and app directory
+  highlights-web/          # Sports highlights playlist generator ⭐ Active
+  theory-bets-web/        # Sports betting theory evaluation ⭐ Active
+  theory-crypto-web/      # Crypto strategy interpreter ⭐ Active
+  theory-stocks-web/      # Stock analysis theory evaluation ⭐ Active
+  conspiracy-web/         # Conspiracy theory fact-checking ⭐ Active
+  prompt-game-web/        # AI prompting game (React/Next.js + Swift prototype)
+  playlist-web/           # Legacy YouTube curator MVP
+
+services/                  # Python backend services
+  theory-engine-api/       # FastAPI backend (all theory domains, highlights) ⭐ Active
+  theory-bets-scraper/    # Sports data ingestion (boxscores, odds) ⭐ Active
+  data-workers/           # Celery workers (YouTube cache, odds snapshots, prices) ⭐ Active
+
+packages/                  # Shared libraries
+  py-core/                # Python schemas, guardrails, scoring, API clients ⭐ Active
+  js-core/                # TypeScript SDK, React hooks, API client ⭐ Active
+  ui/                     # Shared UI components (DockHeader, DockFooter, theme) ⭐ Active
+  ui-kit/                 # Domain-specific UI components (TheoryForm, TheoryCard) ⭐ Active
+
+infra/                     # Infrastructure and deployment
+  docker/                 # Dockerfiles for all services and apps
+  docker-compose.yml      # Full stack orchestration
+  traefik/                # Reverse proxy and SSL configuration
+  k8s/                    # Kubernetes manifests (future)
+
+docs/                      # Comprehensive documentation
+  ARCHITECTURE.md         # System architecture overview
+  LOCAL_DEPLOY.md         # Local development guide
+  ROADMAP.md              # Future plans and features
+  ...                     # Feature-specific documentation
 ```
 
 ## Current Status
 
 ### Active Features
 
-- **Sports Highlight Channel** (`apps/highlight-channel-web` + `services/theory-engine-api`):
-  - Natural language playlist generation from sports queries
-  - Guided UI builder with structured input (sports, teams, players, play types, date ranges)
-  - AI-powered parsing, guardrails, YouTube search, intelligent caching
-  - Iterative filtering with AI-powered description analysis
-  - Recent highlights focus (last 48 hours to 30 days)
-  - Embedded YouTube player with temporary, shareable watch links (48-hour expiration)
-  - See [Sports Highlight Channel Feature](#sports-highlight-channel-feature) below
-- **Conspiracy Theory Evaluation** (`apps/theory-conspiracy-web` + `services/theory-engine-api`):
-  - Narrative-driven analysis with mini-documentary summaries
-  - Evidence comparison and rubric-based confidence scoring (0-100)
+#### Theory Evaluation Surfaces
+All theory evaluation apps are fully functional with shared UI components and backend integration:
+
+- **Sports Betting** (`apps/theory-bets-web`): Evaluate betting theories with data-driven analysis
+  - Sports data admin UI for boxscore/odds ingestion monitoring
+  - Game browser with advanced filtering and detail views
+  - Integration with theory-engine-api for evaluation
+
+- **Crypto Strategies** (`apps/theory-crypto-web`): Crypto strategy interpreter with backtesting
+  - LLM-powered strategy interpretation
+  - Backtest blueprint generation
+  - Alert specification and management
+  - Full strategy detail views with tabs
+
+- **Stock Analysis** (`apps/theory-stocks-web`): Stock market theory evaluation
+  - Pattern recognition and analysis
+  - Data-driven feedback
+
+- **Conspiracy Theory** (`apps/conspiracy-web`): Fact-checking with narrative analysis
+  - Mini-documentary summaries
+  - Evidence comparison and rubric-based scoring (0-100)
   - Wikipedia and fact-check database integration
   - See [`docs/CONSPIRACY_THEORY.md`](docs/CONSPIRACY_THEORY.md) for details
 
+#### Sports Data Ingestion
+- **Boxscore + Odds Scraper** (`services/theory-bets-scraper`): Historical sports data collection
+  - Configurable ingestion for major US sports (NFL, NCAAF, NBA, NCAAB, MLB, NHL)
+  - Idempotent persistence with no duplicate games
+  - Admin UI for monitoring and triggering scrape runs
+  - Odds API integration for betting lines
+
+#### Sports Highlights
+- **Highlight Playlist Generator** (`apps/highlights-web`): Natural language playlist creation
+  - AI-powered parsing of user queries
+  - YouTube search with channel reputation scoring
+  - Intelligent caching to reduce API costs
+  - Embedded player with temporary watch links (48-hour expiration)
+  - See [Sports Highlight Channel Feature](#sports-highlight-channel-feature) below
+
 ### Other Apps
 
-- `apps/playlist-web`: Legacy YouTube curator MVP (Next.js) - original playlist builder
-- `apps/game-web/swift-prototype`: Shipping SwiftUI AI lesson game (spec for future React port)
-- `apps/game-web`: React/Next.js port (in progress)
-- `apps/theory-*-web`: Domain-specific theory surfaces (bets, crypto, stocks, conspiracies) - Conspiracy theory fully implemented with narrative engine
+- `apps/dock108-web`: Unified landing portal with app directory
+- `apps/playlist-web`: Legacy YouTube curator MVP (original playlist builder)
+- `apps/prompt-game-web`: AI prompting game (React/Next.js port in progress, Swift prototype available)
 
 ## Sports Highlight Channel Feature
 
@@ -67,7 +115,7 @@ For comprehensive local development and testing instructions, see **[`docs/LOCAL
 3. Get API keys: YouTube Data API, OpenAI API
 4. Configure environment: Copy `.env.example` to `services/theory-engine-api/.env`
 5. Start backend: `cd services/theory-engine-api && uv sync && uv pip install -e ../../packages/py-core && alembic upgrade head && uv run uvicorn app.main:app --reload`
-6. Start frontend: `cd apps/highlight-channel-web && pnpm install && pnpm dev`
+6. Start frontend: `cd apps/highlights-web && pnpm install && pnpm dev`
 
 ### API Endpoints
 
@@ -86,51 +134,134 @@ See [`docs/HIGHLIGHTS_API.md`](docs/HIGHLIGHTS_API.md) for detailed API document
 - **Local Development**: See `docs/LOCAL_DEPLOY.md` for comprehensive local setup and testing guide (Sports Highlight Channel feature)
 - **Production Deployment**: See `infra/DEPLOYMENT.md` for full monorepo deployment guide (all services and apps)
 
-## Getting Started
-
-1. **For local development**: See [`docs/LOCAL_DEPLOY.md`](docs/LOCAL_DEPLOY.md) for step-by-step setup
-2. **For production deployment**: See [`infra/DEPLOYMENT.md`](infra/DEPLOYMENT.md) for full monorepo deployment
-3. **Documentation**: See [`docs/README.md`](docs/README.md) for complete documentation index
+## Quick Start
 
 ### Prerequisites
 
-- Python 3.11+ with `uv` package manager
-- Node.js 18+ with `pnpm`
-- PostgreSQL 14+
-- YouTube Data API key
-- OpenAI API key
+- **Python 3.11+** with `uv` package manager
+- **Node.js 18+** with `pnpm`
+- **PostgreSQL 14+** (local or Docker)
+- **Redis** (for caching and Celery)
+- **API Keys**:
+  - OpenAI API key (for LLM evaluation)
+  - YouTube Data API key (for highlights feature)
+  - Odds API key (for sports betting data, optional)
+
+### Local Development
+
+1. **Clone and setup**:
+   ```bash
+   git clone <repo-url>
+   cd dock108
+   cp .env.example .env
+   # Edit .env with your API keys
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   # Python packages
+   cd services/theory-engine-api
+   uv sync
+   uv pip install -e ../../packages/py-core
+   
+   # Node packages (from repo root)
+   pnpm install
+   ```
+
+3. **Start infrastructure**:
+   ```bash
+   cd infra
+   ./docker-compose.sh up -d postgres redis
+   ```
+
+4. **Run database migrations**:
+   ```bash
+   cd services/theory-engine-api
+   alembic upgrade head
+   ```
+
+5. **Start backend**:
+   ```bash
+   cd services/theory-engine-api
+   uv run uvicorn app.main:app --reload
+   ```
+
+6. **Start frontend** (choose one):
+   ```bash
+   # Main portal
+   cd apps/dock108-web && pnpm dev
+   
+   # Or specific app
+   cd apps/theory-bets-web && pnpm dev
+   ```
+
+### Production Deployment
+
+See [`infra/DEPLOYMENT.md`](infra/DEPLOYMENT.md) for complete production deployment guide.
+
+### Documentation
+
+- **[`docs/README.md`](docs/README.md)** - Complete documentation index
+- **[`docs/LOCAL_DEPLOY.md`](docs/LOCAL_DEPLOY.md)** - Detailed local development guide
+- **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** - System architecture overview
+- **[`infra/README.md`](infra/README.md)** - Infrastructure documentation
 
 ## Project Status
 
 ### Completed ✅
 
-- **Sports Highlight Channel MVP**: Full-stack feature with AI parsing, guardrails, caching, and metrics
-- **Embedded YouTube Player**: Temporary watch links (48-hour expiration) with auto-play, looping, and controls
-- **Conspiracy Theory Narrative Engine**: Mini-documentary summaries, evidence comparison, rubric-based confidence scoring
-- **Guided UI Builder**: Structured input with sports checklists, player/team/play type chips, date presets, duration sliders
-- **Code Cleanup**: 
-  - Backend: Centralized datetime utilities, date range helpers, error handlers, watch token system
-  - Frontend: Extracted constants, types, utilities, and presets into `src/lib/` modules
-  - Removed duplicate code and improved modularity
-  - Organized scripts into `services/theory-engine-api/scripts/` directory
-  - Organized cache helpers into `services/data-workers/app/services/` directory
-- **Shared Python Core** (`packages/py-core`): Schemas, guardrails, scoring utilities, YouTube client, staleness logic
-- **Theory Engine API** (`services/theory-engine-api`): FastAPI backend with highlights endpoints, conspiracy narrative endpoints, database models, migrations
-- **Infrastructure**: Docker Compose setup for full monorepo deployment
-- **Documentation**: Comprehensive guides for local development, production deployment, and feature documentation
+#### Core Infrastructure
+- **Monorepo Structure**: Unified codebase with shared packages and services
+- **Docker Compose**: Full stack orchestration with Traefik routing
+- **Environment Management**: Centralized `.env` file at repo root
+- **Shared UI Components** (`packages/ui`): DockHeader, DockFooter, theme system
+- **Shared UI Kit** (`packages/ui-kit`): TheoryForm, TheoryCard, LoadingSpinner, ErrorDisplay, and more
+- **JavaScript Core** (`packages/js-core`): TypeScript SDK with API clients, React hooks, type-safe endpoints
+- **Python Core** (`packages/py-core`): Schemas, guardrails, scoring utilities, API clients
+
+#### Backend Services
+- **Theory Engine API** (`services/theory-engine-api`): FastAPI backend with:
+  - Multi-domain theory evaluation (bets, crypto, stocks, conspiracies)
+  - Sports highlights playlist generation
+  - Sports data admin endpoints
+  - Strategy interpretation and backtesting
+  - Database models and Alembic migrations
+  - Structured logging with structlog
+  - Centralized utilities (datetime, error handling, date ranges)
+
+- **Sports Data Scraper** (`services/theory-bets-scraper`): 
+  - Boxscore ingestion for major US sports
+  - Odds API integration
+  - Celery-based job execution
+  - Idempotent persistence
+
+- **Data Workers** (`services/data-workers`): Celery workers for:
+  - YouTube video metadata caching
+  - Odds snapshot collection
+  - Market price updates
+
+#### Frontend Apps
+- **All Theory Apps**: Fully functional with shared components and backend integration
+  - `theory-bets-web`: Sports betting evaluation + admin UI
+  - `theory-crypto-web`: Crypto strategy interpreter with backtesting
+  - `theory-stocks-web`: Stock analysis evaluation
+  - `conspiracy-web`: Conspiracy fact-checking with narrative engine
+
+- **Highlights Web**: Sports highlight playlist generator with AI parsing
+- **Dock108 Web**: Unified landing portal and app directory
+
+#### Code Quality
+- **Modular Architecture**: Clear separation of concerns across services
+- **No Duplicates**: Centralized utilities and shared components
+- **Comprehensive Comments**: Well-documented code with architecture explanations
+- **Type Safety**: TypeScript and Pydantic throughout
+- **Standards Compliance**: Consistent patterns across all services and apps
 
 ### In Progress 🚧
 
-- **React Game Port** (`apps/game-web`): Porting Swift prototype to React/Next.js
+- **React Game Port** (`apps/prompt-game-web`): Porting Swift prototype to React/Next.js
 - **Kubernetes Deployment**: GitOps pipeline for Hetzner cluster
-
-### Completed ✅ (Latest)
-
-- **Theory Surfaces** (`apps/theory-*-web`): All 4 theory apps (bets, crypto, stocks, conspiracies) now functional with shared components
-- **JavaScript Core** (`packages/js-core`): TypeScript SDK with API client, React hooks, and type-safe endpoints
-- **Shared UI Kit** (`packages/ui-kit`): Expanded with LoadingSpinner, ErrorDisplay, PresetChips, DomainHeader, PageLayout, Container, Section
-- **Data Workers** (`services/data-workers`): Celery-based workers for YouTube caching, odds snapshots, and market prices (placeholders ready for API integration)
-- **Enhanced TheoryCard**: Domain-specific fields with collapsible sections for all theory types
+- **Custom Models**: Training bespoke graders on collected theory data
 
 ### Planned 📋
 

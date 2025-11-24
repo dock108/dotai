@@ -4,7 +4,7 @@
 
 **This guide covers local development and testing for the Sports Highlight Channel feature:**
 - `services/theory-engine-api` - FastAPI backend service
-- `apps/highlight-channel-web` - Next.js frontend application
+- `apps/highlights-web` - Next.js frontend application
 
 **For full monorepo deployment (all services and apps), see `infra/DEPLOYMENT.md`.**
 
@@ -14,7 +14,7 @@ If you just want to get running quickly:
 
 1. **Prerequisites**: PostgreSQL running, API keys configured
 2. **Backend**: `cd services/theory-engine-api && uv sync && uv pip install -e ../../packages/py-core && alembic upgrade head && uv run uvicorn app.main:app --reload`
-3. **Frontend**: `cd apps/highlight-channel-web && pnpm install && pnpm dev`
+3. **Frontend**: `cd apps/highlights-web && pnpm install && pnpm dev`
 4. **Test**: Open http://localhost:3005 and try "NFL highlights from last night, 30 minutes"
 
 For detailed setup, troubleshooting, and testing scenarios, continue reading below.
@@ -281,7 +281,7 @@ This installs dependencies for all apps and packages in the monorepo.
 ### 2. Navigate to Frontend App
 
 ```bash
-cd apps/highlight-channel-web
+cd apps/highlights-web
 ```
 
 ### 3. Create Environment File
@@ -464,7 +464,7 @@ lsof -i :3005
 ```bash
 # From repo root
 pnpm install
-cd apps/highlight-channel-web
+cd apps/highlights-web
 pnpm install
 ```
 
@@ -569,7 +569,7 @@ All theory surfaces (bets, crypto, stocks, conspiracies) use the same backend AP
    cd apps/theory-stocks-web && pnpm dev
 
    # Conspiracies (port 3004)
-   cd apps/theory-conspiracy-web && pnpm dev
+   cd apps/conspiracy-web && pnpm dev
    ```
 
 3. **Test the surface**:

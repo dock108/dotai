@@ -1,7 +1,13 @@
 import type { NextConfig } from "next";
 
+/**
+ * Next.js configuration for playlist-web app.
+ * 
+ * Transpiles @dock108/ui package to ensure compatibility with Next.js
+ * build process. This is required for all apps using shared UI components.
+ */
 const nextConfig: NextConfig = {
-  /* config options here */
+  transpilePackages: ["@dock108/ui"],
 };
 
 export default nextConfig;
