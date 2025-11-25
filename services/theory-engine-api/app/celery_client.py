@@ -1,19 +1,23 @@
-"""Celery client used for scheduling background jobs from the API."""
+"""Celery client for scheduling background jobs."""
 
 from __future__ import annotations
 
-import os
 from functools import lru_cache
 
 from celery import Celery
 
+from .config import settings
+
 
 @lru_cache(maxsize=1)
 def get_celery_app() -> Celery:
-    broker_url = os.getenv("CELERY_BROKER_URL", os.getenv("REDIS_URL", "redis://localhost:6379/2"))
-    backend_url = os.getenv("CELERY_RESULT_BACKEND", broker_url)
-    app = Celery("theory-engine-api", broker=broker_url, backend=backend_url)
-    app.conf.task_default_queue = os.getenv("CELERY_DEFAULT_QUEUE", "bets-scraper")
+    app = Celery("theory-engine-api", broker=settings.celery_broker, backend=settings.celery_backend)
+    app.conf.task_default_queue = settings.celery_default_queue
+    app.conf.task_routes = {
+        "run_scrape_job": {"queue": "bets-scraper", "routing_key": "bets-scraper"},
+    }
+    app.conf.task_always_eager = False
+    app.conf.task_eager_propagates = True
     return app
 
 

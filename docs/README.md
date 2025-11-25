@@ -43,6 +43,7 @@ This directory contains all documentation for the dock108 monorepo.
 - **[`PLAYLIST_DATABASE.md`](PLAYLIST_DATABASE.md)** - Database schema and caching design
 - **[`highlight-mvp.md`](highlight-mvp.md)** - Current constraints, limitations, and future ideas
 - **[`YOUTUBE_SETUP.md`](YOUTUBE_SETUP.md)** - YouTube OAuth setup and token management guide
+- **[`../LOAD_SPORTS_DATA.md`](../LOAD_SPORTS_DATA.md)** - Guide for loading sports data via admin UI
 
 ### 📋 Planning & Reference
 
@@ -74,6 +75,7 @@ Historical reference documents are in the [`archive/`](archive/) folder:
 - `DATA_PRIVACY.md` - Privacy model and data handling
 - `ROADMAP.md` - Future roadmap and planned features
 - `YOUTUBE_SETUP.md` - OAuth setup and token management guide
+- `../LOAD_SPORTS_DATA.md` - Sports data loading guide
 
 📝 **Planning Documents** (archived):
 - See `archive/` folder for historical planning documents
@@ -84,10 +86,9 @@ When updating documentation:
 
 1. **Update the relevant doc file** with accurate, tested information
 2. **Update this index** if adding, removing, or reorganizing docs
-3. **Update `../CHANGELOG.md`** if it's a significant change
-4. **Test code examples** to ensure they work
-5. **Use clear headings** and structure for easy navigation
-6. **Link between related docs** for better discoverability
+3. **Test code examples** to ensure they work
+4. **Use clear headings** and structure for easy navigation
+5. **Link between related docs** for better discoverability
 
 ## Documentation Standards
 

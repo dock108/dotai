@@ -23,3 +23,17 @@ body {
   color: var(--dock-text);
 }
 
+/* Ensure all text is visible by default */
+* {
+  color: inherit;
+}
+
+/* Override for specific elements that need explicit colors */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--dock-text);
+}
+
+p, span, div, td, th {
+  color: inherit;
+}
+

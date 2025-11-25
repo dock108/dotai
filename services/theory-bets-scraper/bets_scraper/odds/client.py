@@ -57,13 +57,17 @@ class OddsAPIClient:
             logger.warning("unsupported_league_for_odds", league=league_code)
             return []
 
+        from datetime import timezone
+        start_datetime = datetime.combine(start_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+        end_datetime = datetime.combine(end_date, datetime.max.time()).replace(tzinfo=timezone.utc)
+        
         params = {
             "apiKey": settings.odds_api_key,
             "regions": "us",
             "markets": ",".join(MARKET_TYPES.keys()),
             "oddsFormat": "american",
-            "commenceTimeFrom": start_date.isoformat(),
-            "commenceTimeTo": end_date.isoformat(),
+            "commenceTimeFrom": start_datetime.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "commenceTimeTo": end_datetime.strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
         if books:
             params["bookmakers"] = ",".join(books)
@@ -74,6 +78,7 @@ class OddsAPIClient:
             return []
 
         payload = response.json()
+        logger.info("odds_api_response", league=league_code, event_count=len(payload) if isinstance(payload, list) else 0)
         snapshots: list[NormalizedOddsSnapshot] = []
         for event in payload:
             game_date = datetime.fromisoformat(event["commence_time"].replace("Z", "+00:00"))

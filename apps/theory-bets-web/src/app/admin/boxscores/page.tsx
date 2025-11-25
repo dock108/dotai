@@ -5,8 +5,7 @@ import Link from "next/link";
 import styles from "./page.module.css";
 import { LoadingSpinner, ErrorDisplay } from "@dock108/ui-kit";
 import { GameSummary, GameFilters, listGames } from "@/lib/api/sportsAdmin";
-
-const LEAGUE_OPTIONS = ["NBA", "NCAAB", "NFL", "NCAAF", "MLB", "NHL"];
+import { SUPPORTED_LEAGUES } from "@/lib/constants/sports";
 
 const DEFAULT_FILTERS: GameFilters = {
   leagues: [],
@@ -118,7 +117,7 @@ export default function BoxscoreAdminPage() {
           <div>
             <label>League</label>
             <div className={styles.leagueChips}>
-              {LEAGUE_OPTIONS.map((code) => (
+              {SUPPORTED_LEAGUES.map((code) => (
                 <button
                   key={code}
                   type="button"

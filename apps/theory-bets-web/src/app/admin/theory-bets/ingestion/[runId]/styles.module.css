@@ -8,17 +8,27 @@
 }
 
 .backLink {
-  color: #8ab4f8;
+  color: var(--dock-accent);
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .card {
-  background: #0b0b0f;
-  border: 1px solid #1f2128;
-  border-radius: 12px;
+  background: var(--dock-surface);
+  border: 1px solid var(--dock-border);
+  border-radius: var(--dock-radius);
   padding: 1.5rem;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 25px 55px rgba(5, 6, 11, 0.45);
+}
+
+.card h1,
+.card h2 {
+  color: var(--dock-text);
+  margin-top: 0;
+}
+
+.card p {
+  color: var(--dock-text);
 }
 
 .metaGrid {
@@ -30,33 +40,56 @@
 
 .label {
   display: block;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
-  color: #5f6368;
-  letter-spacing: 0.04em;
+  color: var(--dock-text-muted);
+  letter-spacing: 0.08em;
   margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.metaGrid p {
+  color: var(--dock-text);
+  font-weight: 600;
+  margin: 0.25rem 0 0;
 }
 
 .status {
   text-transform: capitalize;
+  color: var(--dock-text);
 }
 
 .configBlock {
   margin-top: 2rem;
 }
 
+.configBlock h2 {
+  color: var(--dock-text);
+  margin-bottom: 1rem;
+}
+
 .configBlock pre {
-  background: #11131a;
-  border: 1px solid #1f2128;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--dock-border);
+  border-radius: 0.75rem;
   padding: 1rem;
   overflow: auto;
   font-size: 0.9rem;
+  color: var(--dock-text);
 }
 
 .summary {
   margin-top: 1.5rem;
   padding-top: 1rem;
-  border-top: 1px solid #1f2128;
+  border-top: 1px solid var(--dock-border);
+}
+
+.summary h2 {
+  color: var(--dock-text);
+  margin-bottom: 0.5rem;
+}
+
+.summary p {
+  color: var(--dock-text);
 }
 

@@ -193,6 +193,12 @@ async def create_scrape_run(payload: ScrapeRunCreateRequest, session: AsyncSessi
             return None
         return datetime.combine(value, datetime.min.time())
 
+    config_dict = payload.config.model_dump(by_alias=False)
+    if config_dict.get("start_date") and isinstance(config_dict["start_date"], date):
+        config_dict["start_date"] = config_dict["start_date"].isoformat()
+    if config_dict.get("end_date") and isinstance(config_dict["end_date"], date):
+        config_dict["end_date"] = config_dict["end_date"].isoformat()
+    
     run = db_models.SportsScrapeRun(
         scraper_type=payload.config.scraper_type,
         league_id=league.id,
@@ -202,7 +208,7 @@ async def create_scrape_run(payload: ScrapeRunCreateRequest, session: AsyncSessi
         end_date=_to_datetime(payload.config.end_date),
         status="pending",
         requested_by=payload.requested_by,
-        config=payload.config.model_dump(by_alias=False),
+        config=config_dict,
     )
     session.add(run)
     await session.flush()
@@ -210,9 +216,18 @@ async def create_scrape_run(payload: ScrapeRunCreateRequest, session: AsyncSessi
     worker_payload = payload.config.to_worker_payload()
     try:
         celery_app = get_celery_app()
-        async_result = celery_app.send_task("run_scrape_job", args=[run.id, worker_payload])
+        async_result = celery_app.send_task(
+            "run_scrape_job",
+            args=[run.id, worker_payload],
+            queue="bets-scraper",
+            routing_key="bets-scraper",
+        )
         run.job_id = async_result.id
     except Exception as exc:  # pragma: no cover
+        from ..logging_config import get_logger
+
+        logger = get_logger(__name__)
+        logger.error("failed_to_enqueue_scrape", error=str(exc), exc_info=True)
         run.status = "error"
         run.error_details = f"Failed to enqueue scrape: {exc}"
         raise HTTPException(status_code=500, detail="Failed to enqueue scrape job") from exc
@@ -577,7 +592,12 @@ async def _enqueue_single_game_run(
 
     worker_payload = config.to_worker_payload()
     celery_app = get_celery_app()
-    async_result = celery_app.send_task("run_scrape_job", args=[run.id, worker_payload])
+    async_result = celery_app.send_task(
+        "run_scrape_job",
+        args=[run.id, worker_payload],
+        queue="bets-scraper",
+        routing_key="bets-scraper",
+    )
     run.job_id = async_result.id
 
     return JobResponse(run_id=run.id, job_id=async_result.id, message="Job enqueued")

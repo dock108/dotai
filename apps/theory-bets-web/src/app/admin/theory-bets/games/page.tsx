@@ -4,8 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import styles from "./styles.module.css";
 import { listGames, type GameSummary, type GameFilters } from "@/lib/api/sportsAdmin";
-
-const LEAGUES = ["NBA", "NCAAB", "NFL", "NCAAF", "MLB", "NHL"];
+import { SUPPORTED_LEAGUES } from "@/lib/constants/sports";
 
 /**
  * Legacy games browser page (deprecated in favor of /admin/boxscores).
@@ -24,7 +23,6 @@ export default function GamesAdminPage() {
   const fetchGames = async () => {
     try {
       setLoading(true);
-      // Convert to new API format
       const filters: GameFilters = {
         leagues: [league],
         season: season ? Number(season) : undefined,
@@ -55,7 +53,7 @@ export default function GamesAdminPage() {
         <label>
           League
           <select value={league} onChange={(e) => setLeague(e.target.value)}>
-            {LEAGUES.map((code) => (
+            {SUPPORTED_LEAGUES.map((code) => (
               <option key={code}>{code}</option>
             ))}
           </select>

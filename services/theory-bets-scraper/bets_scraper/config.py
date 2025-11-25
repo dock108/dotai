@@ -11,7 +11,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,6 +26,13 @@ class ScraperConfig(BaseModel):
     sources: list[str] = Field(default_factory=lambda: ["sports_reference"])
     request_timeout_seconds: int = 20
     max_concurrency: int = 4
+    min_request_interval: float = 2.0
+    rate_limit_wait_seconds: int = 30
+    jitter_range: float = 0.5
+    day_delay_min: float = 0.5
+    day_delay_max: float = 1.5
+    error_delay_min: float = 2.0
+    error_delay_max: float = 4.0
 
 
 class Settings(BaseSettings):
@@ -36,12 +43,26 @@ class Settings(BaseSettings):
     with other services. All settings are validated by Pydantic.
     """
     model_config = SettingsConfigDict(
-        env_file=Path(__file__).resolve().parents[2] / ".env",
+        env_file=Path(__file__).resolve().parents[3] / ".env",  # Root .env file
         env_file_encoding="utf-8",
         extra="allow"  # Allow extra env vars without validation errors
     )
 
     database_url: str = Field(..., alias="DATABASE_URL")
+    
+    @field_validator('database_url', mode='before')
+    @classmethod
+    def convert_async_to_sync(cls, v: str) -> str:
+        """
+        Convert asyncpg URL to psycopg URL for synchronous SQLAlchemy.
+        
+        The root .env file uses asyncpg (for FastAPI), but Celery workers
+        need synchronous psycopg. This validator automatically converts
+        the URL so we can keep a single DATABASE_URL in the .env file.
+        """
+        if isinstance(v, str) and 'asyncpg' in v:
+            return v.replace('asyncpg', 'psycopg')
+        return v
     redis_url: str = Field("redis://localhost:6379/2", alias="REDIS_URL")
     odds_api_key: str | None = Field(None, alias="ODDS_API_KEY")
     environment: str = Field("development", alias="ENVIRONMENT")

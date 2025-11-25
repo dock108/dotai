@@ -15,26 +15,15 @@ from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import declarative_base
 
+from .config import settings
 from .db_models import Base
 
-# Database URL from environment (defaults to local Postgres)
-# In production, this should be set via environment variable
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+asyncpg://postgres:postgres@localhost:5432/dock108",
-)
-
-# Create async engine with connection pooling
-# echo=True enables SQL query logging (useful for debugging)
 engine = create_async_engine(
-    DATABASE_URL,
-    echo=os.getenv("SQL_ECHO", "false").lower() == "true",
+    settings.database_url,
+    echo=settings.sql_echo,
     future=True,
 )
 
-# Create async session factory
-# expire_on_commit=False prevents objects from being expired after commit
-# This is useful for returning database objects from API endpoints
 AsyncSessionLocal = async_sessionmaker(
     engine,
     class_=AsyncSession,

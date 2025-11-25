@@ -7,8 +7,13 @@
   gap: 1.5rem;
 }
 
+.container h1 {
+  color: var(--dock-text);
+  margin: 0;
+}
+
 .subtitle {
-  color: #5f6368;
+  color: var(--dock-text-muted);
 }
 
 .filters {
@@ -23,32 +28,54 @@
   flex-direction: column;
   font-size: 0.9rem;
   gap: 0.3rem;
+  color: var(--dock-text);
+  font-weight: 600;
 }
 
 .filters select,
 .filters input {
   padding: 0.5rem 0.75rem;
-  border-radius: 8px;
-  border: 1px solid #2a2c36;
-  background: #11131a;
-  color: #fff;
+  border-radius: 0.75rem;
+  border: 1px solid var(--dock-border);
+  background: var(--dock-bg);
+  color: var(--dock-text);
+  font-size: 0.95rem;
+}
+
+.filters select:focus,
+.filters input:focus {
+  outline: none;
+  border-color: var(--dock-accent);
+  box-shadow: 0 0 0 2px rgba(138, 124, 255, 0.25);
 }
 
 .filters button {
   padding: 0.6rem 1.2rem;
   border-radius: 999px;
   border: none;
-  background: #15bffd;
-  color: #0b0b0f;
+  background: var(--dock-accent);
+  color: var(--dock-bg);
   font-weight: 600;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.filters button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 25px rgba(138, 124, 255, 0.35);
+}
+
+.filters button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .card {
-  background: #0b0b0f;
-  border: 1px solid #1f2128;
-  border-radius: 12px;
-  padding: 1rem;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  background: var(--dock-surface);
+  border: 1px solid var(--dock-border);
+  border-radius: var(--dock-radius);
+  padding: 1.5rem;
+  box-shadow: 0 25px 55px rgba(5, 6, 11, 0.45);
 }
 
 .table {
@@ -59,15 +86,34 @@
 .table th,
 .table td {
   padding: 0.75rem;
-  border-bottom: 1px solid #1f2128;
+  border-bottom: 1px solid var(--dock-border);
+  text-align: left;
+}
+
+.table th {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+  color: var(--dock-text-muted);
+  font-weight: 600;
+}
+
+.table td {
+  color: var(--dock-text);
 }
 
 .table a {
-  color: #8ab4f8;
+  color: var(--dock-accent);
   text-decoration: none;
+  font-weight: 600;
+}
+
+.table a:hover {
+  text-decoration: underline;
 }
 
 .error {
   color: #ff6b6b;
+  font-weight: 500;
 }
 

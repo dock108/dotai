@@ -4,14 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import styles from "./styles.module.css";
 import { createScrapeRun, listScrapeRuns, type ScrapeRunResponse } from "@/lib/api/sportsAdmin";
-
-const LEAGUES = ["NBA", "NCAAB", "NFL", "NCAAF", "MLB", "NHL"];
-const STATUS_COLORS: Record<string, string> = {
-  success: "#0f9d58",
-  running: "#fbbc04",
-  pending: "#5f6368",
-  error: "#ea4335",
-};
+import { getFullSeasonDates, shouldAutoFillDates, type LeagueCode } from "@/lib/utils/seasonDates";
+import { SUPPORTED_LEAGUES, SCRAPE_RUN_STATUS_COLORS, DEFAULT_SCRAPE_RUN_FORM } from "@/lib/constants/sports";
 
 /**
  * Sports data ingestion admin page.
@@ -29,15 +23,8 @@ export default function IngestionAdminPage() {
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    leagueCode: "NBA",
-    season: "",
-    startDate: "",
-    endDate: "",
-    includeBoxscores: true,
-    includeOdds: true,
-    requestedBy: "admin@dock108.ai",
-  });
+  const [success, setSuccess] = useState<string | null>(null);
+  const [form, setForm] = useState(DEFAULT_SCRAPE_RUN_FORM);
 
   const fetchRuns = async () => {
     try {
@@ -56,25 +43,53 @@ export default function IngestionAdminPage() {
     fetchRuns();
   }, []);
 
+  useEffect(() => {
+    if (shouldAutoFillDates(form.leagueCode as LeagueCode, form.season, form.startDate, form.endDate)) {
+      const seasonYear = Number(form.season);
+      if (!isNaN(seasonYear) && seasonYear >= 2000 && seasonYear <= 2100) {
+        const dates = getFullSeasonDates(form.leagueCode as LeagueCode, seasonYear);
+        setForm((prev) => ({
+          ...prev,
+          startDate: dates.startDate,
+          endDate: dates.endDate,
+        }));
+      }
+    }
+  }, [form.leagueCode, form.season]);
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setCreating(true);
+    setError(null);
+    setSuccess(null);
     try {
-      await createScrapeRun({
+      const startDate = form.startDate?.trim() || undefined;
+      const endDate = form.endDate?.trim() || undefined;
+      
+      if (startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+        throw new Error(`Invalid start date format: ${startDate}. Expected YYYY-MM-DD`);
+      }
+      if (endDate && !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+        throw new Error(`Invalid end date format: ${endDate}. Expected YYYY-MM-DD`);
+      }
+      
+      const result = await createScrapeRun({
         requestedBy: form.requestedBy,
         config: {
           leagueCode: form.leagueCode,
           season: form.season ? Number(form.season) : undefined,
-          startDate: form.startDate || undefined,
-          endDate: form.endDate || undefined,
+          startDate: startDate,
+          endDate: endDate,
           includeBoxscores: form.includeBoxscores,
           includeOdds: form.includeOdds,
         },
       });
+      setSuccess(`Scrape run #${result.id} scheduled successfully!`);
       await fetchRuns();
-      setError(null);
+      setForm(DEFAULT_SCRAPE_RUN_FORM);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(errorMessage);
     } finally {
       setCreating(false);
     }
@@ -89,6 +104,8 @@ export default function IngestionAdminPage() {
 
       <section className={styles.card}>
         <h2>Create Scrape Run</h2>
+        {success && <p className={styles.success}>{success}</p>}
+        {error && <p className={styles.error}>{error}</p>}
         <form className={styles.form} onSubmit={handleSubmit}>
           <label>
             League
@@ -96,7 +113,7 @@ export default function IngestionAdminPage() {
               value={form.leagueCode}
               onChange={(e) => setForm((prev) => ({ ...prev, leagueCode: e.target.value }))}
             >
-              {LEAGUES.map((code) => (
+              {SUPPORTED_LEAGUES.map((code) => (
                 <option key={code} value={code}>
                   {code}
                 </option>
@@ -105,7 +122,7 @@ export default function IngestionAdminPage() {
           </label>
 
           <label>
-            Season (optional)
+            Season (optional - auto-fills dates if provided)
             <input
               type="number"
               value={form.season}
@@ -116,7 +133,7 @@ export default function IngestionAdminPage() {
 
           <div className={styles.row}>
             <label>
-              Start date
+              Start date (optional)
               <input
                 type="date"
                 value={form.startDate}
@@ -124,7 +141,7 @@ export default function IngestionAdminPage() {
               />
             </label>
             <label>
-              End date
+              End date (optional)
               <input
                 type="date"
                 value={form.endDate}
@@ -132,6 +149,11 @@ export default function IngestionAdminPage() {
               />
             </label>
           </div>
+          {form.season && !form.startDate && !form.endDate && (
+            <p className={styles.hint}>
+              Dates will be auto-filled for the full {form.season} season (including playoffs/championships)
+            </p>
+          )}
 
           <div className={styles.toggles}>
             <label>
@@ -188,7 +210,7 @@ export default function IngestionAdminPage() {
                 <td>
                   <span
                     className={styles.statusPill}
-                    style={{ backgroundColor: STATUS_COLORS[run.status] ?? "#5f6368" }}
+                    style={{ backgroundColor: SCRAPE_RUN_STATUS_COLORS[run.status] ?? "#5f6368" }}
                   >
                     {run.status}
                   </span>

@@ -16,6 +16,10 @@ celery_config = {
     "worker_prefetch_multiplier": 1,
     "task_time_limit": 600,
     "task_soft_time_limit": 540,
+    "task_default_queue": "bets-scraper",
+    "task_routes": {
+        "run_scrape_job": {"queue": "bets-scraper"},
+    },
 }
 
 app = Celery(
@@ -25,5 +29,8 @@ app = Celery(
     include=["bets_scraper.jobs.tasks"],
 )
 app.conf.update(**celery_config)
+app.conf.task_routes = {
+    "run_scrape_job": {"queue": "bets-scraper", "routing_key": "bets-scraper"},
+}
 
 

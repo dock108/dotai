@@ -30,7 +30,7 @@ This folder is preserved to:
 **Instead**:
 - Use the active implementation in `../src/`
 - Reference `../README.md` for current architecture
-- Check `docs/highlight-phase-notes.md` for refactoring plans
+- See `docs/archive/highlight-phase-notes.md` for historical refactoring notes
 
 ## Migration Notes
 

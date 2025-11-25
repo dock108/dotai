@@ -34,12 +34,10 @@ except ImportError as exc:
     ) from exc
 
 
-# Create synchronous engine (Celery tasks use sync SQLAlchemy)
-# pool_pre_ping=True ensures connections are validated before use
 engine = create_engine(
     settings.database_url,
     future=True,
-    pool_pre_ping=True  # Validate connections before use
+    pool_pre_ping=True,
 )
 SessionLocal = sessionmaker(
     bind=engine,

@@ -205,6 +205,8 @@ See [`infra/DEPLOYMENT.md`](infra/DEPLOYMENT.md) for complete production deploym
 - **[`docs/LOCAL_DEPLOY.md`](docs/LOCAL_DEPLOY.md)** - Detailed local development guide
 - **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** - System architecture overview
 - **[`infra/README.md`](infra/README.md)** - Infrastructure documentation
+- **[`START.md`](START.md)** - Quick Docker-based startup guide
+- **[`LOAD_SPORTS_DATA.md`](LOAD_SPORTS_DATA.md)** - Guide for loading sports data via admin UI
 
 ## Project Status
 
