@@ -6,7 +6,7 @@ import styles from "./TheoryCard.module.css";
 export interface DataSource {
   name: string;
   cache_status: string;
-  details?: string;
+  details?: string | null;
 }
 
 export interface TheoryResponse {
@@ -18,19 +18,19 @@ export interface TheoryResponse {
   long_term_outcome_example: string;
   limitations: string[];
   guardrail_flags: string[];
-  model_version?: string;
-  evaluation_date?: string;
+  model_version?: string | null;
+  evaluation_date?: string | null;
 
   likelihood_grade?: string;
-  edge_estimate?: number;
+  edge_estimate?: number | null;
   kelly_sizing_example?: string;
-  pattern_frequency?: number;
+  pattern_frequency?: number | null;
   failure_periods?: string[];
-  remaining_edge?: number;
+  remaining_edge?: number | null;
   correlation_grade?: string;
   fundamentals_match?: boolean;
   volume_analysis?: string;
-  likelihood_rating?: number;
+  likelihood_rating?: number | null;
   evidence_for?: string[];
   evidence_against?: string[];
   historical_parallels?: string[];
@@ -42,7 +42,7 @@ export interface TheoryResponse {
   story_sections?: string[];
   claims_vs_evidence?: ClaimEvidence[];
   verdict_text?: string;
-  confidence_score?: number;
+  confidence_score?: number | null;
   sources_used?: string[];
   fuels_today?: string[];
 }
@@ -319,7 +319,7 @@ export function TheoryCard({ response, domain }: TheoryCardProps) {
 
       {domain === "crypto" && (response.pattern_frequency !== undefined || response.failure_periods?.length || response.remaining_edge !== undefined) && (
         <DomainSection title="Pattern Analysis" response={response}>
-          {response.pattern_frequency !== undefined && (
+          {response.pattern_frequency !== undefined && response.pattern_frequency !== null && (
             <div className={styles.domainField}>
               <strong>Pattern Frequency:</strong> <span className={styles.percentage}>{(response.pattern_frequency * 100).toFixed(0)}%</span>
             </div>
@@ -365,122 +365,6 @@ export function TheoryCard({ response, domain }: TheoryCardProps) {
             </div>
           )}
         </DomainSection>
-      )}
-
-      {domain === "conspiracies" && (
-        <>
-          {/* Likelihood Rating - Prominent Display */}
-          {response.likelihood_rating !== undefined && (
-            <div className={styles.likelihoodSection}>
-              <div className={styles.likelihoodHeader}>
-                <h3 className={styles.likelihoodTitle}>Likelihood Assessment</h3>
-                <div className={styles.likelihoodRating}>
-                  <span className={styles.ratingNumber}>{response.likelihood_rating}</span>
-                  <span className={styles.ratingOutOf}>/ 100</span>
-                </div>
-              </div>
-              <div className={styles.ratingBar}>
-                <div 
-                  className={styles.ratingFill} 
-                  style={{ width: `${response.likelihood_rating}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Key Facts - Most Important */}
-          {response.key_facts && response.key_facts.length > 0 && (
-            <DomainSection title="📋 Key Facts" response={response}>
-              <div className={styles.factsGrid}>
-                {response.key_facts.map((fact, idx) => (
-                  <div key={idx} className={styles.factCard}>
-                    <div className={styles.factIcon}>✓</div>
-                    <p className={styles.factText}>{fact}</p>
-                  </div>
-                ))}
-              </div>
-            </DomainSection>
-          )}
-
-          {/* Evidence Sections */}
-          <div className={styles.evidenceContainer}>
-            {response.evidence_against && response.evidence_against.length > 0 && (
-              <DomainSection title="❌ Evidence Against" response={response}>
-                <div className={styles.evidenceList}>
-                  {response.evidence_against.map((item, idx) => (
-                    <div key={idx} className={styles.evidenceItemAgainst}>
-                      <div className={styles.evidenceIcon}>✗</div>
-                      <p>{item}</p>
-                    </div>
-                  ))}
-                </div>
-              </DomainSection>
-            )}
-            
-            {response.evidence_for && response.evidence_for.length > 0 && (
-              <DomainSection title="✓ Evidence For" response={response}>
-                <div className={styles.evidenceList}>
-                  {response.evidence_for.map((item, idx) => (
-                    <div key={idx} className={styles.evidenceItemFor}>
-                      <div className={styles.evidenceIcon}>✓</div>
-                      <p>{item}</p>
-                    </div>
-                  ))}
-                </div>
-              </DomainSection>
-            )}
-          </div>
-
-          {/* Logical Fallacies - Important */}
-          {response.logical_fallacies && response.logical_fallacies.length > 0 && (
-            <DomainSection title="⚠️ Logical Fallacies Detected" response={response}>
-              <div className={styles.fallaciesList}>
-                {response.logical_fallacies.map((fallacy, idx) => (
-                  <div key={idx} className={styles.fallacyCard}>
-                    <div className={styles.fallacyIcon}>⚠</div>
-                    <p className={styles.fallacyText}>{fallacy}</p>
-                  </div>
-                ))}
-              </div>
-            </DomainSection>
-          )}
-
-          {/* Assumptions */}
-          {response.assumptions && response.assumptions.length > 0 && (
-            <DomainSection title="🤔 Assumptions Identified" response={response}>
-              <div className={styles.assumptionsList}>
-                {response.assumptions.map((assumption, idx) => (
-                  <div key={idx} className={styles.assumptionCard}>
-                    <div className={styles.assumptionIcon}>?</div>
-                    <p className={styles.assumptionText}>{assumption}</p>
-                  </div>
-                ))}
-              </div>
-            </DomainSection>
-          )}
-
-          {/* Historical Parallels */}
-          {response.historical_parallels && response.historical_parallels.length > 0 && (
-            <DomainSection title="📚 Historical Parallels" response={response}>
-              <ul className={styles.domainList}>
-                {response.historical_parallels.map((item, idx) => (
-                  <li key={idx}>{item}</li>
-                ))}
-              </ul>
-            </DomainSection>
-          )}
-
-          {/* Missing Data */}
-          {response.missing_data && response.missing_data.length > 0 && (
-            <DomainSection title="🔍 Missing Data" response={response}>
-              <ul className={styles.domainList}>
-                {response.missing_data.map((item, idx) => (
-                  <li key={idx}>{item}</li>
-                ))}
-              </ul>
-            </DomainSection>
-          )}
-        </>
       )}
     </div>
   );

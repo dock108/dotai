@@ -2,22 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import styles from "./styles.module.css";
+import styles from "./page.module.css";
 import { createScrapeRun, listScrapeRuns, type ScrapeRunResponse } from "@/lib/api/sportsAdmin";
 import { getFullSeasonDates, shouldAutoFillDates, type LeagueCode } from "@/lib/utils/seasonDates";
 import { SUPPORTED_LEAGUES, SCRAPE_RUN_STATUS_COLORS, DEFAULT_SCRAPE_RUN_FORM } from "@/lib/constants/sports";
 
-/**
- * Sports data ingestion admin page.
- * 
- * Allows administrators to:
- * - Configure scrape runs (league, season, date range, boxscores/odds)
- * - Monitor scrape run status and results
- * - View scrape run history and summaries
- * 
- * Scrape runs are executed by the theory-bets-scraper Celery workers
- * via the theory-engine-api backend.
- */
 export default function IngestionAdminPage() {
   const [runs, setRuns] = useState<ScrapeRunResponse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -65,14 +54,14 @@ export default function IngestionAdminPage() {
     try {
       const startDate = form.startDate?.trim() || undefined;
       const endDate = form.endDate?.trim() || undefined;
-      
+
       if (startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
         throw new Error(`Invalid start date format: ${startDate}. Expected YYYY-MM-DD`);
       }
       if (endDate && !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
         throw new Error(`Invalid end date format: ${endDate}. Expected YYYY-MM-DD`);
       }
-      
+
       const result = await createScrapeRun({
         requestedBy: form.requestedBy,
         config: {
@@ -99,8 +88,10 @@ export default function IngestionAdminPage() {
 
   return (
     <div className={styles.container}>
-      <h1>Sports Data Ingestion</h1>
-      <p className={styles.subtitle}>Configure and monitor boxscore + odds scrapes.</p>
+      <header className={styles.header}>
+        <h1 className={styles.title}>Scraper Runs</h1>
+        <p className={styles.subtitle}>Configure and monitor boxscore + odds scrapes</p>
+      </header>
 
       <section className={styles.card}>
         <h2>Create Scrape Run</h2>
@@ -114,15 +105,13 @@ export default function IngestionAdminPage() {
               onChange={(e) => setForm((prev) => ({ ...prev, leagueCode: e.target.value as LeagueCode }))}
             >
               {SUPPORTED_LEAGUES.map((code) => (
-                <option key={code} value={code}>
-                  {code}
-                </option>
+                <option key={code} value={code}>{code}</option>
               ))}
             </select>
           </label>
 
           <label>
-            Season (optional - auto-fills dates if provided)
+            Season (auto-fills dates if provided)
             <input
               type="number"
               value={form.season}
@@ -151,7 +140,7 @@ export default function IngestionAdminPage() {
           </div>
           {form.season && !form.startDate && !form.endDate && (
             <p className={styles.hint}>
-              Dates will be auto-filled for the full {form.season} season (including playoffs/championships)
+              Dates will be auto-filled for the full {form.season} season (including playoffs)
             </p>
           )}
 
@@ -187,7 +176,6 @@ export default function IngestionAdminPage() {
             Refresh
           </button>
         </div>
-        {error && <p className={styles.error}>{error}</p>}
         <table className={styles.table}>
           <thead>
             <tr>

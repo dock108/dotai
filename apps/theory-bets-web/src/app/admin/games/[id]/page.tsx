@@ -2,42 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import styles from "./page.module.css";
-import { ErrorDisplay, LoadingSpinner } from "@dock108/ui-kit";
 import { AdminGameDetail, fetchGame, rescrapeGame, resyncOdds } from "@/lib/api/sportsAdmin";
 
-/**
- * Available tabs for the game detail view.
- */
 const TABS = ["summary", "team", "players", "odds", "metrics", "raw", "actions"] as const;
-
 type TabKey = (typeof TABS)[number];
 
-/**
- * Game detail page wrapper component.
- * 
- * Extracts game ID from route params and renders the client component.
- */
-export default function GameDetailPage({ params }: { params: { id: string } }) {
+export default function GameDetailPage() {
+  const params = useParams();
   const gameId = Number(params.id);
-  return <GameDetailClient gameId={gameId} />;
-}
 
-/**
- * Game detail client component with tabbed interface.
- * 
- * Displays comprehensive game information including:
- * - Summary: Basic game metadata and completeness flags
- * - Team: Team-level boxscore statistics
- * - Players: Individual player statistics with search
- * - Odds: Betting lines from various books
- * - Metrics: Derived metrics (spread results, totals, efficiency)
- * - Raw: Raw scraped payloads for debugging
- * - Actions: Buttons to trigger rescrape or odds resync
- * 
- * Supports rescraping boxscores and resyncing odds via Celery tasks.
- */
-function GameDetailClient({ gameId }: { gameId: number }) {
   const [detail, setDetail] = useState<AdminGameDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,10 +35,8 @@ function GameDetailClient({ gameId }: { gameId: number }) {
         if (!cancelled) setLoading(false);
       }
     }
-    load();
-    return () => {
-      cancelled = true;
-    };
+    if (gameId) load();
+    return () => { cancelled = true; };
   }, [gameId]);
 
   const filteredPlayers = useMemo(() => {
@@ -95,15 +68,11 @@ function GameDetailClient({ gameId }: { gameId: number }) {
   };
 
   if (loading) {
-    return (
-      <div className={styles.centered}>
-        <LoadingSpinner message="Loading game detail..." />
-      </div>
-    );
+    return <div className={styles.loading}>Loading game details...</div>;
   }
 
   if (error || !detail) {
-    return <ErrorDisplay error={new Error(error ?? "Missing game")} title="Unable to load game detail" />;
+    return <div className={styles.error}>{error ?? "Game not found"}</div>;
   }
 
   const { game } = detail;
@@ -117,21 +86,19 @@ function GameDetailClient({ gameId }: { gameId: number }) {
             ← Back to games
           </Link>
           <p className={styles.eyebrow}>{game.league_code} • {game.season}</p>
-          <h1>
-            {detail.game.away_team} @ {detail.game.home_team}
-          </h1>
+          <h1>{game.away_team} @ {game.home_team}</h1>
           <p className={styles.subtitle}>
             {formattedDate} • Status: {game.status} • Version {game.scrape_version ?? "-"}
           </p>
         </div>
         <div className={styles.scoreCard}>
           <div>
-            <span>{detail.game.away_team}</span>
-            <strong>{detail.game.away_score ?? "-"}</strong>
+            <span>{game.away_team}</span>
+            <strong>{game.away_score ?? "-"}</strong>
           </div>
           <div>
-            <span>{detail.game.home_team}</span>
-            <strong>{detail.game.home_score ?? "-"}</strong>
+            <span>{game.home_team}</span>
+            <strong>{game.home_score ?? "-"}</strong>
           </div>
         </div>
       </div>
@@ -152,30 +119,12 @@ function GameDetailClient({ gameId }: { gameId: number }) {
       {activeTab === "summary" && (
         <section className={styles.card}>
           <div className={styles.summaryGrid}>
-            <div>
-              <label>League</label>
-              <p>{game.league_code}</p>
-            </div>
-            <div>
-              <label>Season type</label>
-              <p>{game.season_type ?? "—"}</p>
-            </div>
-            <div>
-              <label>Has boxscore</label>
-              <p>{game.has_boxscore ? "Yes" : "No"}</p>
-            </div>
-            <div>
-              <label>Has player stats</label>
-              <p>{game.has_player_stats ? "Yes" : "No"}</p>
-            </div>
-            <div>
-              <label>Has odds</label>
-              <p>{game.has_odds ? "Yes" : "No"}</p>
-            </div>
-            <div>
-              <label>Last scraped</label>
-              <p>{game.last_scraped_at ? new Date(game.last_scraped_at).toLocaleString() : "—"}</p>
-            </div>
+            <div><label>League</label><p>{game.league_code}</p></div>
+            <div><label>Season type</label><p>{game.season_type ?? "—"}</p></div>
+            <div><label>Has boxscore</label><p>{game.has_boxscore ? "Yes" : "No"}</p></div>
+            <div><label>Has player stats</label><p>{game.has_player_stats ? "Yes" : "No"}</p></div>
+            <div><label>Has odds</label><p>{game.has_odds ? "Yes" : "No"}</p></div>
+            <div><label>Last scraped</label><p>{game.last_scraped_at ? new Date(game.last_scraped_at).toLocaleString() : "—"}</p></div>
           </div>
         </section>
       )}
@@ -192,10 +141,7 @@ function GameDetailClient({ gameId }: { gameId: number }) {
                 </div>
                 <ul>
                   {Object.entries(stat.stats).map(([key, value]) => (
-                    <li key={key}>
-                      <span>{key}</span>
-                      <span>{String(value)}</span>
-                    </li>
+                    <li key={key}><span>{key}</span><span>{String(value)}</span></li>
                   ))}
                 </ul>
               </div>
@@ -221,12 +167,10 @@ function GameDetailClient({ gameId }: { gameId: number }) {
                 <tr>
                   <th>Team</th>
                   <th>Player</th>
-                  <th>Minutes</th>
-                  <th>Points</th>
+                  <th>Min</th>
+                  <th>Pts</th>
                   <th>Reb</th>
                   <th>Ast</th>
-                  <th>Yards</th>
-                  <th>TD</th>
                 </tr>
               </thead>
               <tbody>
@@ -243,16 +187,10 @@ function GameDetailClient({ gameId }: { gameId: number }) {
                     <td>{player.points ?? "—"}</td>
                     <td>{player.rebounds ?? "—"}</td>
                     <td>{player.assists ?? "—"}</td>
-                    <td>{player.yards ?? "—"}</td>
-                    <td>{player.touchdowns ?? "—"}</td>
                   </tr>
                 ))}
                 {!filteredPlayers.length && (
-                  <tr>
-                    <td colSpan={8} className={styles.emptyState}>
-                      No players match your search.
-                    </td>
-                  </tr>
+                  <tr><td colSpan={6} className={styles.emptyState}>No players found.</td></tr>
                 )}
               </tbody>
             </table>
@@ -287,11 +225,7 @@ function GameDetailClient({ gameId }: { gameId: number }) {
                   </tr>
                 ))}
                 {!detail.odds.length && (
-                  <tr>
-                    <td colSpan={6} className={styles.emptyState}>
-                      No odds available.
-                    </td>
-                  </tr>
+                  <tr><td colSpan={6} className={styles.emptyState}>No odds available.</td></tr>
                 )}
               </tbody>
             </table>
@@ -343,13 +277,11 @@ function GameDetailClient({ gameId }: { gameId: number }) {
               Re-sync odds
             </button>
             <a
-              href={`https://www.sports-reference.com/search/search.fcgi?search=${encodeURIComponent(
-                `${detail.game.away_team} ${detail.game.home_team}`,
-              )}`}
+              href={`https://www.sports-reference.com/search/search.fcgi?search=${encodeURIComponent(`${game.away_team} ${game.home_team}`)}`}
               target="_blank"
               rel="noreferrer"
             >
-              Open in sports-reference ↗
+              Sports Reference ↗
             </a>
             <a
               download={`game-${gameId}.json`}

@@ -27,15 +27,23 @@ The frontend will be available at: **http://localhost:3001**
 
 The scraper worker processes the jobs queued from the admin UI. You need to run it separately:
 
+**Option A: Run in Docker (Recommended)**
+```bash
+cd infra
+./docker-compose.sh up -d scraper-worker
+```
+
+**Option B: Run Locally (For Development)**
 ```bash
 cd services/theory-bets-scraper
+uv sync
 uv run celery -A bets_scraper.celery_app.app worker --loglevel=info --queues=bets-scraper
 ```
 
-**Important:** Make sure your `.env` file in the root has:
-- `DATABASE_URL` (will be auto-converted from async to sync)
-- `ODDS_API_KEY` (your Odds API key)
-- `REDIS_URL` (for Celery broker)
+**Note:** The scraper automatically reads from the root `.env` file (no need to manually set environment variables). Make sure your `.env` file has:
+- `DATABASE_URL` (will be auto-converted from asyncpg to psycopg)
+- `ODDS_API_KEY` (optional, for odds data)
+- `REDIS_URL` (for Celery broker, defaults to `redis://localhost:6379/2`)
 
 ## Step 3: Access the Admin UI
 
@@ -95,12 +103,21 @@ Once a run completes successfully:
 ## Quick Start Commands
 
 ```bash
-# Terminal 1: Start frontend
+# Terminal 1: Start infrastructure and backend
+cd infra
+./docker-compose.sh up -d postgres redis theory-engine-api scraper-worker
+
+# Terminal 2: Start frontend
 cd apps/theory-bets-web && pnpm dev --port 3001
 
-# Terminal 2: Start scraper worker
-cd services/theory-bets-scraper && uv run celery -A bets_scraper.celery_app.app worker --loglevel=info --queues=bets-scraper
-
 # Then open: http://localhost:3001/admin/theory-bets/ingestion
+```
+
+**Or run scraper worker locally (for development):**
+```bash
+# Terminal 2: Start scraper worker (local development)
+cd services/theory-bets-scraper
+uv sync
+uv run celery -A bets_scraper.celery_app.app worker --loglevel=info --queues=bets-scraper
 ```
 

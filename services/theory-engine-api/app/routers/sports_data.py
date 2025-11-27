@@ -105,13 +105,9 @@ class TeamStat(BaseModel):
 class PlayerStat(BaseModel):
     team: str
     player_name: str
-    minutes: float | None = None
-    points: int | None = None
-    rebounds: int | None = None
-    assists: int | None = None
-    yards: int | None = None
-    touchdowns: int | None = None
-    raw_stats: dict[str, Any] = Field(default_factory=dict)
+    stats: dict[str, Any] = Field(default_factory=dict)
+    source: str | None = None
+    updated_at: datetime | None = None
 
 
 class OddsEntry(BaseModel):
@@ -419,43 +415,24 @@ async def list_games(
 
 
 def _serialize_team_stat(box: db_models.SportsTeamBoxscore) -> TeamStat:
-    stats = {
-        "points": box.points,
-        "rebounds": box.rebounds,
-        "assists": box.assists,
-        "turnovers": box.turnovers,
-        "passing_yards": box.passing_yards,
-        "rushing_yards": box.rushing_yards,
-        "receiving_yards": box.receiving_yards,
-        "hits": box.hits,
-        "runs": box.runs,
-        "errors": box.errors,
-        "shots_on_goal": box.shots_on_goal,
-        "penalty_minutes": box.penalty_minutes,
-    }
-    stats = {k: v for k, v in stats.items() if v is not None}
-    if box.raw_stats_json:
-        stats["raw"] = box.raw_stats_json
+    """Serialize team boxscore from JSONB stats column."""
     return TeamStat(
         team=box.team.name if box.team else "Unknown",
         is_home=box.is_home,
-        stats=stats,
+        stats=box.stats or {},
         source=box.source,
         updated_at=box.updated_at,
     )
 
 
 def _serialize_player_stat(player: db_models.SportsPlayerBoxscore) -> PlayerStat:
+    """Serialize player boxscore from JSONB stats column."""
     return PlayerStat(
         team=player.team.name if player.team else "Unknown",
         player_name=player.player_name,
-        minutes=player.minutes,
-        points=player.points,
-        rebounds=player.rebounds,
-        assists=player.assists,
-        yards=player.yards,
-        touchdowns=player.touchdowns,
-        raw_stats=player.raw_stats_json or {},
+        stats=player.stats or {},
+        source=player.source,
+        updated_at=player.updated_at,
     )
 
 
@@ -515,20 +492,20 @@ async def get_game(game_id: int, session: AsyncSession = Depends(get_db)) -> Gam
         "team_boxscores": [
             {
                 "team": box.team.name if box.team else "Unknown",
-                "raw": box.raw_stats_json,
+                "stats": box.stats,
                 "source": box.source,
             }
             for box in game.team_boxscores
-            if box.raw_stats_json
+            if box.stats
         ],
         "player_boxscores": [
             {
                 "team": player.team.name if player.team else "Unknown",
                 "player": player.player_name,
-                "raw": player.raw_stats_json,
+                "stats": player.stats,
             }
             for player in game.player_boxscores
-            if player.raw_stats_json
+            if player.stats
         ],
         "odds": [
             {
@@ -628,6 +605,201 @@ async def resync_game_odds(game_id: int, session: AsyncSession = Depends(get_db)
         include_boxscores=False,
         include_odds=True,
         scraper_type="odds_resync",
+    )
+
+
+# ────────────────────────────────────────────────────────────────────────────────
+# Teams endpoints
+# ────────────────────────────────────────────────────────────────────────────────
+
+
+class TeamSummary(BaseModel):
+    """Team summary for list view."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    short_name: str = Field(alias="shortName")
+    abbreviation: str
+    league_code: str = Field(alias="leagueCode")
+    games_count: int = Field(alias="gamesCount")
+
+
+class TeamListResponse(BaseModel):
+    """Response for teams list endpoint."""
+
+    teams: list[TeamSummary]
+    total: int
+
+
+class TeamGameSummary(BaseModel):
+    """Game summary for team detail."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    game_date: str = Field(alias="gameDate")
+    opponent: str
+    is_home: bool = Field(alias="isHome")
+    score: str
+    result: str
+
+
+class TeamDetail(BaseModel):
+    """Team detail with recent games."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    short_name: str = Field(alias="shortName")
+    abbreviation: str
+    league_code: str = Field(alias="leagueCode")
+    location: str | None
+    external_ref: str | None = Field(alias="externalRef")
+    recent_games: list[TeamGameSummary] = Field(alias="recentGames")
+
+
+@router.get("/teams", response_model=TeamListResponse)
+async def list_teams(
+    league: str | None = Query(None),
+    search: str | None = Query(None),
+    limit: int = Query(100, le=500),
+    offset: int = Query(0),
+    session: AsyncSession = Depends(get_db),
+) -> TeamListResponse:
+    """List teams with optional league filter and search."""
+
+    # Base query with game count subquery
+    games_as_home = (
+        select(func.count())
+        .where(db_models.SportsGame.home_team_id == db_models.SportsTeam.id)
+        .correlate(db_models.SportsTeam)
+        .scalar_subquery()
+    )
+    games_as_away = (
+        select(func.count())
+        .where(db_models.SportsGame.away_team_id == db_models.SportsTeam.id)
+        .correlate(db_models.SportsTeam)
+        .scalar_subquery()
+    )
+
+    stmt = (
+        select(
+            db_models.SportsTeam,
+            db_models.SportsLeague.code.label("league_code"),
+            (games_as_home + games_as_away).label("games_count"),
+        )
+        .join(db_models.SportsLeague, db_models.SportsTeam.league_id == db_models.SportsLeague.id)
+    )
+
+    if league:
+        stmt = stmt.where(func.upper(db_models.SportsLeague.code) == league.upper())
+
+    if search:
+        search_pattern = f"%{search}%"
+        stmt = stmt.where(
+            or_(
+                db_models.SportsTeam.name.ilike(search_pattern),
+                db_models.SportsTeam.short_name.ilike(search_pattern),
+                db_models.SportsTeam.abbreviation.ilike(search_pattern),
+            )
+        )
+
+    # Count total
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = (await session.execute(count_stmt)).scalar() or 0
+
+    # Apply pagination and ordering
+    stmt = stmt.order_by(db_models.SportsTeam.name).offset(offset).limit(limit)
+
+    result = await session.execute(stmt)
+    rows = result.all()
+
+    teams = [
+        TeamSummary(
+            id=row.SportsTeam.id,
+            name=row.SportsTeam.name,
+            shortName=row.SportsTeam.short_name,
+            abbreviation=row.SportsTeam.abbreviation,
+            leagueCode=row.league_code,
+            gamesCount=row.games_count or 0,
+        )
+        for row in rows
+    ]
+
+    return TeamListResponse(teams=teams, total=total)
+
+
+@router.get("/teams/{team_id}", response_model=TeamDetail)
+async def get_team(team_id: int, session: AsyncSession = Depends(get_db)) -> TeamDetail:
+    """Get team detail with recent games."""
+
+    team = await session.get(db_models.SportsTeam, team_id)
+    if not team:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found")
+
+    league = await session.get(db_models.SportsLeague, team.league_id)
+
+    # Get recent games
+    home_games = (
+        select(db_models.SportsGame)
+        .where(db_models.SportsGame.home_team_id == team_id)
+        .options(selectinload(db_models.SportsGame.away_team))
+    )
+    away_games = (
+        select(db_models.SportsGame)
+        .where(db_models.SportsGame.away_team_id == team_id)
+        .options(selectinload(db_models.SportsGame.home_team))
+    )
+
+    home_result = await session.execute(home_games.order_by(desc(db_models.SportsGame.game_date)).limit(10))
+    away_result = await session.execute(away_games.order_by(desc(db_models.SportsGame.game_date)).limit(10))
+
+    recent_games: list[TeamGameSummary] = []
+
+    for game in home_result.scalars():
+        score = f"{game.home_score or 0}-{game.away_score or 0}"
+        result = "W" if (game.home_score or 0) > (game.away_score or 0) else "L" if (game.home_score or 0) < (game.away_score or 0) else "-"
+        recent_games.append(
+            TeamGameSummary(
+                id=game.id,
+                gameDate=game.game_date.isoformat() if game.game_date else "",
+                opponent=game.away_team.name if game.away_team else "Unknown",
+                isHome=True,
+                score=score,
+                result=result,
+            )
+        )
+
+    for game in away_result.scalars():
+        score = f"{game.away_score or 0}-{game.home_score or 0}"
+        result = "W" if (game.away_score or 0) > (game.home_score or 0) else "L" if (game.away_score or 0) < (game.home_score or 0) else "-"
+        recent_games.append(
+            TeamGameSummary(
+                id=game.id,
+                gameDate=game.game_date.isoformat() if game.game_date else "",
+                opponent=game.home_team.name if game.home_team else "Unknown",
+                isHome=False,
+                score=score,
+                result=result,
+            )
+        )
+
+    # Sort by date descending and limit to 20
+    recent_games.sort(key=lambda g: g.game_date, reverse=True)
+    recent_games = recent_games[:20]
+
+    return TeamDetail(
+        id=team.id,
+        name=team.name,
+        shortName=team.short_name,
+        abbreviation=team.abbreviation,
+        leagueCode=league.code if league else "UNK",
+        location=team.location,
+        externalRef=team.external_ref,
+        recentGames=recent_games,
     )
 
 

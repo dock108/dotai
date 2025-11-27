@@ -1,53 +1,53 @@
 # Multi-stage build for theory-bets-web Next.js app
+# Uses standalone output for minimal production image
+
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy workspace configuration and package manifests
-# This enables pnpm workspace resolution for shared packages
+# Copy workspace configuration
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/theory-bets-web/package.json ./apps/theory-bets-web/
 COPY packages/ui/package.json ./packages/ui/
 COPY packages/ui-kit/package.json ./packages/ui-kit/
 COPY packages/js-core/package.json ./packages/js-core/
 
-# Install pnpm package manager
-RUN npm install -g pnpm
+# Install pnpm and dependencies
+RUN npm install -g pnpm && pnpm install --frozen-lockfile
 
-# Install all dependencies (including workspace dependencies)
-RUN pnpm install --frozen-lockfile
-
-# Copy application source code
+# Copy source code
 COPY apps/theory-bets-web ./apps/theory-bets-web
 COPY packages/ui ./packages/ui
 COPY packages/ui-kit ./packages/ui-kit
 COPY packages/js-core ./packages/js-core
 
-# Ensure public directory exists (Next.js requires it even if empty)
-RUN mkdir -p apps/theory-bets-web/public
-
-# Build the Next.js application
+# Build (creates .next/standalone with everything bundled)
 WORKDIR /app/apps/theory-bets-web
-RUN pnpm build
 
-# Production runtime image - minimal footprint
+# NEXT_PUBLIC_* vars must be set at build time (embedded in client JS)
+# Passed from docker-compose.yml which reads from root .env
+ARG NEXT_PUBLIC_THEORY_ENGINE_URL
+ENV NEXT_PUBLIC_THEORY_ENGINE_URL=${NEXT_PUBLIC_THEORY_ENGINE_URL}
+
+RUN mkdir -p public && pnpm build
+
+# Production image - minimal, no package manager needed
 FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy built Next.js output and configuration
-COPY --from=builder /app/apps/theory-bets-web/.next ./.next
-COPY --from=builder /app/apps/theory-bets-web/public ./public
-COPY --from=builder /app/apps/theory-bets-web/package.json ./
-COPY --from=builder /app/apps/theory-bets-web/next.config.ts ./
+# Copy standalone output (preserves monorepo structure)
+COPY --from=builder /app/apps/theory-bets-web/.next/standalone ./
+# Copy static assets (not included in standalone)
+COPY --from=builder /app/apps/theory-bets-web/.next/static ./apps/theory-bets-web/.next/static
+# Copy public assets
+COPY --from=builder /app/apps/theory-bets-web/public ./apps/theory-bets-web/public
 
-# Install only production dependencies
-RUN npm install -g pnpm && \
-    pnpm install --prod --frozen-lockfile
+WORKDIR /app/apps/theory-bets-web
 
-# Expose port 3001 (matches docker-compose.yml service configuration)
 EXPOSE 3001
+ENV PORT=3001
+ENV HOSTNAME="0.0.0.0"
 
-# Start Next.js production server
-CMD ["pnpm", "start", "--", "-p", "3001"]
-
+# Single command - no npm/pnpm needed
+CMD ["node", "server.js"]

@@ -369,7 +369,7 @@ class SportsGame(Base):
 
 
 class SportsTeamBoxscore(Base):
-    """Team-level boxscore data (one per team per game)."""
+    """Team-level boxscore data stored as JSONB for flexibility across sports."""
 
     __tablename__ = "sports_team_boxscores"
 
@@ -377,19 +377,7 @@ class SportsTeamBoxscore(Base):
     game_id: Mapped[int] = mapped_column(Integer, ForeignKey("sports_games.id", ondelete="CASCADE"), nullable=False, index=True)
     team_id: Mapped[int] = mapped_column(Integer, ForeignKey("sports_teams.id", ondelete="CASCADE"), nullable=False, index=True)
     is_home: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    points: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    rebounds: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    assists: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    turnovers: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    passing_yards: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    rushing_yards: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    receiving_yards: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    hits: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    runs: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    errors: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    shots_on_goal: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    penalty_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    raw_stats_json: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
+    stats: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
     source: Mapped[str | None] = mapped_column(String(50), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
@@ -404,7 +392,7 @@ class SportsTeamBoxscore(Base):
 
 
 class SportsPlayerBoxscore(Base):
-    """Player-level boxscores (MVP fields plus raw JSON)."""
+    """Player-level boxscores stored as JSONB for flexibility across sports."""
 
     __tablename__ = "sports_player_boxscores"
 
@@ -413,15 +401,7 @@ class SportsPlayerBoxscore(Base):
     team_id: Mapped[int] = mapped_column(Integer, ForeignKey("sports_teams.id", ondelete="CASCADE"), nullable=False, index=True)
     player_external_ref: Mapped[str] = mapped_column(String(100), nullable=False)
     player_name: Mapped[str] = mapped_column(String(200), nullable=False)
-    minutes: Mapped[float | None] = mapped_column(nullable=True)
-    points: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    rebounds: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    assists: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    yards: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    touchdowns: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    shots_on_goal: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    penalties: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    raw_stats_json: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
+    stats: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
     source: Mapped[str | None] = mapped_column(String(50), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

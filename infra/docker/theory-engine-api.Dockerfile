@@ -10,15 +10,15 @@ RUN apt-get update && apt-get install -y \
 # Install uv
 RUN pip install uv
 
-# Copy dependency files first (for early dependency resolution)
-COPY services/theory-engine-api/pyproject.toml services/theory-engine-api/README.md ./
-COPY packages/py-core/pyproject.toml packages/py-core/README.md ../packages/py-core/
+# Copy only dependency files needed for installation
+COPY services/theory-engine-api/pyproject.toml ./
+COPY packages/py-core/pyproject.toml ./packages/py-core/
 
 # Copy application code before installing (needed for editable installs)
 COPY services/theory-engine-api/ ./services/theory-engine-api/
 COPY packages/py-core/ ./packages/py-core/
 
-# Install dependencies (now that code is in place for editable installs)
+# Install dependencies
 # Install py-core as regular package (not editable) so it persists with volume mounts
 RUN uv pip install --system -e . && \
     uv pip install --system ./packages/py-core
@@ -35,4 +35,3 @@ EXPOSE 8000
 
 # Run the application via entrypoint script
 ENTRYPOINT ["/entrypoint.sh"]
-

@@ -14,8 +14,8 @@ celery_config = {
     "enable_utc": True,
     "task_track_started": True,
     "worker_prefetch_multiplier": 1,
-    "task_time_limit": 600,
-    "task_soft_time_limit": 540,
+    "task_time_limit": 43200,       # 12 hours hard limit
+    "task_soft_time_limit": 42600,  # 11h 50m soft limit
     "task_default_queue": "bets-scraper",
     "task_routes": {
         "run_scrape_job": {"queue": "bets-scraper"},

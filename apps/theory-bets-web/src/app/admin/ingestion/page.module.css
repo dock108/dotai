@@ -1,31 +1,33 @@
 .container {
-  color: #1e293b;
+  color: #e2e8f0;
 }
 
-.container h1 {
+.header {
+  margin-bottom: 1.5rem;
+}
+
+.title {
   font-size: 1.75rem;
   font-weight: 700;
-  color: #0f172a;
+  color: #f8fafc;
   margin: 0 0 0.5rem 0;
 }
 
 .subtitle {
   color: #64748b;
   font-size: 0.95rem;
-  margin-bottom: 1.5rem;
 }
 
 .card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 12px;
   padding: 1.5rem;
   margin-bottom: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .card h2 {
-  color: #0f172a;
+  color: #f8fafc;
   margin: 0 0 1rem 0;
   font-size: 1.1rem;
 }
@@ -44,9 +46,9 @@
 .cardHeader button {
   padding: 0.5rem 1rem;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  color: #475569;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(30, 41, 59, 0.8);
+  color: #94a3b8;
   font-weight: 500;
   cursor: pointer;
   font-size: 0.85rem;
@@ -54,9 +56,9 @@
 }
 
 .cardHeader button:hover:not(:disabled) {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  color: #1e293b;
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
 }
 
 .cardHeader button:disabled {
@@ -76,33 +78,32 @@
   font-weight: 500;
   font-size: 0.875rem;
   gap: 0.375rem;
-  color: #374151;
+  color: #e2e8f0;
 }
 
 .form input,
 .form select {
   padding: 0.5rem 0.75rem;
   border-radius: 6px;
-  border: 1px solid #d1d5db;
-  background: #ffffff;
-  color: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.8);
+  color: #e2e8f0;
   font-size: 0.9rem;
 }
 
 .form input::placeholder {
-  color: #9ca3af;
+  color: #64748b;
 }
 
 .form select option {
-  background: #ffffff;
-  color: #1e293b;
+  background: #1e293b;
+  color: #e2e8f0;
 }
 
 .form input:focus,
 .form select:focus {
   outline: none;
   border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .form button {
@@ -110,17 +111,17 @@
   padding: 0.625rem 1.25rem;
   border-radius: 8px;
   border: none;
-  background: #2563eb;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: #fff;
   font-weight: 600;
   font-size: 0.875rem;
   cursor: pointer;
-  transition: background 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .form button:hover:not(:disabled) {
-  background: #1d4ed8;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
 .form button:disabled {
@@ -144,7 +145,7 @@
 }
 
 .toggles label {
-  color: #475569;
+  color: #94a3b8;
   font-weight: 500;
   display: flex;
   align-items: center;
@@ -156,7 +157,7 @@
   width: auto;
   margin: 0;
   cursor: pointer;
-  accent-color: #2563eb;
+  accent-color: #3b82f6;
 }
 
 .table {
@@ -168,7 +169,7 @@
 .table th,
 .table td {
   padding: 0.75rem;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   text-align: left;
 }
 
@@ -178,15 +179,14 @@
   font-size: 0.7rem;
   color: #64748b;
   font-weight: 600;
-  background: #f8fafc;
 }
 
 .table td {
-  color: #1e293b;
+  color: #e2e8f0;
 }
 
 .table a {
-  color: #2563eb;
+  color: #60a5fa;
   text-decoration: none;
   font-weight: 500;
 }
@@ -196,7 +196,7 @@
 }
 
 .table tbody tr:hover {
-  background: #f8fafc;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .statusPill {
@@ -210,33 +210,34 @@
 }
 
 .error {
-  color: #dc2626;
+  color: #fca5a5;
   margin-bottom: 1rem;
   font-weight: 500;
   padding: 0.75rem;
-  background: #fef2f2;
+  background: rgba(239, 68, 68, 0.1);
   border-radius: 8px;
-  border: 1px solid #fecaca;
+  border: 1px solid rgba(239, 68, 68, 0.3);
   font-size: 0.875rem;
 }
 
 .success {
-  color: #16a34a;
+  color: #86efac;
   margin-bottom: 1rem;
   font-weight: 500;
   padding: 0.75rem;
-  background: #f0fdf4;
+  background: rgba(34, 197, 94, 0.1);
   border-radius: 8px;
-  border: 1px solid #bbf7d0;
+  border: 1px solid rgba(34, 197, 94, 0.3);
   font-size: 0.875rem;
 }
 
 .hint {
-  color: #64748b;
+  color: #94a3b8;
   font-size: 0.8rem;
   font-style: italic;
   margin-top: 0.5rem;
   padding: 0.5rem;
-  background: #f8fafc;
+  background: rgba(255, 255, 255, 0.03);
   border-radius: 6px;
 }
+

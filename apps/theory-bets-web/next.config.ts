@@ -7,7 +7,8 @@ import type { NextConfig } from "next";
  * build process. This is required for all apps using shared UI components.
  */
 const nextConfig: NextConfig = {
-  transpilePackages: ["@dock108/ui"],
+  output: "standalone",
+  transpilePackages: ["@dock108/ui", "@dock108/ui-kit", "@dock108/js-core"],
 };
 
 export default nextConfig;

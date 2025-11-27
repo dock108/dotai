@@ -20,11 +20,12 @@ type Params = {
  */
 export default async function GameDetailPage({ params }: Params) {
   const gameId = Number(params.gameId);
-  const game = await fetchGame(gameId);
+  const detail = await fetchGame(gameId);
+  const game = detail.game;
 
   return (
     <div className={styles.container}>
-      <Link href="/admin/theory-bets/games" className={styles.backLink}>
+      <Link href="/admin/games" className={styles.backLink}>
         ← Back to games
       </Link>
 
@@ -62,14 +63,14 @@ export default async function GameDetailPage({ params }: Params) {
             </tr>
           </thead>
           <tbody>
-            {game.boxscores.map((row: any, idx: number) => (
+            {detail.team_stats.map((row: any, idx: number) => (
               <tr key={`${row.team}-${idx}`}>
                 <td>{row.team}</td>
                 <td>{row.is_home ? "Home" : "Away"}</td>
-                <td>{row.points ?? "—"}</td>
-                <td>{row.rebounds ?? "—"}</td>
-                <td>{row.assists ?? "—"}</td>
-                <td>{row.turnovers ?? "—"}</td>
+                <td>{row.stats.points ?? "—"}</td>
+                <td>{row.stats.rebounds ?? "—"}</td>
+                <td>{row.stats.assists ?? "—"}</td>
+                <td>{row.stats.turnovers ?? "—"}</td>
               </tr>
             ))}
           </tbody>
@@ -78,7 +79,7 @@ export default async function GameDetailPage({ params }: Params) {
 
       <section className={styles.card}>
         <h2>Odds (closing)</h2>
-        {game.odds.length === 0 ? (
+        {detail.odds.length === 0 ? (
           <p className={styles.meta}>No odds stored for this matchup.</p>
         ) : (
           <table className={styles.table}>
@@ -93,7 +94,7 @@ export default async function GameDetailPage({ params }: Params) {
               </tr>
             </thead>
             <tbody>
-              {game.odds.map((row: any, idx: number) => (
+              {detail.odds.map((row: any, idx: number) => (
                 <tr key={`${row.book}-${idx}`}>
                   <td>{row.book}</td>
                   <td>{row.market_type}</td>

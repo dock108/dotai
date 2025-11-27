@@ -277,7 +277,7 @@ export default function BoxscoreAdminPage() {
                         </div>
                       </td>
                       <td>
-                        <Link href={`/admin/boxscores/${game.id}`} className={styles.linkButton}>
+                        <Link href={`/admin/games/${game.id}`} className={styles.linkButton}>
                           View →
                         </Link>
                       </td>

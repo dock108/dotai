@@ -133,6 +133,32 @@ services:
       - dock108-network
     command: celery -A app.main worker --loglevel=info --concurrency=${WORKER_CONCURRENCY:-4}
 
+  # Sports data scraper worker (Celery for scrape jobs)
+  scraper-worker:
+    build:
+      context: ..
+      dockerfile: infra/docker/scraper-worker.Dockerfile
+    container_name: dock108-scraper-worker
+    env_file:
+      - ../.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-dock108}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-dock108}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-changeme}@redis:6379/2
+      ODDS_API_KEY: ${ODDS_API_KEY:-}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+    volumes:
+      - ../services/theory-bets-scraper:/app/services/theory-bets-scraper
+      - ../packages/py-core:/app/packages/py-core
+    working_dir: /app/services/theory-bets-scraper
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - dock108-network
+
   # Main landing page
   dock108-web:
     build:
@@ -188,9 +214,11 @@ services:
     build:
       context: ..
       dockerfile: infra/docker/theory-bets-web.Dockerfile
+      args:
+        NEXT_PUBLIC_THEORY_ENGINE_URL: ${NEXT_PUBLIC_THEORY_ENGINE_URL:-http://localhost:8000}
     container_name: dock108-bets-web
-    environment:
-      NEXT_PUBLIC_THEORY_ENGINE_URL: http://theory-engine-api:8000
+    ports:
+      - "3001:3001"
     depends_on:
       - theory-engine-api
     restart: unless-stopped

@@ -74,7 +74,7 @@ export function useStrategyBuilder(baseURL?: string, apiBasePath = "/api/strateg
     async (ideaText: string, userId?: number): Promise<StrategyResponse | null> => {
       setState((prev) => ({ ...prev, isInterpreting: true, error: null }));
       try {
-        const response = await api.interpret(ideaText, userId);
+        const response = await api.interpret(ideaText, userId ? { userId } : undefined);
         const alertsEnabled = response.alertSpec.triggers.length > 0;
         setState((prev) => ({
           ...prev,

@@ -30,22 +30,26 @@ def _fetch_league_id(session: Session, league_code: str) -> int:
 
 
 def _upsert_team(session: Session, league_id: int, identity) -> int:
+    team_name = identity.name
+    short_name = identity.short_name or team_name
+    abbreviation = identity.abbreviation or (short_name or team_name)[:6].upper()
+    
     stmt = (
         insert(db_models.SportsTeam)
         .values(
             league_id=league_id,
             external_ref=identity.external_ref,
-            name=identity.name,
-            short_name=identity.short_name or identity.name,
-            abbreviation=identity.abbreviation or (identity.short_name or identity.name)[:6].upper(),
+            name=team_name,
+            short_name=short_name,
+            abbreviation=abbreviation,
             location=None,
             external_codes={},
         )
         .on_conflict_do_update(
             index_elements=["league_id", "abbreviation"],
             set_={
-                "name": identity.name,
-                "short_name": identity.short_name or identity.name,
+                "name": team_name,
+                "short_name": short_name,
                 "external_ref": identity.external_ref,
                 "updated_at": datetime.utcnow(),
             },
@@ -102,47 +106,58 @@ def upsert_game(session: Session, normalized: NormalizedGame) -> int:
     return int(game_id)
 
 
+def _build_team_stats(payload: NormalizedTeamBoxscore) -> dict:
+    """Build stats dict from typed fields + raw_stats, excluding None values."""
+    stats = {}
+    # Add typed fields if not None
+    if payload.points is not None:
+        stats["points"] = payload.points
+    if payload.rebounds is not None:
+        stats["rebounds"] = payload.rebounds
+    if payload.assists is not None:
+        stats["assists"] = payload.assists
+    if payload.turnovers is not None:
+        stats["turnovers"] = payload.turnovers
+    if payload.passing_yards is not None:
+        stats["passing_yards"] = payload.passing_yards
+    if payload.rushing_yards is not None:
+        stats["rushing_yards"] = payload.rushing_yards
+    if payload.receiving_yards is not None:
+        stats["receiving_yards"] = payload.receiving_yards
+    if payload.hits is not None:
+        stats["hits"] = payload.hits
+    if payload.runs is not None:
+        stats["runs"] = payload.runs
+    if payload.errors is not None:
+        stats["errors"] = payload.errors
+    if payload.shots_on_goal is not None:
+        stats["shots_on_goal"] = payload.shots_on_goal
+    if payload.penalty_minutes is not None:
+        stats["penalty_minutes"] = payload.penalty_minutes
+    # Merge in raw_stats (allows scraper to add additional fields)
+    if payload.raw_stats:
+        stats.update(payload.raw_stats)
+    return stats
+
+
 def upsert_team_boxscores(session: Session, game_id: int, payloads: Sequence[NormalizedTeamBoxscore]) -> None:
     for payload in payloads:
         league_id = _fetch_league_id(session, payload.team.league_code)
         team_id = _upsert_team(session, league_id, payload.team)
+        stats = _build_team_stats(payload)
         stmt = (
             insert(db_models.SportsTeamBoxscore)
             .values(
                 game_id=game_id,
                 team_id=team_id,
                 is_home=payload.is_home,
-                points=payload.points,
-                rebounds=payload.rebounds,
-                assists=payload.assists,
-                turnovers=payload.turnovers,
-                passing_yards=payload.passing_yards,
-                rushing_yards=payload.rushing_yards,
-                receiving_yards=payload.receiving_yards,
-                hits=payload.hits,
-                runs=payload.runs,
-                errors=payload.errors,
-                shots_on_goal=payload.shots_on_goal,
-                penalty_minutes=payload.penalty_minutes,
-                raw_stats_json=payload.raw_stats,
+                stats=stats,
                 source="sports_reference",
             )
             .on_conflict_do_update(
                 constraint="uq_team_boxscore_game_team",
                 set_={
-                    "points": payload.points,
-                    "rebounds": payload.rebounds,
-                    "assists": payload.assists,
-                    "turnovers": payload.turnovers,
-                    "passing_yards": payload.passing_yards,
-                    "rushing_yards": payload.rushing_yards,
-                    "receiving_yards": payload.receiving_yards,
-                    "hits": payload.hits,
-                    "runs": payload.runs,
-                    "errors": payload.errors,
-                    "shots_on_goal": payload.shots_on_goal,
-                    "penalty_minutes": payload.penalty_minutes,
-                    "raw_stats_json": payload.raw_stats,
+                    "stats": stats,
                     "updated_at": datetime.utcnow(),
                 },
             )
@@ -150,10 +165,37 @@ def upsert_team_boxscores(session: Session, game_id: int, payloads: Sequence[Nor
         session.execute(stmt)
 
 
+def _build_player_stats(payload: NormalizedPlayerBoxscore) -> dict:
+    """Build stats dict from typed fields + raw_stats, excluding None values."""
+    stats = {}
+    # Add typed fields if not None
+    if payload.minutes is not None:
+        stats["minutes"] = payload.minutes
+    if payload.points is not None:
+        stats["points"] = payload.points
+    if payload.rebounds is not None:
+        stats["rebounds"] = payload.rebounds
+    if payload.assists is not None:
+        stats["assists"] = payload.assists
+    if payload.yards is not None:
+        stats["yards"] = payload.yards
+    if payload.touchdowns is not None:
+        stats["touchdowns"] = payload.touchdowns
+    if payload.shots_on_goal is not None:
+        stats["shots_on_goal"] = payload.shots_on_goal
+    if payload.penalties is not None:
+        stats["penalties"] = payload.penalties
+    # Merge in raw_stats (allows scraper to add additional fields)
+    if payload.raw_stats:
+        stats.update(payload.raw_stats)
+    return stats
+
+
 def upsert_player_boxscores(session: Session, game_id: int, payloads: Sequence[NormalizedPlayerBoxscore]) -> None:
     for payload in payloads:
         league_id = _fetch_league_id(session, payload.team.league_code)
         team_id = _upsert_team(session, league_id, payload.team)
+        stats = _build_player_stats(payload)
         stmt = (
             insert(db_models.SportsPlayerBoxscore)
             .values(
@@ -161,29 +203,13 @@ def upsert_player_boxscores(session: Session, game_id: int, payloads: Sequence[N
                 team_id=team_id,
                 player_external_ref=payload.player_id,
                 player_name=payload.player_name,
-                minutes=payload.minutes,
-                points=payload.points,
-                rebounds=payload.rebounds,
-                assists=payload.assists,
-                yards=payload.yards,
-                touchdowns=payload.touchdowns,
-                shots_on_goal=payload.shots_on_goal,
-                penalties=payload.penalties,
-                raw_stats_json=payload.raw_stats,
+                stats=stats,
                 source="sports_reference",
             )
             .on_conflict_do_update(
                 constraint="uq_player_boxscore_identity",
                 set_={
-                    "minutes": payload.minutes,
-                    "points": payload.points,
-                    "rebounds": payload.rebounds,
-                    "assists": payload.assists,
-                    "yards": payload.yards,
-                    "touchdowns": payload.touchdowns,
-                    "shots_on_goal": payload.shots_on_goal,
-                    "penalties": payload.penalties,
-                    "raw_stats_json": payload.raw_stats,
+                    "stats": stats,
                     "updated_at": datetime.utcnow(),
                 },
             )

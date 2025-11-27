@@ -1,26 +1,45 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import styles from "./styles.module.css";
-import { fetchScrapeRun } from "@/lib/api/sportsAdmin";
+import { useParams } from "next/navigation";
+import styles from "./page.module.css";
+import { fetchScrapeRun, type ScrapeRunResponse } from "@/lib/api/sportsAdmin";
 
-type Params = {
-  params: {
-    runId: string;
-  };
-};
-
-/**
- * Scrape run detail page.
- * 
- * Displays comprehensive information about a specific scrape run including:
- * - Run metadata (league, season, status, timestamps)
- * - Configuration payload used for the run
- * - Summary/result message from the scraper
- * 
- * This is a server component that fetches run data at request time.
- */
-export default async function RunDetailPage({ params }: Params) {
+export default function RunDetailPage() {
+  const params = useParams();
   const runId = Number(params.runId);
-  const run = await fetchScrapeRun(runId);
+
+  const [run, setRun] = useState<ScrapeRunResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        setLoading(true);
+        const data = await fetchScrapeRun(runId);
+        setRun(data);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (runId) {
+      load();
+    }
+  }, [runId]);
+
+  if (loading) {
+    return <div className={styles.loading}>Loading run details...</div>;
+  }
+
+  if (error || !run) {
+    return <div className={styles.error}>{error ?? "Run not found"}</div>;
+  }
 
   return (
     <div className={styles.container}>

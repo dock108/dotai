@@ -87,15 +87,19 @@ export default function GamesAdminPage() {
               <tr key={game.id}>
                 <td>{new Date(game.game_date).toLocaleDateString()}</td>
                 <td>
-                  <Link href={`/admin/theory-bets/games/${game.id}`}>
+                  <Link href={`/admin/games/${game.id}`}>
                     {game.away_team} @ {game.home_team}
                   </Link>
                 </td>
                 <td>
                   {game.away_score ?? "—"} - {game.home_score ?? "—"}
                 </td>
-                <td>{game.has_boxscore ? "✅" : "—"}</td>
-                <td>{game.has_odds ? "✅" : "—"}</td>
+                <td className={game.has_boxscore ? styles.statusYes : styles.statusNo}>
+                  {game.has_boxscore ? "Yes" : "No"}
+                </td>
+                <td className={game.has_odds ? styles.statusYes : styles.statusNo}>
+                  {game.has_odds ? "Yes" : "No"}
+                </td>
               </tr>
             ))}
           </tbody>
