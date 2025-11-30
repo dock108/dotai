@@ -27,7 +27,7 @@ def configure_logging() -> None:
             structlog.processors.format_exc_info,  # Exception formatting
             structlog.processors.JSONRenderer(),  # JSON output
         ],
-        wrapper_class=structlog.make_filtering_bound_logger(20),  # INFO level
+        wrapper_class=structlog.make_filtering_bound_logger(10),  # DEBUG level for troubleshooting
         context_class=dict,
         logger_factory=structlog.PrintLoggerFactory(),
     )

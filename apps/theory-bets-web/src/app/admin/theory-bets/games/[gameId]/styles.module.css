@@ -5,32 +5,46 @@
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  color: #0f172a;
 }
 
 .backLink {
-  color: var(--dock-accent);
+  color: #2563eb;
   text-decoration: none;
   font-weight: 600;
 }
 
-.card {
-  background: var(--dock-surface);
-  border: 1px solid var(--dock-border);
-  border-radius: var(--dock-radius);
-  padding: 1.5rem;
-  box-shadow: 0 25px 55px rgba(5, 6, 11, 0.45);
+.backLink:hover {
+  text-decoration: underline;
 }
 
-.card h1,
-.card h2 {
-  color: var(--dock-text);
+.card {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.card h1 {
+  color: #0f172a;
   margin-top: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.card h2 {
+  color: #0f172a;
+  margin-top: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
 }
 
 .meta {
-  color: var(--dock-text-muted);
+  color: #475569;
   margin-top: 0.4rem;
   font-size: 0.9rem;
+  font-weight: 500;
 }
 
 .scoreLine {
@@ -47,15 +61,16 @@
 }
 
 .scoreLine span {
-  color: var(--dock-text-muted);
+  color: #475569;
   font-size: 0.9rem;
+  font-weight: 500;
 }
 
 .scoreLine strong {
   font-size: 1.6rem;
   margin-left: 0.5rem;
-  color: var(--dock-text);
-  font-weight: 600;
+  color: #0f172a;
+  font-weight: 700;
 }
 
 .table {
@@ -67,7 +82,7 @@
 .table th,
 .table td {
   padding: 0.65rem;
-  border-bottom: 1px solid var(--dock-border);
+  border-bottom: 1px solid #e2e8f0;
   text-align: left;
 }
 
@@ -75,11 +90,12 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 0.75rem;
-  color: var(--dock-text-muted);
-  font-weight: 600;
+  color: #475569;
+  font-weight: 700;
+  background: #f8fafc;
 }
 
 .table td {
-  color: var(--dock-text);
+  color: #0f172a;
+  font-weight: 500;
 }
-

@@ -26,13 +26,17 @@ class ScraperConfig(BaseModel):
     sources: list[str] = Field(default_factory=lambda: ["sports_reference"])
     request_timeout_seconds: int = 20
     max_concurrency: int = 4
-    min_request_interval: float = 2.0
-    rate_limit_wait_seconds: int = 30
+    # Polite scraping: 5-9 second random delays between requests
+    min_request_delay: float = 5.0
+    max_request_delay: float = 9.0
+    rate_limit_wait_seconds: int = 60  # Wait longer on 429
     jitter_range: float = 0.5
-    day_delay_min: float = 0.5
-    day_delay_max: float = 1.5
-    error_delay_min: float = 2.0
-    error_delay_max: float = 4.0
+    day_delay_min: float = 1.0
+    day_delay_max: float = 2.0
+    error_delay_min: float = 5.0
+    error_delay_max: float = 10.0
+    # HTML cache directory for storing scraped pages locally
+    html_cache_dir: str = "./game_data"
 
 
 class Settings(BaseSettings):

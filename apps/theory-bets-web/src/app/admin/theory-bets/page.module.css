@@ -14,8 +14,9 @@
 }
 
 .subtitle {
-  color: #64748b;
+  color: #475569;
   font-size: 0.95rem;
+  font-weight: 500;
 }
 
 .statsGrid {
@@ -41,10 +42,11 @@
 
 .statLabel {
   font-size: 0.75rem;
-  color: #64748b;
+  color: #475569;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 0.5rem;
+  font-weight: 600;
 }
 
 .statValue {
@@ -55,7 +57,7 @@
 
 .statSub {
   font-size: 0.8rem;
-  color: #64748b;
+  color: #475569;
   margin-top: 0.25rem;
 }
 
@@ -121,7 +123,7 @@
 
 .quickLinkDesc {
   font-size: 0.8rem;
-  color: #64748b;
+  color: #475569;
   margin-top: 0.25rem;
 }
 
@@ -183,14 +185,14 @@
 
 .runMeta {
   font-size: 0.75rem;
-  color: #64748b;
+  color: #475569;
   margin-top: 0.125rem;
 }
 
 .loading {
   text-align: center;
   padding: 3rem;
-  color: #64748b;
+  color: #475569;
 }
 
 .error {

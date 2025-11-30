@@ -34,6 +34,8 @@ class ScrapeRunConfig(BaseModel):
     include_books: list[str] | None = Field(None, alias="books")
     rescrape_existing: bool = Field(False, alias="rescrapeExisting")
     only_missing: bool = Field(False, alias="onlyMissing")
+    backfill_player_stats: bool = Field(False, alias="backfillPlayerStats")
+    backfill_odds: bool = Field(False, alias="backfillOdds")
 
     def to_worker_payload(self) -> dict[str, Any]:
         return {
@@ -48,6 +50,8 @@ class ScrapeRunConfig(BaseModel):
             "include_books": self.include_books,
             "rescrape_existing": self.rescrape_existing,
             "only_missing": self.only_missing,
+            "backfill_player_stats": self.backfill_player_stats,
+            "backfill_odds": self.backfill_odds,
         }
 
 
@@ -105,7 +109,15 @@ class TeamStat(BaseModel):
 class PlayerStat(BaseModel):
     team: str
     player_name: str
-    stats: dict[str, Any] = Field(default_factory=dict)
+    # Flattened common stats for frontend display
+    minutes: float | None = None
+    points: int | None = None
+    rebounds: int | None = None
+    assists: int | None = None
+    yards: int | None = None
+    touchdowns: int | None = None
+    # Full raw stats dict for detail view
+    raw_stats: dict[str, Any] = Field(default_factory=dict)
     source: str | None = None
     updated_at: datetime | None = None
 
@@ -426,11 +438,43 @@ def _serialize_team_stat(box: db_models.SportsTeamBoxscore) -> TeamStat:
 
 
 def _serialize_player_stat(player: db_models.SportsPlayerBoxscore) -> PlayerStat:
-    """Serialize player boxscore from JSONB stats column."""
+    """Serialize player boxscore, flattening stats for frontend display."""
+    stats = player.stats or {}
+    
+    # Parse minutes from various formats (e.g., "30:18" -> 30.3, or direct float)
+    minutes_val = stats.get("minutes") or stats.get("mp")
+    if isinstance(minutes_val, str) and ":" in minutes_val:
+        parts = minutes_val.split(":")
+        try:
+            minutes_val = int(parts[0]) + int(parts[1]) / 60
+        except (ValueError, IndexError):
+            minutes_val = None
+    elif isinstance(minutes_val, str):
+        try:
+            minutes_val = float(minutes_val)
+        except ValueError:
+            minutes_val = None
+    
+    # Helper to get int stat from either normalized or raw key
+    def get_int(normalized_key: str, raw_key: str) -> int | None:
+        val = stats.get(normalized_key) or stats.get(raw_key)
+        if val is None:
+            return None
+        try:
+            return int(val)
+        except (ValueError, TypeError):
+            return None
+    
     return PlayerStat(
         team=player.team.name if player.team else "Unknown",
         player_name=player.player_name,
-        stats=player.stats or {},
+        minutes=round(minutes_val, 1) if minutes_val else None,
+        points=get_int("points", "pts"),
+        rebounds=get_int("rebounds", "trb"),
+        assists=get_int("assists", "ast"),
+        yards=get_int("yards", "yds"),
+        touchdowns=get_int("touchdowns", "td"),
+        raw_stats=stats,
         source=player.source,
         updated_at=player.updated_at,
     )

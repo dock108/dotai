@@ -149,6 +149,8 @@ services:
     volumes:
       - ../services/theory-bets-scraper:/app/services/theory-bets-scraper
       - ../packages/py-core:/app/packages/py-core
+      # HTML cache for scraped pages (persists across container restarts)
+      - scraper-cache:/app/services/theory-bets-scraper/game_data
     working_dir: /app/services/theory-bets-scraper
     depends_on:
       postgres:
@@ -315,6 +317,8 @@ volumes:
   postgres-data:
     driver: local
   redis-data:
+    driver: local
+  scraper-cache:
     driver: local
 
 networks:

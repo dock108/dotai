@@ -9,6 +9,8 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 
 from ..models import GameIdentification, NormalizedGame, NormalizedTeamBoxscore, TeamIdentity
+from ..normalization import normalize_team_name
+from ..utils.parsing import parse_int
 from .base import BaseSportsReferenceScraper, ScraperError
 
 
@@ -18,19 +20,23 @@ class NCAABSportsReferenceScraper(BaseSportsReferenceScraper):
     base_url = "https://www.sports-reference.com/cbb/boxscores/"
 
     def _parse_team_row(self, row) -> tuple[TeamIdentity, int]:
+        # NCAAB uses last td for score instead of class="right"
         team_link = row.find("a")
         if not team_link:
             raise ScraperError("Missing team link")
         team_name = team_link.text.strip()
-        href_parts = team_link["href"].strip("/").split("/")
-        abbreviation = href_parts[1] if len(href_parts) > 1 else team_name[:6].upper()
+        canonical_name, abbreviation = normalize_team_name(self.league_code, team_name)
         score_cell = row.find_all("td")[-1]
-        score = int(score_cell.text.strip())
+        if score_cell is None:
+            raise ScraperError("Missing score cell")
+        score = parse_int(score_cell.text.strip())
+        if score is None:
+            raise ScraperError(f"Invalid score: {score_cell.text.strip()}")
         identity = TeamIdentity(
             league_code=self.league_code,
-            name=team_name,
-            short_name=team_name,
-            abbreviation=abbreviation.upper(),
+            name=canonical_name,
+            short_name=canonical_name,
+            abbreviation=abbreviation,
             external_ref=abbreviation.upper(),
         )
         return identity, score
@@ -49,24 +55,17 @@ class NCAABSportsReferenceScraper(BaseSportsReferenceScraper):
         return totals
 
     def _build_team_boxscore(self, identity: TeamIdentity, is_home: bool, score: int, stats: dict) -> NormalizedTeamBoxscore:
-        def _to_int(value: str | None) -> int | None:
-            if value in (None, "", "-"):
-                return None
-            return int(float(value))
-
         return NormalizedTeamBoxscore(
             team=identity,
             is_home=is_home,
             points=score,
-            rebounds=_to_int(stats.get("trb")),
-            assists=_to_int(stats.get("ast")),
-            turnovers=_to_int(stats.get("tov")),
+            rebounds=parse_int(stats.get("trb")),
+            assists=parse_int(stats.get("ast")),
+            turnovers=parse_int(stats.get("tov")),
             raw_stats=stats,
         )
 
-    def _season_from_date(self, day: date) -> int:
-        # College hoops season starts in November
-        return day.year if day.month >= 8 else day.year - 1
+    # _season_from_date now inherited from base class
 
     def fetch_games_for_date(self, day: date) -> Sequence[NormalizedGame]:
         soup = self.fetch_html(self.scoreboard_url(day))

@@ -3,6 +3,7 @@
   flex-direction: column;
   gap: 1.5rem;
   padding-bottom: 3rem;
+  color: #0f172a;
 }
 
 .header {
@@ -18,18 +19,22 @@
   text-transform: uppercase;
   letter-spacing: 0.2em;
   font-size: 0.75rem;
-  color: var(--dock-text-muted);
+  color: #475569;
+  font-weight: 600;
 }
 
 .header h1 {
   margin: 0.25rem 0;
   font-size: clamp(1.8rem, 4vw, 2.4rem);
+  color: #0f172a;
+  font-weight: 700;
 }
 
 .subtitle {
   margin: 0;
-  color: var(--dock-text-muted);
+  color: #475569;
   max-width: 520px;
+  font-weight: 500;
 }
 
 .metrics {
@@ -38,16 +43,16 @@
   align-items: flex-end;
   font-weight: 600;
   gap: 0.25rem;
-  color: var(--dock-text-muted);
+  color: #475569;
 }
 
 .filtersCard,
 .tableCard {
-  background: var(--dock-surface);
-  border: 1px solid var(--dock-border);
-  border-radius: var(--dock-radius);
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
   padding: 1.75rem;
-  box-shadow: 0 25px 55px rgba(5, 6, 11, 0.45);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .filtersGrid {
@@ -58,8 +63,8 @@
 
 .filtersGrid label {
   font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--dock-text-muted);
+  font-weight: 700;
+  color: #475569;
   display: block;
   margin-bottom: 0.5rem;
   text-transform: uppercase;
@@ -68,12 +73,18 @@
 
 .filtersGrid input {
   width: 100%;
-  background: var(--dock-bg);
-  border: 1px solid var(--dock-border);
-  border-radius: 0.75rem;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
   padding: 0.65rem 0.85rem;
-  color: var(--dock-text);
+  color: #0f172a;
   font-size: 0.95rem;
+}
+
+.filtersGrid input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
 .dateInputs {
@@ -94,19 +105,26 @@
 }
 
 .chip {
-  border: 1px solid var(--dock-border);
+  border: 1px solid #cbd5e1;
   border-radius: 999px;
   padding: 0.4rem 0.9rem;
-  background: transparent;
-  color: var(--dock-text-muted);
+  background: #ffffff;
+  color: #475569;
   font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.chip:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
 }
 
 .chipActive {
-  background: var(--dock-accent);
-  color: var(--dock-bg);
-  border-color: transparent;
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
 }
 
 .missingToggles {
@@ -123,7 +141,7 @@
 .toggleList label {
   text-transform: none;
   letter-spacing: normal;
-  color: var(--dock-text);
+  color: #0f172a;
   font-weight: 500;
   display: flex;
   align-items: center;
@@ -144,17 +162,27 @@
   font-weight: 600;
   border: none;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .primaryButton {
-  background: var(--dock-accent);
-  color: var(--dock-bg);
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.primaryButton:hover {
+  background: #1d4ed8;
 }
 
 .secondaryButton {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--dock-text);
-  border: 1px solid var(--dock-border);
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+}
+
+.secondaryButton:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
 }
 
 .tableHeader {
@@ -177,7 +205,7 @@
 .table th,
 .table td {
   padding: 0.9rem 0.75rem;
-  border-bottom: 1px solid var(--dock-border);
+  border-bottom: 1px solid #e2e8f0;
   text-align: left;
 }
 
@@ -185,7 +213,14 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 0.75rem;
-  color: var(--dock-text-muted);
+  color: #475569;
+  font-weight: 700;
+  background: #f8fafc;
+}
+
+.table td {
+  color: #0f172a;
+  font-weight: 500;
 }
 
 .matchupCell {
@@ -207,13 +242,13 @@
 }
 
 .badgeOk {
-  background: rgba(52, 211, 153, 0.15);
-  color: #34d399;
+  background: rgba(22, 163, 74, 0.15);
+  color: #16a34a;
 }
 
 .badgeWarn {
-  background: rgba(251, 191, 36, 0.15);
-  color: #fbbf24;
+  background: rgba(234, 179, 8, 0.15);
+  color: #ca8a04;
 }
 
 .metaColumn {
@@ -223,20 +258,25 @@
 }
 
 .metaSecondary {
-  color: var(--dock-text-muted);
+  color: #475569;
   font-size: 0.75rem;
 }
 
 .linkButton {
-  color: var(--dock-accent);
+  color: #2563eb;
   text-decoration: none;
   font-weight: 600;
+}
+
+.linkButton:hover {
+  text-decoration: underline;
 }
 
 .emptyState {
   text-align: center;
   padding: 1.5rem 0;
-  color: var(--dock-text-muted);
+  color: #475569;
+  font-weight: 500;
 }
 
 .loadMoreRow {
@@ -244,4 +284,3 @@
   justify-content: center;
   margin-top: 1.25rem;
 }
-

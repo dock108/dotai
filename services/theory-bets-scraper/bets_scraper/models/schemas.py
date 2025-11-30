@@ -110,5 +110,7 @@ class IngestionConfig(BaseModel):
     rescrape_existing: bool = False
     only_missing: bool = False
     include_books: list[str] | None = None
+    backfill_player_stats: bool = False  # Re-scrape games missing player boxscores
+    backfill_odds: bool = False  # Fetch odds for games missing odds data
 
 

@@ -3,7 +3,7 @@
   flex-direction: column;
   gap: 1.5rem;
   padding-bottom: 3rem;
-  color: #e2e8f0;
+  color: #0f172a;
 }
 
 .header {
@@ -14,7 +14,7 @@
 }
 
 .backLink {
-  color: #60a5fa;
+  color: #2563eb;
   text-decoration: none;
   font-weight: 600;
   font-size: 0.875rem;
@@ -29,28 +29,33 @@
   text-transform: uppercase;
   letter-spacing: 0.2em;
   font-size: 0.75rem;
-  color: #64748b;
+  color: #475569;
+  font-weight: 600;
 }
 
 .header h1 {
   margin: 0.25rem 0;
-  color: #f8fafc;
+  color: #0f172a;
+  font-size: 1.75rem;
+  font-weight: 700;
 }
 
 .subtitle {
   margin: 0;
-  color: #64748b;
+  color: #475569;
+  font-weight: 500;
 }
 
 .scoreCard {
-  background: rgba(30, 41, 59, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
   border-radius: 12px;
   padding: 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   min-width: 220px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .scoreCard > div {
@@ -60,12 +65,14 @@
 }
 
 .scoreCard span {
-  color: #94a3b8;
+  color: #334155;
+  font-weight: 500;
 }
 
 .scoreCard strong {
   font-size: 1.5rem;
-  color: #f8fafc;
+  color: #0f172a;
+  font-weight: 700;
 }
 
 .tabRow {
@@ -75,11 +82,11 @@
 }
 
 .tabButton {
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid #cbd5e1;
   border-radius: 20px;
   padding: 0.5rem 1.25rem;
-  background: transparent;
-  color: #94a3b8;
+  background: #ffffff;
+  color: #475569;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -89,27 +96,29 @@
 }
 
 .tabButton:hover {
-  background: rgba(59, 130, 246, 0.1);
-  border-color: rgba(59, 130, 246, 0.3);
+  background: #f1f5f9;
+  border-color: #94a3b8;
 }
 
 .tabActive {
-  background: #3b82f6;
+  background: #2563eb;
   color: #fff;
-  border-color: transparent;
+  border-color: #2563eb;
 }
 
 .card {
-  background: rgba(30, 41, 59, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
   border-radius: 12px;
   padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .card h2 {
   margin: 0 0 1rem 0;
   font-size: 1.1rem;
-  color: #f8fafc;
+  color: #0f172a;
+  font-weight: 700;
 }
 
 .summaryGrid {
@@ -122,13 +131,14 @@
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #64748b;
+  color: #475569;
+  font-weight: 600;
 }
 
 .summaryGrid p {
   margin: 0.25rem 0 0;
-  font-weight: 600;
-  color: #e2e8f0;
+  font-weight: 700;
+  color: #0f172a;
 }
 
 .statGrid {
@@ -138,10 +148,10 @@
 }
 
 .statCard {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid #cbd5e1;
   border-radius: 10px;
   padding: 1rem;
-  background: rgba(15, 23, 42, 0.5);
+  background: #f8fafc;
 }
 
 .statHeader {
@@ -149,16 +159,18 @@
   justify-content: space-between;
   margin-bottom: 0.75rem;
   padding-bottom: 0.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .statHeader strong {
-  color: #f8fafc;
+  color: #0f172a;
+  font-weight: 700;
 }
 
 .statHeader span {
-  color: #64748b;
+  color: #475569;
   font-size: 0.8rem;
+  font-weight: 500;
 }
 
 .statCard ul {
@@ -177,12 +189,13 @@
 }
 
 .statCard li span:first-child {
-  color: #94a3b8;
+  color: #475569;
+  font-weight: 500;
 }
 
 .statCard li span:last-child {
-  color: #e2e8f0;
-  font-weight: 500;
+  color: #0f172a;
+  font-weight: 600;
 }
 
 .playersHeader {
@@ -197,16 +210,20 @@
   flex: 1;
   max-width: 300px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(15, 23, 42, 0.8);
-  color: #e2e8f0;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
 }
 
+.playersHeader input::placeholder {
+  color: #94a3b8;
+}
+
 .playersHeader input:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: #2563eb;
 }
 
 .tableWrapper {
@@ -221,7 +238,7 @@
 .tableWrapper th,
 .tableWrapper td {
   padding: 0.75rem 0.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid #e2e8f0;
   text-align: left;
 }
 
@@ -229,34 +246,40 @@
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #64748b;
-  font-weight: 600;
+  color: #475569;
+  font-weight: 700;
+  background: #f8fafc;
 }
 
 .tableWrapper td {
-  color: #e2e8f0;
+  color: #0f172a;
   font-size: 0.875rem;
+  font-weight: 500;
 }
 
 .tableWrapper details summary {
   cursor: pointer;
-  color: #60a5fa;
+  color: #2563eb;
+  font-weight: 600;
 }
 
 .tableWrapper details pre {
-  background: rgba(15, 23, 42, 0.8);
+  background: #f1f5f9;
   padding: 0.75rem;
   border-radius: 6px;
   font-size: 0.75rem;
   margin-top: 0.5rem;
   overflow: auto;
   max-height: 200px;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
 }
 
 .emptyState {
   text-align: center;
   padding: 1.5rem 0;
   color: #64748b;
+  font-weight: 500;
 }
 
 .metricsGrid {
@@ -266,24 +289,27 @@
 }
 
 .metric {
-  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border: 1px dashed #cbd5e1;
   border-radius: 10px;
   padding: 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  background: #f8fafc;
 }
 
 .metric span {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-size: 0.7rem;
-  color: #64748b;
+  color: #475569;
+  font-weight: 600;
 }
 
 .metric strong {
   font-size: 1rem;
-  color: #f8fafc;
+  color: #0f172a;
+  font-weight: 700;
 }
 
 .rawBlock {
@@ -292,19 +318,20 @@
 
 .rawBlock summary {
   cursor: pointer;
-  color: #94a3b8;
-  font-weight: 500;
+  color: #475569;
+  font-weight: 600;
 }
 
 .rawBlock pre {
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   padding: 1rem;
   border-radius: 8px;
   overflow: auto;
   font-size: 0.75rem;
   max-height: 400px;
   margin-top: 0.5rem;
+  color: #1e293b;
 }
 
 .actionButtons {
@@ -316,11 +343,11 @@
 .actionButtons button,
 .actionButtons a {
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid #cbd5e1;
   padding: 0.5rem 1rem;
-  background: rgba(30, 41, 59, 0.8);
-  color: #e2e8f0;
-  font-weight: 500;
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 600;
   text-decoration: none;
   cursor: pointer;
   font-size: 0.875rem;
@@ -329,8 +356,8 @@
 
 .actionButtons button:hover,
 .actionButtons a:hover {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: rgba(59, 130, 246, 0.4);
+  background: #f1f5f9;
+  border-color: #94a3b8;
 }
 
 .actionButtons button:disabled {
@@ -340,28 +367,30 @@
 
 .actionMessage {
   margin-top: 0.75rem;
-  color: #94a3b8;
+  color: #475569;
   font-size: 0.875rem;
+  font-weight: 500;
 }
 
 .centered {
   display: flex;
   justify-content: center;
   padding: 3rem 0;
-  color: #64748b;
+  color: #475569;
 }
 
 .loading {
   text-align: center;
   padding: 3rem;
-  color: #64748b;
+  color: #475569;
+  font-weight: 500;
 }
 
 .error {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: #fef2f2;
+  border: 1px solid #fecaca;
   border-radius: 8px;
   padding: 1rem;
-  color: #fca5a5;
+  color: #b91c1c;
+  font-weight: 500;
 }
-

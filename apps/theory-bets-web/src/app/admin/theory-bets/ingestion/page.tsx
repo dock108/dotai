@@ -82,6 +82,8 @@ export default function IngestionAdminPage() {
           endDate: endDate,
           includeBoxscores: form.includeBoxscores,
           includeOdds: form.includeOdds,
+          backfillPlayerStats: form.backfillPlayerStats,
+          backfillOdds: form.backfillOdds,
         },
       });
       setSuccess(`Scrape run #${result.id} scheduled successfully!`);
@@ -171,6 +173,25 @@ export default function IngestionAdminPage() {
                 onChange={(e) => setForm((prev) => ({ ...prev, includeOdds: e.target.checked }))}
               />
               Include odds
+            </label>
+          </div>
+
+          <div className={styles.toggles}>
+            <label>
+              <input
+                type="checkbox"
+                checked={form.backfillPlayerStats}
+                onChange={(e) => setForm((prev) => ({ ...prev, backfillPlayerStats: e.target.checked }))}
+              />
+              Backfill missing player stats
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={form.backfillOdds}
+                onChange={(e) => setForm((prev) => ({ ...prev, backfillOdds: e.target.checked }))}
+              />
+              Backfill missing odds
             </label>
           </div>
 

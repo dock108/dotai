@@ -5,7 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Sequence
 
-from sqlalchemy import select
+from datetime import timezone
+from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -217,25 +218,124 @@ def upsert_player_boxscores(session: Session, game_id: int, payloads: Sequence[N
         session.execute(stmt)
 
 
+def _find_team_by_name(session: Session, league_id: int, team_name: str) -> int | None:
+    """Find existing team by name (exact or normalized match)."""
+    # Try exact match first (case-insensitive)
+    stmt = (
+        select(db_models.SportsTeam.id)
+        .where(db_models.SportsTeam.league_id == league_id)
+        .where(or_(
+            db_models.SportsTeam.name == team_name,
+            db_models.SportsTeam.short_name == team_name,
+            func.lower(db_models.SportsTeam.name) == func.lower(team_name),
+            func.lower(db_models.SportsTeam.short_name) == func.lower(team_name),
+        ))
+        .limit(1)
+    )
+    return session.execute(stmt).scalar()
+
+
 def upsert_odds(session: Session, snapshot: NormalizedOddsSnapshot) -> None:
     league_id = _fetch_league_id(session, snapshot.league_code)
-    home_team_id = _upsert_team(session, league_id, snapshot.home_team)
-    away_team_id = _upsert_team(session, league_id, snapshot.away_team)
-
+    
+    # Try to find existing teams by name first (to reuse scraper teams)
+    home_team_id = _find_team_by_name(session, league_id, snapshot.home_team.name)
+    if home_team_id is None:
+        logger.debug(
+            "odds_team_not_found_creating",
+            team_name=snapshot.home_team.name,
+            abbreviation=snapshot.home_team.abbreviation,
+            league=snapshot.league_code,
+        )
+        home_team_id = _upsert_team(session, league_id, snapshot.home_team)
+    else:
+        logger.debug(
+            "odds_team_found",
+            team_name=snapshot.home_team.name,
+            team_id=home_team_id,
+            league=snapshot.league_code,
+        )
+    
+    away_team_id = _find_team_by_name(session, league_id, snapshot.away_team.name)
+    if away_team_id is None:
+        logger.debug(
+            "odds_team_not_found_creating",
+            team_name=snapshot.away_team.name,
+            abbreviation=snapshot.away_team.abbreviation,
+            league=snapshot.league_code,
+        )
+        away_team_id = _upsert_team(session, league_id, snapshot.away_team)
+    else:
+        logger.debug(
+            "odds_team_found",
+            team_name=snapshot.away_team.name,
+            team_id=away_team_id,
+            league=snapshot.league_code,
+        )
+    
+    # Fix game date matching (use date range instead of exact datetime)
+    # Games are stored at midnight for that date, but odds use actual tipoff times
+    game_day = snapshot.game_date.date()
+    day_start = datetime.combine(game_day, datetime.min.time(), tzinfo=timezone.utc)
+    day_end = datetime.combine(game_day, datetime.max.time(), tzinfo=timezone.utc)
+    
+    # First, check if any games exist for these teams on this date
+    games_check = (
+        select(db_models.SportsGame.id, db_models.SportsGame.game_date, db_models.SportsGame.home_team_id, db_models.SportsGame.away_team_id)
+        .where(db_models.SportsGame.league_id == league_id)
+        .where(db_models.SportsGame.game_date >= day_start)
+        .where(db_models.SportsGame.game_date <= day_end)
+        .where(
+            or_(
+                db_models.SportsGame.home_team_id == home_team_id,
+                db_models.SportsGame.away_team_id == home_team_id,
+                db_models.SportsGame.home_team_id == away_team_id,
+                db_models.SportsGame.away_team_id == away_team_id,
+            )
+        )
+        .limit(10)
+    )
+    potential_games = session.execute(games_check).all()
+    
     stmt = (
         select(db_models.SportsGame.id)
         .where(db_models.SportsGame.league_id == league_id)
         .where(db_models.SportsGame.home_team_id == home_team_id)
         .where(db_models.SportsGame.away_team_id == away_team_id)
-        .where(db_models.SportsGame.game_date == snapshot.game_date)
+        .where(db_models.SportsGame.game_date >= day_start)
+        .where(db_models.SportsGame.game_date <= day_end)
     )
     game_id = session.execute(stmt).scalar()
     if game_id is None:
+        # Get team names for better debugging
+        home_team = session.execute(
+            select(db_models.SportsTeam.name, db_models.SportsTeam.abbreviation)
+            .where(db_models.SportsTeam.id == home_team_id)
+        ).first()
+        away_team = session.execute(
+            select(db_models.SportsTeam.name, db_models.SportsTeam.abbreviation)
+            .where(db_models.SportsTeam.id == away_team_id)
+        ).first()
+        
         logger.warning(
             "odds_game_missing",
             league=snapshot.league_code,
-            home=snapshot.home_team.abbreviation,
-            away=snapshot.away_team.abbreviation,
+            home_team_name=snapshot.home_team.name,
+            home_team_abbr=snapshot.home_team.abbreviation,
+            home_team_id=home_team_id,
+            home_team_db_name=home_team[0] if home_team else None,
+            home_team_db_abbr=home_team[1] if home_team else None,
+            away_team_name=snapshot.away_team.name,
+            away_team_abbr=snapshot.away_team.abbreviation,
+            away_team_id=away_team_id,
+            away_team_db_name=away_team[0] if away_team else None,
+            away_team_db_abbr=away_team[1] if away_team else None,
+            game_date=str(snapshot.game_date.date()),
+            game_datetime=str(snapshot.game_date),
+            day_start=str(day_start),
+            day_end=str(day_end),
+            potential_games_count=len(potential_games),
+            potential_games=[{"id": g[0], "date": str(g[1]), "home_id": g[2], "away_id": g[3]} for g in potential_games[:5]],
         )
         return
 
@@ -271,8 +371,20 @@ def upsert_odds(session: Session, snapshot: NormalizedOddsSnapshot) -> None:
 def persist_game_payload(session: Session, payload: NormalizedGame) -> int:
     game_id = upsert_game(session, payload)
     upsert_team_boxscores(session, game_id, payload.team_boxscores)
+    
+    logger.info(
+        "persist_game_payload",
+        game_id=game_id,
+        game_key=payload.identity.source_game_key,
+        team_boxscores_count=len(payload.team_boxscores),
+        player_boxscores_count=len(payload.player_boxscores) if payload.player_boxscores else 0,
+    )
+    
     if payload.player_boxscores:
+        logger.debug("persisting_player_boxscores", game_id=game_id, count=len(payload.player_boxscores))
         upsert_player_boxscores(session, game_id, payload.player_boxscores)
+    else:
+        logger.warning("no_player_boxscores_to_persist", game_id=game_id, game_key=payload.identity.source_game_key)
     return game_id
 
 

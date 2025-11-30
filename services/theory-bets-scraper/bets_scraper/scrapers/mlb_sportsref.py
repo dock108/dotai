@@ -1,4 +1,4 @@
-"""NBA scraper powered by Basketball Reference."""
+"""MLB scraper powered by Baseball Reference."""
 
 from __future__ import annotations
 
@@ -17,37 +17,24 @@ from ..models import (
     TeamIdentity,
 )
 from ..normalization import normalize_team_name
-from ..utils.parsing import (
-    extract_all_stats_from_row,
-    get_stat_from_row,
-    parse_float,
-    parse_int,
-)
+from ..utils.parsing import extract_all_stats_from_row, get_stat_from_row, parse_float, parse_int
 from .base import BaseSportsReferenceScraper, ScraperError
 
 
-class NBASportsReferenceScraper(BaseSportsReferenceScraper):
-    sport = "nba"
-    league_code = "NBA"
-    base_url = "https://www.basketball-reference.com/boxscores/"
+class MLBSportsReferenceScraper(BaseSportsReferenceScraper):
+    sport = "mlb"
+    league_code = "MLB"
+    base_url = "https://www.baseball-reference.com/boxes/"
 
     # _parse_team_row now inherited from base class
 
     def _extract_team_stats(self, soup: BeautifulSoup, team_abbr: str) -> dict:
-        # Basketball Reference uses UPPERCASE team abbreviations in table IDs
-        table_id = f"box-{team_abbr.upper()}-game-basic"
-        table = soup.find("table", id=table_id)
+        # Baseball Reference uses team abbreviation in table IDs
+        table_id = f"#{team_abbr.upper()}_batting"
+        table = soup.select_one(table_id)
         
         if not table:
-            # Log all table IDs found on the page to help debug
-            all_tables = soup.find_all("table")
-            table_ids = [t.get("id", "no-id") for t in all_tables]
-            logger.warning(
-                "team_stats_table_not_found",
-                table_id=table_id,
-                team_abbr=team_abbr,
-                available_tables=table_ids[:15],  # Limit to first 15
-            )
+            logger.warning("team_stats_table_not_found", table_id=table_id, team_abbr=team_abbr)
             return {}
         
         totals = {}
@@ -59,7 +46,8 @@ class NBASportsReferenceScraper(BaseSportsReferenceScraper):
         cells = tfoot.find_all("td")
         for cell in cells:
             stat = cell.get("data-stat")
-            totals[stat] = cell.text.strip()
+            if stat:
+                totals[stat] = cell.text.strip()
         
         logger.debug(
             "team_stats_extracted",
@@ -72,83 +60,64 @@ class NBASportsReferenceScraper(BaseSportsReferenceScraper):
     def _extract_player_stats(
         self, soup: BeautifulSoup, team_abbr: str, team_identity: TeamIdentity, is_home: bool
     ) -> list[NormalizedPlayerBoxscore]:
-        """Parse individual player rows from box-{TEAM}-game-basic table."""
-        # Basketball Reference uses UPPERCASE team abbreviations in table IDs
-        table_id = f"box-{team_abbr.upper()}-game-basic"
-        table = soup.find("table", id=table_id)
-        
-        if not table:
-            logger.warning("player_stats_table_not_found", table_id=table_id, team=team_abbr)
-            return []
-
-        logger.debug("player_stats_table_found", table_id=table_id, team=team_abbr)
-
+        """Parse individual player rows from batting and pitching tables."""
         players: list[NormalizedPlayerBoxscore] = []
-        tbody = table.find("tbody")
-        if not tbody:
-            logger.warning("player_stats_tbody_not_found", table_id=table_id, team=team_abbr)
-            return players
-
-        all_rows = tbody.find_all("tr")
-        logger.debug("player_stats_rows_found", table_id=table_id, row_count=len(all_rows))
-
-        skipped_thead = 0
-        skipped_no_player_cell = 0
-        skipped_no_player_link = 0
-        parsed_count = 0
-
-        for row in all_rows:
-            # Skip section headers (rows with class="thead") and reserve rows
-            row_classes = row.get("class", [])
-            if "thead" in row_classes:
-                skipped_thead += 1
+        
+        # MLB has separate tables for batting and pitching
+        table_types = ["batting", "pitching"]
+        
+        for table_type in table_types:
+            table_id = f"#{team_abbr.upper()}_{table_type}"
+            table = soup.select_one(table_id)
+            
+            if not table:
                 continue
-
-            # Get player name and external ref from the th cell
-            player_cell = row.find("th", {"data-stat": "player"})
-            if not player_cell:
-                skipped_no_player_cell += 1
+            
+            logger.debug("player_stats_table_found", table_id=table_id, team=team_abbr, type=table_type)
+            
+            tbody = table.find("tbody")
+            if not tbody:
                 continue
-
-            player_link = player_cell.find("a")
-            if not player_link:
-                # Skip "Team Totals" or "Reserves" header rows
-                skipped_no_player_link += 1
-                continue
-
-            player_name = player_link.text.strip()
-            # Extract player ID from href like "/players/t/tatumja01.html"
-            href = player_link.get("href", "")
-            player_id = href.split("/")[-1].replace(".html", "") if href else player_name
-
-            # Build raw stats dict with all available columns
-            raw_stats = extract_all_stats_from_row(row)
-
-            players.append(
-                NormalizedPlayerBoxscore(
-                    player_id=player_id,
-                    player_name=player_name,
-                    team=team_identity,
-                    minutes=parse_float(get_stat_from_row(row, "mp")),
-                    points=parse_int(get_stat_from_row(row, "pts")),
-                    rebounds=parse_int(get_stat_from_row(row, "trb")),
-                    assists=parse_int(get_stat_from_row(row, "ast")),
-                    raw_stats=raw_stats,
+            
+            for row in tbody.find_all("tr"):
+                if row.get("class") and "thead" in row.get("class", []):
+                    continue
+                
+                player_cell = row.find("th", {"data-stat": "player"})
+                if not player_cell:
+                    continue
+                
+                player_link = player_cell.find("a")
+                if not player_link:
+                    continue
+                
+                player_name = player_link.text.strip()
+                href = player_link.get("href", "")
+                player_id = href.split("/")[-1].replace(".shtml", "") if href else player_name
+                
+                raw_stats = extract_all_stats_from_row(row)
+                raw_stats["_table_type"] = table_type
+                
+                players.append(
+                    NormalizedPlayerBoxscore(
+                        player_id=player_id,
+                        player_name=player_name,
+                        team=team_identity,
+                        minutes=None,
+                        points=None,
+                        rebounds=None,
+                        assists=None,
+                        raw_stats=raw_stats,
+                    )
                 )
-            )
-            parsed_count += 1
-
+        
         logger.info(
             "player_stats_extraction_complete",
             team=team_abbr,
             is_home=is_home,
-            total_rows=len(all_rows),
-            skipped_thead=skipped_thead,
-            skipped_no_player_cell=skipped_no_player_cell,
-            skipped_no_player_link=skipped_no_player_link,
-            parsed_players=parsed_count,
+            parsed_players=len(players),
         )
-
+        
         return players
 
     def _build_team_boxscore(self, identity: TeamIdentity, is_home: bool, score: int, stats: dict) -> NormalizedTeamBoxscore:
@@ -156,13 +125,17 @@ class NBASportsReferenceScraper(BaseSportsReferenceScraper):
             team=identity,
             is_home=is_home,
             points=score,
-            rebounds=parse_int(stats.get("trb")),
-            assists=parse_int(stats.get("ast")),
-            turnovers=parse_int(stats.get("tov")),
+            rebounds=None,
+            assists=None,
+            turnovers=None,
             raw_stats=stats,
         )
 
     # _season_from_date now inherited from base class
+
+    def scoreboard_url(self, day: date) -> str:
+        # Baseball Reference uses a different URL format
+        return f"{self.base_url}?month={day.month}&day={day.day}&year={day.year}"
 
     def fetch_games_for_date(self, day: date) -> Sequence[NormalizedGame]:
         soup = self.fetch_html(self.scoreboard_url(day), game_date=day)
@@ -175,11 +148,12 @@ class NBASportsReferenceScraper(BaseSportsReferenceScraper):
             away_identity, away_score = self._parse_team_row(team_rows[0])
             home_identity, home_score = self._parse_team_row(team_rows[1])
 
-            boxscore_link = div.select_one("p.links a[href*='/boxscores/']")
+            boxscore_link = div.select_one("p.links a[href*='/boxes/']")
             if not boxscore_link:
                 raise ScraperError("Missing boxscore link")
             boxscore_url = urljoin(self.base_url, boxscore_link["href"])
-            source_game_key = boxscore_link["href"].split("/")[-1].replace(".html", "")
+            # Extract game key from URL like /boxes/NYY/NYY202410010.shtml
+            source_game_key = boxscore_link["href"].split("/")[-1].replace(".shtml", "")
             box_soup = self.fetch_html(boxscore_url, game_date=day)
 
             away_stats = self._extract_team_stats(box_soup, away_identity.abbreviation or "")
@@ -223,10 +197,12 @@ class NBASportsReferenceScraper(BaseSportsReferenceScraper):
     def fetch_single_boxscore(self, source_game_key: str, game_date: date) -> NormalizedGame | None:
         """Fetch boxscore for a single game by its source key.
         
-        Used for backfilling player stats on existing games.
-        source_game_key format: e.g., "202410220BOS"
+        source_game_key format: e.g., "NYY202410010" (team abbreviation + date)
         """
-        boxscore_url = f"https://www.basketball-reference.com/boxscores/{source_game_key}.html"
+        # Extract team abbreviation from game key (first 3 chars)
+        team_abbr = source_game_key[:3]
+        boxscore_url = f"https://www.baseball-reference.com/boxes/{team_abbr}/{source_game_key}.shtml"
+        
         logger.info("fetching_single_boxscore", url=boxscore_url, game_key=source_game_key, game_date=str(game_date))
 
         try:
@@ -235,23 +211,19 @@ class NBASportsReferenceScraper(BaseSportsReferenceScraper):
             logger.error("single_boxscore_fetch_failed", game_key=source_game_key, error=str(e))
             return None
 
-        # Parse the scorebox to get team info
         scorebox = soup.find("div", class_="scorebox")
         if not scorebox:
             logger.warning("scorebox_not_found", game_key=source_game_key)
             return None
 
-        # Get team divs - first is away, second is home
         team_divs = scorebox.find_all("div", recursive=False)
         if len(team_divs) < 2:
             logger.warning("team_divs_not_found", game_key=source_game_key, found=len(team_divs))
             return None
 
         def parse_scorebox_team(div) -> tuple[TeamIdentity, int] | None:
-            """Parse team info from scorebox div."""
             team_link = div.find("a", itemprop="name")
             if not team_link:
-                # Try alternate selector
                 strong = div.find("strong")
                 team_link = strong.find("a") if strong else None
             if not team_link:
@@ -261,15 +233,13 @@ class NBASportsReferenceScraper(BaseSportsReferenceScraper):
             # Normalize team name to canonical form
             canonical_name, abbreviation = normalize_team_name(self.league_code, team_name)
 
-            # Find score - look for class "score" or "scores"
             score_div = div.find("div", class_="score")
-            if not score_div:
-                score_div = div.find("div", class_="scores")
             if not score_div:
                 return None
             
-            score = parse_int(score_div.text.strip())
-            if score is None:
+            try:
+                score = int(score_div.text.strip())
+            except ValueError:
                 return None
 
             identity = TeamIdentity(
@@ -291,32 +261,14 @@ class NBASportsReferenceScraper(BaseSportsReferenceScraper):
         away_identity, away_score = away_result
         home_identity, home_score = home_result
 
-        logger.debug(
-            "parsed_scorebox",
-            game_key=source_game_key,
-            away_team=away_identity.abbreviation,
-            home_team=home_identity.abbreviation,
-            away_score=away_score,
-            home_score=home_score,
-        )
-
-        # Extract team stats
         away_stats = self._extract_team_stats(soup, away_identity.abbreviation or "")
         home_stats = self._extract_team_stats(soup, home_identity.abbreviation or "")
 
-        # Extract player stats
         away_players = self._extract_player_stats(
             soup, away_identity.abbreviation or "", away_identity, is_home=False
         )
         home_players = self._extract_player_stats(
             soup, home_identity.abbreviation or "", home_identity, is_home=True
-        )
-
-        logger.info(
-            "extracted_player_stats",
-            game_key=source_game_key,
-            away_players=len(away_players),
-            home_players=len(home_players),
         )
 
         identity = GameIdentification(
@@ -343,5 +295,4 @@ class NBASportsReferenceScraper(BaseSportsReferenceScraper):
             team_boxscores=team_boxscores,
             player_boxscores=player_boxscores,
         )
-
 
