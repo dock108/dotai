@@ -593,3 +593,108 @@ class CryptoIngestionRun(Base):
         Index("idx_crypto_ingestion_created", "created_at"),
         Index("idx_crypto_ingestion_exchange_timeframe", "exchange_code", "timeframe"),
     )
+
+
+# ============================================================================
+# Equity / Stocks Data Models
+# ============================================================================
+
+
+class EquityExchange(Base):
+    """Equity exchanges (NYSE, NASDAQ, etc.)."""
+
+    __tablename__ = "equity_exchanges"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    timezone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    metadata: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    assets: Mapped[list["EquityAsset"]] = relationship("EquityAsset", back_populates="exchange", cascade="all, delete-orphan")
+    candles: Mapped[list["EquityCandle"]] = relationship("EquityCandle", back_populates="exchange", cascade="all, delete-orphan")
+
+
+class EquityAsset(Base):
+    """Equity asset (single ticker on an exchange)."""
+
+    __tablename__ = "equity_assets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    exchange_id: Mapped[int] = mapped_column(Integer, ForeignKey("equity_exchanges.id", ondelete="CASCADE"), nullable=False, index=True)
+    ticker: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    sector: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    industry: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    external_codes: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
+    metadata: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    exchange: Mapped[EquityExchange] = relationship("EquityExchange", back_populates="assets")
+    candles: Mapped[list["EquityCandle"]] = relationship("EquityCandle", back_populates="asset", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        UniqueConstraint("exchange_id", "ticker", name="uq_equity_asset_exchange_ticker"),
+        Index("idx_equity_assets_ticker", "ticker"),
+    )
+
+
+class EquityCandle(Base):
+    """Normalized OHLCV candles for equity assets."""
+
+    __tablename__ = "equity_candles"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    asset_id: Mapped[int] = mapped_column(Integer, ForeignKey("equity_assets.id", ondelete="CASCADE"), nullable=False, index=True)
+    exchange_id: Mapped[int] = mapped_column(Integer, ForeignKey("equity_exchanges.id", ondelete="CASCADE"), nullable=False, index=True)
+    timeframe: Mapped[Timeframe] = mapped_column(String(10), nullable=False, index=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    open: Mapped[float] = mapped_column(nullable=False)
+    high: Mapped[float] = mapped_column(nullable=False)
+    low: Mapped[float] = mapped_column(nullable=False)
+    close: Mapped[float] = mapped_column(nullable=False)
+    volume: Mapped[float] = mapped_column(nullable=False)
+    stats: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Relationships
+    asset: Mapped["EquityAsset"] = relationship("EquityAsset", back_populates="candles")
+    exchange: Mapped["EquityExchange"] = relationship("EquityExchange", back_populates="candles")
+
+    __table_args__ = (
+        UniqueConstraint("asset_id", "timeframe", "timestamp", name="uq_equity_candle_identity"),
+        Index("idx_equity_candles_exchange_time", "exchange_id", "timeframe", "timestamp"),
+    )
+
+
+class EquityIngestionRun(Base):
+    """Tracks ingestion runs for equity market data."""
+
+    __tablename__ = "equity_ingestion_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    exchange_code: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    tickers: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
+    timeframe: Mapped[Timeframe] = mapped_column(String(10), nullable=False)
+    start_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False, index=True)
+    requested_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    job_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error_details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    config: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index("idx_equity_ingestion_status", "status"),
+        Index("idx_equity_ingestion_created", "created_at"),
+        Index("idx_equity_ingestion_exchange_timeframe", "exchange_code", "timeframe"),
+    )

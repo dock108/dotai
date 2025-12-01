@@ -294,6 +294,23 @@ services:
       - "traefik.http.routers.stocks.tls.certresolver=letsencrypt"
       - "traefik.http.services.stocks.loadbalancer.server.port=3003"
 
+  # Theory stocks worker (equity ingestion)
+  theory-stocks-worker:
+    build:
+      context: ..
+      dockerfile: infra/docker/theory-stocks-worker.Dockerfile
+    container_name: dock108-stocks-worker
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+    depends_on:
+      - theory-engine-api
+      - redis
+    restart: unless-stopped
+    networks:
+      - dock108-network
+
   # Theory conspiracy web app
   conspiracy-web:
     build:

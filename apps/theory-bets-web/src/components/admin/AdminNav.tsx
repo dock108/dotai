@@ -28,6 +28,14 @@ const navSections: { title: string; items: NavItem[] }[] = [
       { href: "/admin/theory-crypto/assets", label: "Assets", icon: "💹" },
     ],
   },
+  {
+    title: "Stocks",
+    items: [
+      { href: "/admin/theory-stocks", label: "Dashboard", icon: "📈" },
+      { href: "/admin/theory-stocks/ingestion", label: "Ingestion Runs", icon: "⚙️" },
+      { href: "/admin/theory-stocks/assets", label: "Assets", icon: "🏛️" },
+    ],
+  },
 ];
 
 export function AdminNav() {
