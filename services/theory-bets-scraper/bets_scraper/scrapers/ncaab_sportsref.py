@@ -42,17 +42,14 @@ class NCAABSportsReferenceScraper(BaseSportsReferenceScraper):
         return identity, score
 
     def _extract_team_stats(self, soup: BeautifulSoup, team_abbr: str) -> dict:
-        table = soup.find("table", id=f"box-{team_abbr.lower()}-game-basic")
+        """Extract team stats from boxscore table."""
+        from ..utils.html_parsing import extract_team_stats_from_table, find_table_by_id
+        
+        table_id = f"box-{team_abbr.lower()}-game-basic"
+        table = find_table_by_id(soup, table_id)
         if not table:
             return {}
-        totals = {}
-        tfoot = table.find("tfoot")
-        if not tfoot:
-            return totals
-        for cell in tfoot.find_all("td"):
-            stat = cell.get("data-stat")
-            totals[stat] = cell.text.strip()
-        return totals
+        return extract_team_stats_from_table(table, team_abbr, table_id)
 
     def _build_team_boxscore(self, identity: TeamIdentity, is_home: bool, score: int, stats: dict) -> NormalizedTeamBoxscore:
         return NormalizedTeamBoxscore(

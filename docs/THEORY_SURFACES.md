@@ -213,7 +213,7 @@ export default function Home() {
 
 All theory surfaces are included in the Docker Compose setup (`infra/docker-compose.yml`) and can be deployed together with the backend API.
 
-See `infra/DEPLOYMENT.md` for production deployment instructions.
+See [`docs/DEPLOYMENT.md`](DEPLOYMENT.md) for production deployment instructions.
 
 ## Future Enhancements
 

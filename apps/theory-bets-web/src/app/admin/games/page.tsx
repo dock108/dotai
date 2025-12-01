@@ -5,6 +5,7 @@ import Link from "next/link";
 import styles from "./page.module.css";
 import { GameSummary, GameFilters, listGames } from "@/lib/api/sportsAdmin";
 import { SUPPORTED_LEAGUES } from "@/lib/constants/sports";
+import { getQuickDateRange, formatDate } from "@/lib/utils/dateFormat";
 
 const DEFAULT_FILTERS: GameFilters = {
   leagues: [],
@@ -16,9 +17,11 @@ const DEFAULT_FILTERS: GameFilters = {
   missingPlayerStats: false,
   missingOdds: false,
   missingAny: false,
-  limit: 50,
+  limit: 25,
   offset: 0,
 };
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 /**
  * Games admin page - comprehensive game browser with advanced filtering.
@@ -31,6 +34,12 @@ export default function GamesAdminPage() {
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Calculate current page from offset
+  const currentPage = Math.floor((appliedFilters.offset || 0) / (appliedFilters.limit || 25)) + 1;
+  const totalPages = Math.ceil(total / (appliedFilters.limit || 25));
+  const startItem = (appliedFilters.offset || 0) + 1;
+  const endItem = Math.min((appliedFilters.offset || 0) + (appliedFilters.limit || 25), total);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,10 +72,28 @@ export default function GamesAdminPage() {
     setGames([]);
   };
 
-  const handleLoadMore = () => {
-    if (nextOffset !== null) {
-      setAppliedFilters((prev) => ({ ...prev, offset: nextOffset }));
-    }
+  const handlePageChange = (newPage: number) => {
+    const limit = appliedFilters.limit || 25;
+    const newOffset = (newPage - 1) * limit;
+    setAppliedFilters((prev) => ({ ...prev, offset: newOffset }));
+    setGames([]);
+    // Scroll to top of table
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setFormFilters((prev) => ({ ...prev, limit: newSize }));
+    setAppliedFilters((prev) => ({ ...prev, limit: newSize, offset: 0 }));
+    setGames([]);
+  };
+
+  const setQuickDateRange = (days: number) => {
+    const { startDate, endDate } = getQuickDateRange(days);
+    setFormFilters((prev) => ({
+      ...prev,
+      startDate,
+      endDate,
+    }));
   };
 
   const toggleLeague = (lg: string) => {
@@ -138,27 +165,66 @@ export default function GamesAdminPage() {
               }
             />
           </div>
-          <div className={styles.filterGroup}>
-            <label className={styles.filterLabel}>Start Date</label>
-            <input
-              type="date"
-              className={styles.input}
-              value={formFilters.startDate ?? ""}
-              onChange={(e) =>
-                setFormFilters((prev) => ({ ...prev, startDate: e.target.value || undefined }))
-              }
-            />
+        </div>
+
+        {/* Date Range Section */}
+        <div className={styles.filterSection}>
+          <div className={styles.filterLabel}>Date Range</div>
+          <div className={styles.quickDateButtons}>
+            <button
+              type="button"
+              className={styles.quickDateButton}
+              onClick={() => setQuickDateRange(0)}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              className={styles.quickDateButton}
+              onClick={() => setQuickDateRange(7)}
+            >
+              Last 7 Days
+            </button>
+            <button
+              type="button"
+              className={styles.quickDateButton}
+              onClick={() => setQuickDateRange(30)}
+            >
+              Last 30 Days
+            </button>
+            <button
+              type="button"
+              className={styles.quickDateButton}
+              onClick={() => {
+                setFormFilters((prev) => ({ ...prev, startDate: undefined, endDate: undefined }));
+              }}
+            >
+              Clear Dates
+            </button>
           </div>
-          <div className={styles.filterGroup}>
-            <label className={styles.filterLabel}>End Date</label>
-            <input
-              type="date"
-              className={styles.input}
-              value={formFilters.endDate ?? ""}
-              onChange={(e) =>
-                setFormFilters((prev) => ({ ...prev, endDate: e.target.value || undefined }))
-              }
-            />
+          <div className={styles.filterRow}>
+            <div className={styles.filterGroup}>
+              <label className={styles.filterLabel}>Start Date</label>
+              <input
+                type="date"
+                className={styles.input}
+                value={formFilters.startDate ?? ""}
+                onChange={(e) =>
+                  setFormFilters((prev) => ({ ...prev, startDate: e.target.value || undefined }))
+                }
+              />
+            </div>
+            <div className={styles.filterGroup}>
+              <label className={styles.filterLabel}>End Date</label>
+              <input
+                type="date"
+                className={styles.input}
+                value={formFilters.endDate ?? ""}
+                onChange={(e) =>
+                  setFormFilters((prev) => ({ ...prev, endDate: e.target.value || undefined }))
+                }
+              />
+            </div>
           </div>
         </div>
 
@@ -200,11 +266,11 @@ export default function GamesAdminPage() {
         </button>
       </div>
 
-      {/* Stats */}
+      {/* Stats and Pagination Info */}
       <div className={styles.statsRow}>
         <div className={styles.stat}>
-          <span className={styles.statValue}>{total}</span>
-          <span className={styles.statLabel}>Total</span>
+          <span className={styles.statValue}>{total.toLocaleString()}</span>
+          <span className={styles.statLabel}>Total Games</span>
         </div>
         <div className={styles.stat}>
           <span className={styles.statValue}>{stats.withBoxscore}</span>
@@ -219,6 +285,64 @@ export default function GamesAdminPage() {
           <span className={styles.statLabel}>Odds</span>
         </div>
       </div>
+
+      {/* Pagination Controls */}
+      {total > 0 && (
+        <div className={styles.paginationControls}>
+          <div className={styles.paginationInfo}>
+            Showing {startItem.toLocaleString()} - {endItem.toLocaleString()} of {total.toLocaleString()} games
+          </div>
+          <div className={styles.paginationRight}>
+            <label className={styles.pageSizeLabel}>
+              Page size:
+              <select
+                className={styles.pageSizeSelect}
+                value={appliedFilters.limit || 25}
+                onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className={styles.paginationButtons}>
+              <button
+                className={styles.paginationButton}
+                onClick={() => handlePageChange(1)}
+                disabled={currentPage === 1 || loading}
+              >
+                First
+              </button>
+              <button
+                className={styles.paginationButton}
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1 || loading}
+              >
+                Previous
+              </button>
+              <span className={styles.pageInfo}>
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                className={styles.paginationButton}
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages || loading}
+              >
+                Next
+              </button>
+              <button
+                className={styles.paginationButton}
+                onClick={() => handlePageChange(totalPages)}
+                disabled={currentPage >= totalPages || loading}
+              >
+                Last
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Error */}
       {error && <div className={styles.error}>{error}</div>}
@@ -240,7 +364,7 @@ export default function GamesAdminPage() {
             <tbody>
               {games.map((game) => (
                 <tr key={game.id}>
-                  <td>{new Date(game.game_date).toLocaleDateString()}</td>
+                  <td>{formatDate(game.game_date)}</td>
                   <td><span className={styles.leagueBadge}>{game.league_code}</span></td>
                   <td>
                     {game.away_team} @ {game.home_team}
@@ -268,12 +392,6 @@ export default function GamesAdminPage() {
       {/* Loading */}
       {loading && <div className={styles.loading}>Loading...</div>}
 
-      {/* Load More */}
-      {!loading && nextOffset !== null && (
-        <button className={styles.loadMoreButton} onClick={handleLoadMore}>
-          Load More
-        </button>
-      )}
 
       {/* Empty State */}
       {!loading && games.length === 0 && !error && (

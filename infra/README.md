@@ -7,7 +7,7 @@ This directory contains deployment configuration for Hetzner.
 - `docker-compose.yml` - Main orchestration file for all services
 - `docker/` - Dockerfiles for each service
 - `traefik/` - Traefik config + ACME storage for TLS
-- `DEPLOYMENT.md` - Deployment guide
+- `docs/DEPLOYMENT.md` - Deployment guide (moved to docs/)
 
 ## Services
 
@@ -46,8 +46,14 @@ The `.env` file is located in the repo root. Use the wrapper script to automatic
 Or use docker-compose directly with the env file:
 
 ```bash
-docker compose --env-file ../.env up -d
+# From infra/ directory
+docker-compose --env-file ../.env -f docker-compose.yml up -d
+
+# Or from repo root
+docker-compose --env-file .env -f infra/docker-compose.yml up -d
 ```
 
-See `DEPLOYMENT.md` for full deployment instructions.
+**Important**: The `.env` file in the repo root is the single source of truth. All passwords and configuration must be set there. Never hardcode passwords in docker-compose.yml.
+
+See [`docs/DEPLOYMENT.md`](../docs/DEPLOYMENT.md) for full deployment instructions.
 

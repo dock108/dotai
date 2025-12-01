@@ -317,7 +317,7 @@ class SportsTeam(Base):
     away_games: Mapped[list["SportsGame"]] = relationship("SportsGame", foreign_keys="[SportsGame.away_team_id]", back_populates="away_team")
 
     __table_args__ = (
-        Index("idx_sports_teams_league_abbr", "league_id", "abbreviation", unique=True),
+        Index("idx_sports_teams_league_name", "league_id", "name", unique=True),
     )
 
 
@@ -438,7 +438,14 @@ class SportsGameOdds(Base):
     game: Mapped[SportsGame] = relationship("SportsGame", back_populates="odds")
 
     __table_args__ = (
-        Index("idx_sports_odds_identity", "game_id", "book", "market_type", "is_closing_line"),
+        Index(
+            "uq_sports_game_odds_identity",
+            "game_id",
+            "book",
+            "market_type",
+            "is_closing_line",
+            unique=True,
+        ),
     )
 
 

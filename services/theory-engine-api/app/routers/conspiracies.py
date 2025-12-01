@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import os
 from datetime import datetime
+
+from ..utils import now_utc
 from pathlib import Path
 from typing import Any
 
@@ -523,7 +525,7 @@ async def evaluate_conspiracy_theory(req: TheoryRequest) -> ConspiraciesResponse
         limitations=limitations,
         guardrail_flags=guardrail_flags,
         model_version=os.getenv("CONSPIRACY_MODEL", "gpt-4o-mini"),
-        evaluation_date=datetime.utcnow().isoformat(),
+        evaluation_date=now_utc().isoformat(),
         claim_text=analysis["claim_text"],
         story_sections=analysis["story_sections"],
         claims_vs_evidence=analysis["claims_vs_evidence"],

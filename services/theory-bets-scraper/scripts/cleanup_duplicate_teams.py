@@ -17,7 +17,7 @@ import sys
 from collections import defaultdict
 from typing import Literal
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, delete, func, select, update
 from sqlalchemy.orm import Session
 
 # Add parent directory to path to import scraper modules
@@ -76,8 +76,9 @@ def find_duplicate_teams(session: Session, league_code: str | None = None) -> di
     duplicates: dict[int, list[int]] = {}
     for canonical_name, team_list in teams_by_canonical.items():
         if len(team_list) > 1:
-            # Sort by number of games (most games = canonical)
-            team_game_counts = []
+            # Sort by: 1) matches canonical name exactly, 2) number of games
+            # ALWAYS prefer teams that match the canonical full name from normalization
+            team_scores = []
             for team in team_list:
                 game_count = session.execute(
                     select(func.count(SportsGame.id))
@@ -85,12 +86,20 @@ def find_duplicate_teams(session: Session, league_code: str | None = None) -> di
                         (SportsGame.home_team_id == team.id) | (SportsGame.away_team_id == team.id)
                     )
                 ).scalar() or 0
-                team_game_counts.append((game_count, team))
+                
+                # Check if this team's name matches the canonical name exactly
+                # This ensures "Atlanta Hawks" wins over "Atlanta", "New York Knicks" wins over "New York", etc.
+                matches_canonical = (team.name == canonical_name)
+                
+                # Score: 10000 if matches canonical name exactly, 0 otherwise, plus game count
+                # Using 10000 ensures canonical names always win, even if others have 1000+ games
+                score = (10000 if matches_canonical else 0) + game_count
+                team_scores.append((score, game_count, team))
             
-            # Sort by game count descending
-            team_game_counts.sort(reverse=True, key=lambda x: x[0])
-            canonical_team = team_game_counts[0][1]
-            duplicate_ids = [t.id for _, t in team_game_counts[1:]]
+            # Sort by score descending (canonical matches first, then by game count)
+            team_scores.sort(reverse=True, key=lambda x: x[0])
+            canonical_team = team_scores[0][2]
+            duplicate_ids = [t.id for _, _, t in team_scores[1:]]
             
             if duplicate_ids:
                 duplicates[canonical_team.id] = duplicate_ids
@@ -98,8 +107,8 @@ def find_duplicate_teams(session: Session, league_code: str | None = None) -> di
                     "duplicate_teams_found",
                     canonical=canonical_team.name,
                     canonical_id=canonical_team.id,
-                    canonical_games=team_game_counts[0][0],
-                    duplicates=[(t.id, t.name, c) for (c, t) in team_game_counts[1:]],
+                    canonical_games=team_scores[0][1],
+                    duplicates=[(t.id, t.name, c) for (_, c, t) in team_scores[1:]],
                 )
     
     return duplicates
@@ -121,47 +130,87 @@ def merge_team_references(
         "odds": 0,
     }
     
-    # Update games (home_team_id and away_team_id)
+    # Update games (home_team_id and away_team_id) using bulk updates
     for duplicate_id in duplicate_team_ids:
         # Update home team references
-        stmt = (
-            select(SportsGame)
+        home_update = (
+            update(SportsGame)
             .where(SportsGame.home_team_id == duplicate_id)
+            .values(home_team_id=canonical_team_id)
         )
-        games = session.execute(stmt).scalars().all()
-        for game in games:
-            game.home_team_id = canonical_team_id
-            counts["games"] += 1
+        result = session.execute(home_update)
+        counts["games"] += result.rowcount
         
         # Update away team references
-        stmt = (
-            select(SportsGame)
+        away_update = (
+            update(SportsGame)
             .where(SportsGame.away_team_id == duplicate_id)
+            .values(away_team_id=canonical_team_id)
         )
-        games = session.execute(stmt).scalars().all()
-        for game in games:
-            game.away_team_id = canonical_team_id
-            counts["games"] += 1
+        result = session.execute(away_update)
+        counts["games"] += result.rowcount
         
-        # Update team boxscores
-        stmt = (
-            select(SportsTeamBoxscore)
+        # Update team boxscores - need to handle unique constraint (game_id, team_id)
+        # Find games where canonical team already has a boxscore
+        canonical_game_ids = session.execute(
+            select(SportsTeamBoxscore.game_id)
+            .where(SportsTeamBoxscore.team_id == canonical_team_id)
+        ).scalars().all()
+        
+        # Delete duplicate team boxscores for games where canonical already has one
+        if canonical_game_ids:
+            delete_stmt = delete(SportsTeamBoxscore).where(
+                and_(
+                    SportsTeamBoxscore.team_id == duplicate_id,
+                    SportsTeamBoxscore.game_id.in_(canonical_game_ids)
+                )
+            )
+            session.execute(delete_stmt)
+        
+        # Update remaining team boxscores (those for games where canonical doesn't have one)
+        team_boxscore_update = (
+            update(SportsTeamBoxscore)
             .where(SportsTeamBoxscore.team_id == duplicate_id)
+            .values(team_id=canonical_team_id)
         )
-        boxscores = session.execute(stmt).scalars().all()
-        for boxscore in boxscores:
-            boxscore.team_id = canonical_team_id
-            counts["team_boxscores"] += 1
+        result = session.execute(team_boxscore_update)
+        counts["team_boxscores"] += result.rowcount
         
-        # Update player boxscores
-        stmt = (
-            select(SportsPlayerBoxscore)
+        # Update player boxscores - need to handle unique constraint (game_id, team_id, player_external_ref)
+        # Find player boxscores where canonical team already has one for same game+player
+        canonical_player_boxscores = session.execute(
+            select(SportsPlayerBoxscore.game_id, SportsPlayerBoxscore.player_external_ref)
+            .where(SportsPlayerBoxscore.team_id == canonical_team_id)
+        ).all()
+        
+        # Build set of (game_id, player_external_ref) tuples for fast lookup
+        canonical_keys = {(gid, pref) for gid, pref in canonical_player_boxscores}
+        
+        # Find duplicate team player boxscores that would conflict
+        duplicate_player_boxscores = session.execute(
+            select(SportsPlayerBoxscore.id, SportsPlayerBoxscore.game_id, SportsPlayerBoxscore.player_external_ref)
             .where(SportsPlayerBoxscore.team_id == duplicate_id)
+        ).all()
+        
+        # Delete conflicting player boxscores
+        conflicting_ids = [
+            pid for pid, gid, pref in duplicate_player_boxscores
+            if (gid, pref) in canonical_keys
+        ]
+        if conflicting_ids:
+            delete_stmt = delete(SportsPlayerBoxscore).where(
+                SportsPlayerBoxscore.id.in_(conflicting_ids)
+            )
+            session.execute(delete_stmt)
+        
+        # Update remaining player boxscores
+        player_boxscore_update = (
+            update(SportsPlayerBoxscore)
+            .where(SportsPlayerBoxscore.team_id == duplicate_id)
+            .values(team_id=canonical_team_id)
         )
-        player_boxscores = session.execute(stmt).scalars().all()
-        for player_boxscore in player_boxscores:
-            player_boxscore.team_id = canonical_team_id
-            counts["player_boxscores"] += 1
+        result = session.execute(player_boxscore_update)
+        counts["player_boxscores"] += result.rowcount
         
         # Note: Odds don't have direct team_id references, they reference games
         # So odds will be updated automatically when games are updated

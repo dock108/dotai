@@ -43,11 +43,17 @@ This directory contains all documentation for the dock108 monorepo.
 - **[`PLAYLIST_DATABASE.md`](PLAYLIST_DATABASE.md)** - Database schema and caching design
 - **[`highlight-mvp.md`](highlight-mvp.md)** - Current constraints, limitations, and future ideas
 - **[`YOUTUBE_SETUP.md`](YOUTUBE_SETUP.md)** - YouTube OAuth setup and token management guide
-- **[`../LOAD_SPORTS_DATA.md`](../LOAD_SPORTS_DATA.md)** - Guide for loading sports data via admin UI
+- **[`LOAD_SPORTS_DATA.md`](LOAD_SPORTS_DATA.md)** - Guide for loading sports data via admin UI
+- **[`START.md`](START.md)** - Quick Docker-based startup guide
 
 ### 📋 Planning & Reference
 
 - **[`ROADMAP.md`](ROADMAP.md)** - Future roadmap and planned features
+- **[`CODE_CLEANUP_SUMMARY.md`](CODE_CLEANUP_SUMMARY.md)** - Consolidated code cleanup summaries from all services
+
+### 🏭 Deployment & Infrastructure
+
+- **[`DEPLOYMENT.md`](DEPLOYMENT.md)** - Production deployment guide for full monorepo
 
 ### 📦 Archived Documents
 
@@ -75,7 +81,10 @@ Historical reference documents are in the [`archive/`](archive/) folder:
 - `DATA_PRIVACY.md` - Privacy model and data handling
 - `ROADMAP.md` - Future roadmap and planned features
 - `YOUTUBE_SETUP.md` - OAuth setup and token management guide
-- `../LOAD_SPORTS_DATA.md` - Sports data loading guide
+- `LOAD_SPORTS_DATA.md` - Sports data loading guide
+- `START.md` - Quick Docker-based startup guide
+- `DEPLOYMENT.md` - Production deployment guide for full monorepo
+- `CODE_CLEANUP_SUMMARY.md` - Consolidated code cleanup summaries from all services
 
 📝 **Planning Documents** (archived):
 - See `archive/` folder for historical planning documents

@@ -14,24 +14,13 @@ from ..logging import logger
 from ..models import IngestionConfig
 from ..odds.synchronizer import OddsSynchronizer
 from ..persistence import persist_game_payload, upsert_player_boxscores
-from ..scrapers.mlb_sportsref import MLBSportsReferenceScraper
-from ..scrapers.nba_sportsref import NBASportsReferenceScraper
-from ..scrapers.ncaab_sportsref import NCAABSportsReferenceScraper
-from ..scrapers.ncaaf_sportsref import NCAAFSportsReferenceScraper
-from ..scrapers.nfl_sportsref import NFLSportsReferenceScraper
-from ..scrapers.nhl_sportsref import NHLSportsReferenceScraper
+from ..scrapers import get_all_scrapers
 
 
 class ScrapeRunManager:
     def __init__(self) -> None:
-        self.scrapers = {
-            "NBA": NBASportsReferenceScraper(),
-            "NCAAB": NCAABSportsReferenceScraper(),
-            "NFL": NFLSportsReferenceScraper(),
-            "NCAAF": NCAAFSportsReferenceScraper(),
-            "MLB": MLBSportsReferenceScraper(),
-            "NHL": NHLSportsReferenceScraper(),
-        }
+        # Use scraper registry instead of hardcoding all imports
+        self.scrapers = get_all_scrapers()
         self.odds_sync = OddsSynchronizer()
 
     def _get_incomplete_games(
@@ -130,7 +119,7 @@ class ScrapeRunManager:
         if not scraper and (config.include_boxscores or config.backfill_player_stats):
             raise RuntimeError(f"No scraper implemented for {config.league_code}")
 
-        self._update_run(run_id, status="running", started_at=datetime.utcnow())
+        self._update_run(run_id, status="running", started_at=utcnow())
 
         try:
             # Standard boxscore scraping
@@ -225,7 +214,7 @@ class ScrapeRunManager:
             self._update_run(
                 run_id,
                 status="error",
-                finished_at=datetime.utcnow(),
+                finished_at=utcnow(),
                 error_details=str(exc),
             )
             raise

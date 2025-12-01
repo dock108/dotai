@@ -163,9 +163,12 @@ class OddsSynchronizer:
         with get_session() as session:
             for snapshot in snapshots:
                 try:
-                    upsert_odds(session, snapshot)
-                    inserted += 1
+                    if upsert_odds(session, snapshot):
+                        inserted += 1
+                    else:
+                        skipped += 1
                 except Exception as exc:
+                    session.rollback()
                     logger.warning(
                         "odds_upsert_failed",
                         error=str(exc),

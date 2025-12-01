@@ -41,12 +41,14 @@ This guide covers deploying the full dock108 monorepo to Hetzner bare metal or c
 4. **Start services**:
    ```bash
    cd infra
-   docker-compose up -d
+   ./docker-compose.sh up -d
+   # Or: docker-compose --env-file ../.env -f docker-compose.yml up -d
    ```
 
 5. **Run database migrations**:
    ```bash
-   docker-compose exec theory-engine-api alembic upgrade head
+   ./docker-compose.sh exec theory-engine-api alembic upgrade head
+   # Or: docker-compose --env-file ../.env -f docker-compose.yml exec theory-engine-api alembic upgrade head
    ```
 
 ## Environment Variables

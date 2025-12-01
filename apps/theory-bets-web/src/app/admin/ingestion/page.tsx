@@ -6,31 +6,18 @@ import styles from "./page.module.css";
 import { createScrapeRun, listScrapeRuns, type ScrapeRunResponse } from "@/lib/api/sportsAdmin";
 import { getFullSeasonDates, shouldAutoFillDates, type LeagueCode } from "@/lib/utils/seasonDates";
 import { SUPPORTED_LEAGUES, SCRAPE_RUN_STATUS_COLORS, DEFAULT_SCRAPE_RUN_FORM } from "@/lib/constants/sports";
+import { formatDateTime } from "@/lib/utils/dateFormat";
+import { useScrapeRuns } from "@/lib/hooks/useScrapeRuns";
 
 export default function IngestionAdminPage() {
-  const [runs, setRuns] = useState<ScrapeRunResponse[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { runs, loading, error: runsError, refetch: fetchRuns } = useScrapeRuns();
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [form, setForm] = useState(DEFAULT_SCRAPE_RUN_FORM);
-
-  const fetchRuns = async () => {
-    try {
-      setLoading(true);
-      const data = await listScrapeRuns();
-      setRuns(data);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchRuns();
-  }, []);
+  
+  // Use runsError if no local error
+  const displayError = error || runsError;
 
   useEffect(() => {
     if (shouldAutoFillDates(form.leagueCode as LeagueCode, form.season, form.startDate, form.endDate)) {
@@ -74,7 +61,7 @@ export default function IngestionAdminPage() {
         },
       });
       setSuccess(`Scrape run #${result.id} scheduled successfully!`);
-      await fetchRuns();
+      fetchRuns();
       setForm(DEFAULT_SCRAPE_RUN_FORM);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
@@ -96,7 +83,7 @@ export default function IngestionAdminPage() {
       <section className={styles.card}>
         <h2>Create Scrape Run</h2>
         {success && <p className={styles.success}>{success}</p>}
-        {error && <p className={styles.error}>{error}</p>}
+        {displayError && <p className={styles.error}>{displayError}</p>}
         <form className={styles.form} onSubmit={handleSubmit}>
           <label>
             League
@@ -210,7 +197,7 @@ export default function IngestionAdminPage() {
                     : "—"}
                 </td>
                 <td>{run.summary ?? "—"}</td>
-                <td>{new Date(run.created_at).toLocaleString()}</td>
+                <td>{formatDateTime(run.created_at)}</td>
               </tr>
             ))}
           </tbody>

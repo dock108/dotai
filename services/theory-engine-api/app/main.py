@@ -15,6 +15,8 @@ for database access, logging, and context fetching.
 from collections.abc import Callable
 from datetime import datetime
 
+from .utils import now_utc
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -151,6 +153,6 @@ async def evaluate_theory(req: TheoryRequest) -> TheoryResponse:
         limitations=limitations,
         guardrail_flags=guardrail_flags,
         model_version="gpt-4o-mini",
-        evaluation_date=datetime.utcnow().isoformat(),
+        evaluation_date=now_utc().isoformat(),
     )
 

@@ -36,12 +36,15 @@ packages/                  # Shared libraries
 infra/                     # Infrastructure and deployment
   docker/                 # Dockerfiles for all services and apps
   docker-compose.yml      # Full stack orchestration
+  docker-compose.sh       # Wrapper script to load .env automatically
   traefik/                # Reverse proxy and SSL configuration
   k8s/                    # Kubernetes manifests (future)
 
 docs/                      # Comprehensive documentation
   ARCHITECTURE.md         # System architecture overview
   LOCAL_DEPLOY.md         # Local development guide
+  START.md                # Quick Docker-based startup guide
+  LOAD_SPORTS_DATA.md     # Sports data ingestion guide
   ROADMAP.md              # Future plans and features
   ...                     # Feature-specific documentation
 ```
@@ -80,6 +83,7 @@ All theory evaluation apps are fully functional with shared UI components and ba
   - Idempotent persistence with no duplicate games
   - Admin UI for monitoring and triggering scrape runs
   - Odds API integration for betting lines
+  - See [`docs/LOAD_SPORTS_DATA.md`](docs/LOAD_SPORTS_DATA.md) for usage guide
 
 #### Sports Highlights
 - **Highlight Playlist Generator** (`apps/highlights-web`): Natural language playlist creation
@@ -113,7 +117,7 @@ For comprehensive local development and testing instructions, see **[`docs/LOCAL
 1. Install prerequisites: Python 3.11+, Node.js 18+, PostgreSQL 14+, `uv`, `pnpm`
 2. Set up database (local PostgreSQL or Docker)
 3. Get API keys: YouTube Data API, OpenAI API
-4. Configure environment: Copy `.env.example` to `services/theory-engine-api/.env`
+4. Configure environment: Copy `.env.example` to `.env` and set all required values
 5. Start backend: `cd services/theory-engine-api && uv sync && uv pip install -e ../../packages/py-core && alembic upgrade head && uv run uvicorn app.main:app --reload`
 6. Start frontend: `cd apps/highlights-web && pnpm install && pnpm dev`
 
@@ -132,7 +136,8 @@ See [`docs/HIGHLIGHTS_API.md`](docs/HIGHLIGHTS_API.md) for detailed API document
 ## Testing and Deployment
 
 - **Local Development**: See `docs/LOCAL_DEPLOY.md` for comprehensive local setup and testing guide (Sports Highlight Channel feature)
-- **Production Deployment**: See `infra/DEPLOYMENT.md` for full monorepo deployment guide (all services and apps)
+- **Quick Start**: See `docs/START.md` for Docker-based quick start guide
+- **Production Deployment**: See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for full monorepo deployment guide (all services and apps)
 
 ## Quick Start
 
@@ -142,6 +147,7 @@ See [`docs/HIGHLIGHTS_API.md`](docs/HIGHLIGHTS_API.md) for detailed API document
 - **Node.js 18+** with `pnpm`
 - **PostgreSQL 14+** (local or Docker)
 - **Redis** (for caching and Celery)
+- **Docker and Docker Compose** (for infrastructure services)
 - **API Keys**:
   - OpenAI API key (for LLM evaluation)
   - YouTube Data API key (for highlights feature)
@@ -154,7 +160,8 @@ See [`docs/HIGHLIGHTS_API.md`](docs/HIGHLIGHTS_API.md) for detailed API document
    git clone <repo-url>
    cd dock108
    cp .env.example .env
-   # Edit .env with your API keys
+   # Edit .env with your API keys, passwords, and configuration
+   # IMPORTANT: Set POSTGRES_PASSWORD and REDIS_PASSWORD in .env
    ```
 
 2. **Install dependencies**:
@@ -172,7 +179,10 @@ See [`docs/HIGHLIGHTS_API.md`](docs/HIGHLIGHTS_API.md) for detailed API document
    ```bash
    cd infra
    ./docker-compose.sh up -d postgres redis
+   # Or: docker-compose --env-file ../.env -f docker-compose.yml up -d postgres redis
    ```
+   
+   **Important**: The `.env` file in the repo root is the single source of truth for all passwords and configuration. Use `./docker-compose.sh` wrapper script (recommended) or explicitly pass `--env-file ../.env` when running docker-compose commands.
 
 4. **Run database migrations**:
    ```bash
@@ -197,16 +207,23 @@ See [`docs/HIGHLIGHTS_API.md`](docs/HIGHLIGHTS_API.md) for detailed API document
 
 ### Production Deployment
 
-See [`infra/DEPLOYMENT.md`](infra/DEPLOYMENT.md) for complete production deployment guide.
+See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for complete production deployment guide.
+
+**Important**: All passwords and configuration come from the `.env` file in the repo root (single source of truth). When running docker-compose commands:
+- Use `./docker-compose.sh` wrapper script (recommended - automatically loads `.env`)
+- Or: `docker-compose --env-file ../.env -f docker-compose.yml <command>` (from `infra/` directory)
+- Or: `docker-compose --env-file .env -f infra/docker-compose.yml <command>` (from repo root)
+
+Never hardcode passwords in docker-compose.yml or other configuration files.
 
 ### Documentation
 
 - **[`docs/README.md`](docs/README.md)** - Complete documentation index
+- **[`docs/START.md`](docs/START.md)** - Quick Docker-based startup guide
 - **[`docs/LOCAL_DEPLOY.md`](docs/LOCAL_DEPLOY.md)** - Detailed local development guide
+- **[`docs/LOAD_SPORTS_DATA.md`](docs/LOAD_SPORTS_DATA.md)** - Sports data ingestion guide
 - **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** - System architecture overview
 - **[`infra/README.md`](infra/README.md)** - Infrastructure documentation
-- **[`START.md`](START.md)** - Quick Docker-based startup guide
-- **[`LOAD_SPORTS_DATA.md`](LOAD_SPORTS_DATA.md)** - Guide for loading sports data via admin UI
 
 ## Project Status
 
@@ -215,7 +232,8 @@ See [`infra/DEPLOYMENT.md`](infra/DEPLOYMENT.md) for complete production deploym
 #### Core Infrastructure
 - **Monorepo Structure**: Unified codebase with shared packages and services
 - **Docker Compose**: Full stack orchestration with Traefik routing
-- **Environment Management**: Centralized `.env` file at repo root
+- **Environment Management**: Centralized `.env` file at repo root (single source of truth for all passwords and configuration)
+- **Password Management**: All passwords loaded from `.env` - no hardcoded defaults in docker-compose.yml
 - **Shared UI Components** (`packages/ui`): DockHeader, DockFooter, theme system
 - **Shared UI Kit** (`packages/ui-kit`): TheoryForm, TheoryCard, LoadingSpinner, ErrorDisplay, and more
 - **JavaScript Core** (`packages/js-core`): TypeScript SDK with API clients, React hooks, type-safe endpoints
@@ -236,6 +254,8 @@ See [`infra/DEPLOYMENT.md`](infra/DEPLOYMENT.md) for complete production deploym
   - Odds API integration
   - Celery-based job execution
   - Idempotent persistence
+  - Team name normalization
+  - Admin UI for monitoring and triggering runs
 
 - **Data Workers** (`services/data-workers`): Celery workers for:
   - YouTube video metadata caching

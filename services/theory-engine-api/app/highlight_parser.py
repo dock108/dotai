@@ -164,8 +164,9 @@ async def parse_highlight_request(
     system_prompt = load_system_prompt()
     
     # Get current date for context
-    from datetime import datetime, timedelta
-    now = datetime.utcnow()
+    from datetime import timedelta
+    from ..utils import now_utc
+    now = now_utc()
     current_date_str = now.strftime("%Y-%m-%d")
     current_year = now.year
     current_month = now.month

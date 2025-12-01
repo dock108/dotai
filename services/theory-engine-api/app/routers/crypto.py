@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from ..utils import now_utc
+
 from fastapi import APIRouter, HTTPException
 from pydantic import Field
 
@@ -110,7 +112,7 @@ async def evaluate_crypto_theory(req: TheoryRequest) -> CryptoResponse:
         limitations=limitations,
         guardrail_flags=guardrail_flags,
         model_version="gpt-4o-mini",
-        evaluation_date=datetime.utcnow().isoformat(),
+        evaluation_date=now_utc().isoformat(),
         pattern_frequency=analysis["pattern_frequency"],
         failure_periods=analysis["failure_periods"],
         remaining_edge=analysis["remaining_edge"],

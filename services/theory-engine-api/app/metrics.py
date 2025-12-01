@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+
+from .utils import now_utc
 from typing import Any
 
 from sqlalchemy import func, select
@@ -24,7 +26,7 @@ async def get_sports_request_counts(
     Returns:
         Dictionary mapping sport name to request count
     """
-    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff = now_utc() - timedelta(days=days)
     
     stmt = (
         select(PlaylistQuery.sport, func.count(PlaylistQuery.id).label("count"))
@@ -54,7 +56,7 @@ async def get_average_playlist_duration(
     Returns:
         Average duration in minutes
     """
-    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff = now_utc() - timedelta(days=days)
     
     stmt = (
         select(func.avg(Playlist.total_duration_seconds / 60.0).label("avg_duration"))
@@ -83,7 +85,7 @@ async def get_cache_hit_rate(
     Returns:
         Dictionary with hit_rate, total_requests, cache_hits, cache_misses
     """
-    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff = now_utc() - timedelta(days=days)
     
     # Count total unique queries (each represents a potential cache hit)
     total_queries_stmt = (

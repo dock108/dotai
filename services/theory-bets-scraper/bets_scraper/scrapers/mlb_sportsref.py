@@ -29,33 +29,18 @@ class MLBSportsReferenceScraper(BaseSportsReferenceScraper):
     # _parse_team_row now inherited from base class
 
     def _extract_team_stats(self, soup: BeautifulSoup, team_abbr: str) -> dict:
-        # Baseball Reference uses team abbreviation in table IDs
-        table_id = f"#{team_abbr.upper()}_batting"
-        table = soup.select_one(table_id)
+        """Extract team stats from boxscore table."""
+        from ..utils.html_parsing import extract_team_stats_from_table
+        
+        # Baseball Reference uses team abbreviation in table IDs (CSS selector format)
+        table_id = f"{team_abbr.upper()}_batting"
+        table = soup.select_one(f"#{table_id}")
         
         if not table:
             logger.warning("team_stats_table_not_found", table_id=table_id, team_abbr=team_abbr)
             return {}
         
-        totals = {}
-        tfoot = table.find("tfoot")
-        if not tfoot:
-            logger.warning("team_stats_tfoot_not_found", table_id=table_id, team_abbr=team_abbr)
-            return totals
-        
-        cells = tfoot.find_all("td")
-        for cell in cells:
-            stat = cell.get("data-stat")
-            if stat:
-                totals[stat] = cell.text.strip()
-        
-        logger.debug(
-            "team_stats_extracted",
-            team_abbr=team_abbr,
-            stat_count=len(totals),
-            sample_keys=list(totals.keys())[:5],
-        )
-        return totals
+        return extract_team_stats_from_table(table, team_abbr, table_id)
 
     def _extract_player_stats(
         self, soup: BeautifulSoup, team_abbr: str, team_identity: TeamIdentity, is_home: bool
@@ -66,9 +51,12 @@ class MLBSportsReferenceScraper(BaseSportsReferenceScraper):
         # MLB has separate tables for batting and pitching
         table_types = ["batting", "pitching"]
         
+        from ..utils.html_parsing import find_player_table
+        
         for table_type in table_types:
-            table_id = f"#{team_abbr.upper()}_{table_type}"
-            table = soup.select_one(table_id)
+            table_id = f"{team_abbr.upper()}_{table_type}"
+            # MLB uses CSS selector format (#id)
+            table = soup.select_one(f"#{table_id}")
             
             if not table:
                 continue

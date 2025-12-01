@@ -34,48 +34,35 @@ class NBASportsReferenceScraper(BaseSportsReferenceScraper):
     # _parse_team_row now inherited from base class
 
     def _extract_team_stats(self, soup: BeautifulSoup, team_abbr: str) -> dict:
+        """Extract team stats from boxscore table."""
+        from ..utils.html_parsing import extract_team_stats_from_table, find_table_by_id, get_table_ids_on_page
+        
         # Basketball Reference uses UPPERCASE team abbreviations in table IDs
         table_id = f"box-{team_abbr.upper()}-game-basic"
-        table = soup.find("table", id=table_id)
+        table = find_table_by_id(soup, table_id)
         
         if not table:
             # Log all table IDs found on the page to help debug
-            all_tables = soup.find_all("table")
-            table_ids = [t.get("id", "no-id") for t in all_tables]
+            table_ids = get_table_ids_on_page(soup, limit=15)
             logger.warning(
                 "team_stats_table_not_found",
                 table_id=table_id,
                 team_abbr=team_abbr,
-                available_tables=table_ids[:15],  # Limit to first 15
+                available_tables=table_ids,
             )
             return {}
         
-        totals = {}
-        tfoot = table.find("tfoot")
-        if not tfoot:
-            logger.warning("team_stats_tfoot_not_found", table_id=table_id, team_abbr=team_abbr)
-            return totals
-        
-        cells = tfoot.find_all("td")
-        for cell in cells:
-            stat = cell.get("data-stat")
-            totals[stat] = cell.text.strip()
-        
-        logger.debug(
-            "team_stats_extracted",
-            team_abbr=team_abbr,
-            stat_count=len(totals),
-            sample_keys=list(totals.keys())[:5],
-        )
-        return totals
+        return extract_team_stats_from_table(table, team_abbr, table_id)
 
     def _extract_player_stats(
         self, soup: BeautifulSoup, team_abbr: str, team_identity: TeamIdentity, is_home: bool
     ) -> list[NormalizedPlayerBoxscore]:
         """Parse individual player rows from box-{TEAM}-game-basic table."""
+        from ..utils.html_parsing import find_player_table
+        
         # Basketball Reference uses UPPERCASE team abbreviations in table IDs
         table_id = f"box-{team_abbr.upper()}-game-basic"
-        table = soup.find("table", id=table_id)
+        table = find_player_table(soup, table_id)
         
         if not table:
             logger.warning("player_stats_table_not_found", table_id=table_id, team=team_abbr)

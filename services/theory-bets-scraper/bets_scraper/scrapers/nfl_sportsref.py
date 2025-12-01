@@ -29,38 +29,19 @@ class NFLSportsReferenceScraper(BaseSportsReferenceScraper):
     # _parse_team_row now inherited from base class
 
     def _extract_team_stats(self, soup: BeautifulSoup, team_abbr: str) -> dict:
+        """Extract team stats from boxscore table."""
+        from ..utils.html_parsing import extract_team_stats_from_table, find_table_by_id
+        
         # Pro Football Reference uses lowercase team abbreviations in table IDs
         table_id = f"team_stats_{team_abbr.lower()}"
-        table = soup.find("table", id=table_id)
-        
-        if not table:
-            # Try alternate format
-            table_id_alt = f"#{team_abbr.lower()}_team_stats"
-            table = soup.find("table", id=table_id_alt.replace("#", ""))
+        alternate_ids = [f"{team_abbr.lower()}_team_stats"]  # Try alternate format
+        table = find_table_by_id(soup, table_id, alternate_ids)
         
         if not table:
             logger.warning("team_stats_table_not_found", table_id=table_id, team_abbr=team_abbr)
             return {}
         
-        totals = {}
-        tfoot = table.find("tfoot")
-        if not tfoot:
-            logger.warning("team_stats_tfoot_not_found", table_id=table_id, team_abbr=team_abbr)
-            return totals
-        
-        cells = tfoot.find_all("td")
-        for cell in cells:
-            stat = cell.get("data-stat")
-            if stat:
-                totals[stat] = cell.text.strip()
-        
-        logger.debug(
-            "team_stats_extracted",
-            team_abbr=team_abbr,
-            stat_count=len(totals),
-            sample_keys=list(totals.keys())[:5],
-        )
-        return totals
+        return extract_team_stats_from_table(table, team_abbr, table_id)
 
     def _extract_player_stats(
         self, soup: BeautifulSoup, team_abbr: str, team_identity: TeamIdentity, is_home: bool
@@ -71,9 +52,11 @@ class NFLSportsReferenceScraper(BaseSportsReferenceScraper):
         # NFL has separate tables for passing, rushing, receiving, defense
         table_types = ["passing", "rushing", "receiving"]
         
+        from ..utils.html_parsing import find_player_table
+        
         for table_type in table_types:
             table_id = f"{team_abbr.lower()}_{table_type}"
-            table = soup.find("table", id=table_id)
+            table = find_player_table(soup, table_id)
             
             if not table:
                 continue

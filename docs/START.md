@@ -25,6 +25,7 @@ lsof -ti:6379 | xargs kill -9  # Redis
 ```bash
 cd infra
 ./docker-compose.sh up -d postgres redis
+# Or: docker-compose --env-file ../.env -f docker-compose.yml up -d postgres redis
 ```
 
 Wait ~10 seconds for services to be healthy. Verify:
@@ -39,6 +40,7 @@ Both `postgres` and `redis` should show status "healthy".
 ```bash
 cd infra
 ./docker-compose.sh up -d theory-engine-api
+# Or: docker-compose --env-file ../.env -f docker-compose.yml up -d theory-engine-api
 ```
 
 Wait ~15 seconds, then verify:
@@ -63,6 +65,7 @@ uv run uvicorn app.main:app --reload --port 8000
 ```bash
 cd infra
 ./docker-compose.sh up -d worker
+# Or: docker-compose --env-file ../.env -f docker-compose.yml up -d worker
 ```
 
 Or run locally:
@@ -93,6 +96,7 @@ To start everything at once:
 ```bash
 cd infra
 ./docker-compose.sh up -d
+# Or: docker-compose --env-file ../.env -f docker-compose.yml up -d
 ```
 
 This starts:
@@ -122,8 +126,9 @@ lsof -i :6379  # Redis
 
 **Backend not starting?**
 - Check logs: `cd infra && ./docker-compose.sh logs theory-engine-api`
-- Verify `.env` file exists in root with `DATABASE_URL`, `REDIS_URL`, etc.
+- Verify `.env` file exists in repo root with `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `DATABASE_URL`, `REDIS_URL`, etc.
 - Make sure PostgreSQL and Redis are healthy first
+- Ensure you're using `./docker-compose.sh` or `--env-file ../.env` to load environment variables
 
 **Port already in use?**
 - Kill processes: `lsof -ti:PORT | xargs kill -9`

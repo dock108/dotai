@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import os
 from datetime import datetime, timedelta
+
+from ..utils import now_utc
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -436,7 +438,7 @@ def build_deterministic_backtest(strategy_id: str, strategy_spec: StrategySpec) 
     worst_trade = round(pseudo(50) * -10, 2)
     trades = max(8, round(pseudo(100) * 40))
 
-    start = datetime.utcnow() - timedelta(days=30)
+    start = now_utc() - timedelta(days=30)
     equity_curve = []
     for idx in range(30):
         drift = idx * pseudo(100) * 0.5
@@ -458,7 +460,7 @@ def build_deterministic_backtest(strategy_id: str, strategy_spec: StrategySpec) 
     return BacktestResult(
         id=create_backtest_id(),
         strategyId=strategy_id,
-        generatedAt=datetime.utcnow().isoformat(),
+        generatedAt=now_utc().isoformat(),
         equityCurve=equity_curve,
         metrics=BacktestMetrics(
             winRate=round(win_rate * 100, 2),
@@ -480,7 +482,7 @@ def build_deterministic_backtest(strategy_id: str, strategy_spec: StrategySpec) 
 
 def build_synthetic_alerts(strategy_id: str) -> list[AlertEvent]:
     """Generate synthetic alert events for testing."""
-    now = datetime.utcnow()
+    now = now_utc()
     return [
         AlertEvent(
             id=create_alert_id(),
@@ -527,7 +529,7 @@ async def interpret_strategy(
         logger.info("llm_interpretation_complete", strategy_name=interpretation.strategySpec.name)
 
         strategy_id = create_strategy_id()
-        created_at = datetime.utcnow().isoformat()
+        created_at = now_utc().isoformat(),
 
         # Persist as draft
         alerts_enabled = len(interpretation.alertSpec.triggers) > 0
@@ -572,7 +574,7 @@ async def save_strategy(
     """Save or update a strategy."""
     try:
         strategy_id = req.strategyId or create_strategy_id()
-        created_at = datetime.utcnow().isoformat()
+        created_at = now_utc().isoformat(),
         alerts_enabled = len(req.alertSpec.triggers) > 0
 
         # Check if exists
@@ -747,7 +749,7 @@ async def get_strategy(
         return StrategyResponse(
             id=strategy.id,
             ideaText=strategy.idea_text,
-            createdAt=strategy.created_at.isoformat() if strategy.created_at else datetime.utcnow().isoformat(),
+            createdAt=strategy.created_at.isoformat() if strategy.created_at else now_utc().isoformat(),
             interpretation=strategy.interpretation,
             strategySpec=StrategySpec(**strategy.strategy_json),
             backtestBlueprint=BacktestBlueprint(**strategy.backtest_blueprint),

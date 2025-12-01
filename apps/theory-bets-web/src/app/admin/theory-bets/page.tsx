@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import styles from "./page.module.css";
 import { listScrapeRuns, listGames, type ScrapeRunResponse, type GameFilters } from "@/lib/api/sportsAdmin";
+import { getStatusClass } from "@/lib/utils/status";
 
 interface DashboardStats {
   totalGames: number;
@@ -50,14 +51,10 @@ export default function AdminDashboardPage() {
     loadDashboard();
   }, []);
 
-  const getStatusClass = (status: string) => {
-    switch (status) {
-      case "success": return styles.runStatusSuccess;
-      case "pending": return styles.runStatusPending;
-      case "running": return styles.runStatusRunning;
-      case "error": return styles.runStatusError;
-      default: return styles.runStatusPending;
-    }
+  // Use shared status utility
+  const getStatusClassName = (status: string) => {
+    const baseClass = getStatusClass(status);
+    return styles[baseClass] || styles.runStatusPending;
   };
 
   if (loading) {
@@ -138,7 +135,7 @@ export default function AdminDashboardPage() {
                 href={`/admin/theory-bets/ingestion/${run.id}`}
                 className={styles.runItem}
               >
-                <div className={`${styles.runStatus} ${getStatusClass(run.status)}`} />
+                <div className={`${styles.runStatus} ${getStatusClassName(run.status)}`} />
                 <div className={styles.runInfo}>
                   <div className={styles.runTitle}>
                     {run.league_code} {run.season} — {run.status}

@@ -43,12 +43,16 @@ class Settings(BaseSettings):
     """
     Application settings loaded from environment variables.
     
-    Loads from root .env file (../../.env) to maintain consistency
-    with other services. All settings are validated by Pydantic.
+    In Docker, environment variables are passed directly via docker-compose.
+    For local development, loads from root .env file (../../.env) to maintain
+    consistency with other services. All settings are validated by Pydantic.
     """
     model_config = SettingsConfigDict(
+        # Try to load from root .env file (for local dev), but don't fail if it doesn't exist
+        # In Docker, env vars are passed directly via environment section
         env_file=Path(__file__).resolve().parents[3] / ".env",  # Root .env file
         env_file_encoding="utf-8",
+        env_ignore_empty=True,  # Ignore empty env vars
         extra="allow"  # Allow extra env vars without validation errors
     )
 

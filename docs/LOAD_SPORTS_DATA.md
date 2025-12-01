@@ -1,6 +1,6 @@
 # Loading Sports Data Through the Admin UI
 
-> **Note**: This guide covers the sports data ingestion workflow. For general setup, see [`README.md`](README.md) and [`START.md`](START.md).
+> **Note**: This guide covers the sports data ingestion workflow. For general setup, see [`../README.md`](../README.md) and [`START.md`](START.md).
 
 ## Prerequisites ✅
 - ✅ PostgreSQL running (port 5432)
@@ -13,6 +13,7 @@
 ```bash
 cd infra
 ./docker-compose.sh up -d theory-bets-web
+# Or: docker-compose --env-file ../.env -f docker-compose.yml up -d theory-bets-web
 ```
 
 **Option B: Run Locally (Recommended for Development)**
@@ -31,6 +32,7 @@ The scraper worker processes the jobs queued from the admin UI. You need to run 
 ```bash
 cd infra
 ./docker-compose.sh up -d scraper-worker
+# Or: docker-compose --env-file ../.env -f docker-compose.yml up -d scraper-worker
 ```
 
 **Option B: Run Locally (For Development)**
@@ -87,8 +89,9 @@ Once a run completes successfully:
 
 **"Failed to enqueue scrape job" error:**
 - Make sure the Celery worker is running
-- Check that Redis is accessible
-- Verify `CELERY_BROKER_URL` in your `.env`
+- Check that Redis is accessible and password is correct
+- Verify `REDIS_PASSWORD` and `CELERY_BROKER_URL` in your `.env`
+- Ensure you're using `./docker-compose.sh` or `--env-file ../.env` when starting services
 
 **Worker not picking up jobs:**
 - Check the worker is listening to the `bets-scraper` queue
@@ -106,6 +109,7 @@ Once a run completes successfully:
 # Terminal 1: Start infrastructure and backend
 cd infra
 ./docker-compose.sh up -d postgres redis theory-engine-api scraper-worker
+# Or: docker-compose --env-file ../.env -f docker-compose.yml up -d postgres redis theory-engine-api scraper-worker
 
 # Terminal 2: Start frontend
 cd apps/theory-bets-web && pnpm dev --port 3001

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from ..utils import now_utc
+
 from fastapi import APIRouter, HTTPException
 from pydantic import Field
 
@@ -108,7 +110,7 @@ async def evaluate_stocks_theory(req: TheoryRequest) -> StocksResponse:
         limitations=limitations,
         guardrail_flags=guardrail_flags,
         model_version="gpt-4o-mini",
-        evaluation_date=datetime.utcnow().isoformat(),
+        evaluation_date=now_utc().isoformat(),
         correlation_grade=analysis["correlation_grade"],
         fundamentals_match=analysis["fundamentals_match"],
         volume_analysis=analysis["volume_analysis"],

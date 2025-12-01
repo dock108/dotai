@@ -175,6 +175,9 @@ async def _get_league(session: AsyncSession, code: str) -> db_models.SportsLeagu
 
 
 def _serialize_run(run: db_models.SportsScrapeRun, league_code: str) -> ScrapeRunResponse:
+    """Serialize scrape run to API response."""
+    from ..utils.serialization import serialize_datetime, serialize_date
+    
     return ScrapeRunResponse(
         id=run.id,
         league_code=league_code,

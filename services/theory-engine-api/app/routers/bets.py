@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from ..utils import now_utc
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
@@ -123,7 +125,7 @@ async def evaluate_bets_theory(req: BetsRequest) -> BetsResponse:
         limitations=limitations,
         guardrail_flags=guardrail_flags,
         model_version="gpt-4o-mini",
-        evaluation_date=datetime.utcnow().isoformat(),
+        evaluation_date=now_utc().isoformat(),
         likelihood_grade=analysis["likelihood_grade"],
         edge_estimate=analysis["edge_estimate"],
         kelly_sizing_example=analysis["kelly_sizing_example"],

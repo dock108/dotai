@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import re
 from datetime import datetime, timedelta
+
+from ..utils import now_utc
 from typing import Any
 from uuid import uuid4
 
@@ -278,7 +280,7 @@ def safe_json_parse(blob: str) -> dict[str, Any]:
 
 def build_synthetic_alerts(strategy_id: str) -> list[AlertEvent]:
     """Generate synthetic alert events for testing."""
-    now = datetime.utcnow()
+    now = now_utc()
     return [
         AlertEvent(
             id=create_alert_id(),

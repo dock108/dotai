@@ -6,7 +6,7 @@
 - `services/theory-engine-api` - FastAPI backend service
 - `apps/highlights-web` - Next.js frontend application
 
-**For full monorepo deployment (all services and apps), see `infra/DEPLOYMENT.md`.**
+**For full monorepo deployment (all services and apps), see [`docs/DEPLOYMENT.md`](DEPLOYMENT.md).**
 
 ## Quick Start (TL;DR)
 
@@ -147,7 +147,8 @@ docker ps | grep dock108-postgres
 
 ```bash
 cd infra
-docker-compose up -d postgres
+./docker-compose.sh up -d postgres
+# Or: docker-compose --env-file ../.env -f docker-compose.yml up -d postgres
 ```
 
 ## API Keys Setup
@@ -617,5 +618,5 @@ After successful local setup:
 1. Review `docs/HIGHLIGHTS_API.md` for API details
 2. Review `docs/highlight-mvp.md` for constraints and limitations
 3. Review `docs/THEORY_SURFACES.md` for theory surface documentation
-4. See `infra/DEPLOYMENT.md` for full monorepo production deployment (all services and apps)
+4. See [`docs/DEPLOYMENT.md`](DEPLOYMENT.md) for full monorepo production deployment (all services and apps)
 

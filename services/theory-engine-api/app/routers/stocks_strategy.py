@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import os
 from datetime import datetime, timedelta
+
+from ..utils import now_utc
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -193,7 +195,7 @@ async def fetch_stock_enrichment(ticker: str) -> dict[str, Any]:
         "QQQ": round(_hash_to_range(ticker_upper, "corr_qqq", 0.2, 0.95), 2),
         "sectorETF": round(_hash_to_range(ticker_upper, "corr_sector", 0.4, 0.96), 2),
     }
-    next_earnings = (datetime.utcnow() + timedelta(days=int(_hash_to_range(ticker_upper, "earn", 5, 40)))).date()
+    next_earnings = (now_utc() + timedelta(days=int(_hash_to_range(ticker_upper, "earn", 5, 40)))).date()
 
     return {
         "ticker": ticker_upper,
@@ -390,7 +392,7 @@ def normalize_stocks_payload(raw: dict[str, Any]) -> dict[str, Any]:
 
 def build_stock_synthetic_alerts(strategy_id: str) -> list[AlertEvent]:
     """Fallback alerts tailored for equities when DB is empty."""
-    now = datetime.utcnow()
+    now = now_utc()
     return [
         AlertEvent(
             id=create_alert_id(),
@@ -528,7 +530,7 @@ def build_stock_backtest(strategy_id: str, strategy_spec: StrategySpec) -> Backt
     worst_trade = round(pseudo(60) * -12, 2)
     trades = max(10, round(pseudo(90) * 35))
 
-    start = datetime.utcnow() - timedelta(days=60)
+    start = now_utc() - timedelta(days=60)
     equity_curve = []
     for idx in range(60):
         drift = idx * pseudo(100) * 0.4
@@ -554,7 +556,7 @@ def build_stock_backtest(strategy_id: str, strategy_spec: StrategySpec) -> Backt
     return BacktestResult(
         id=create_backtest_id(),
         strategyId=strategy_id,
-        generatedAt=datetime.utcnow().isoformat(),
+        generatedAt=now_utc().isoformat(),
         equityCurve=equity_curve,
         metrics=BacktestMetrics(
             winRate=round(win_rate * 100, 2),
@@ -586,7 +588,7 @@ async def interpret_strategy(
     interpretation = await interpret_stocks_with_llm(req, enrichment)
 
     strategy_id = create_strategy_id()
-    created_at = datetime.utcnow().isoformat()
+    created_at = now_utc().isoformat()
     alerts_enabled = len(interpretation.alertSpec.triggers) > 0
     interpretation_text = (
         interpretation.interpretation
@@ -658,7 +660,7 @@ async def save_strategy(
         return StrategyResponse(
             id=strategy_id,
             ideaText=req.ideaText,
-            createdAt=datetime.utcnow().isoformat(),
+            createdAt=now_utc().isoformat(),
             **req.model_dump(exclude={"strategyId", "ideaText", "userId"}),
         )
     except Exception as exc:
@@ -763,7 +765,7 @@ async def get_strategy(
     return StrategyResponse(
         id=strategy.id,
         ideaText=strategy.idea_text,
-        createdAt=strategy.created_at.isoformat() if strategy.created_at else datetime.utcnow().isoformat(),
+        createdAt=strategy.created_at.isoformat() if strategy.created_at else now_utc().isoformat(),
         interpretation=strategy.interpretation,
         strategySpec=StrategySpec(**strategy.strategy_json),
         backtestBlueprint=BacktestBlueprint(**strategy.backtest_blueprint),
