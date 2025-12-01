@@ -118,7 +118,7 @@ export default function TeamsAdminPage() {
                 onClick={() => setOffset(Math.max(0, offset - limit))}
                 disabled={offset === 0}
               >
-                ← Previous
+                Previous
               </button>
               <span className={styles.pageButton} style={{ cursor: "default" }}>
                 {offset + 1}–{Math.min(offset + limit, total)} of {total}
@@ -128,7 +128,7 @@ export default function TeamsAdminPage() {
                 onClick={() => setOffset(offset + limit)}
                 disabled={offset + limit >= total}
               >
-                Next →
+                Next
               </button>
             </div>
           )}

@@ -240,7 +240,7 @@ export default function StocksIngestionAdminPage() {
                 <td>{run.tickers.join(", ") || "—"}</td>
                 <td>
                   {run.start_time || run.end_time
-                    ? `${run.start_time ?? "?"} → ${run.end_time ?? "?"}`
+                    ? `${run.start_time ?? "?"} to ${run.end_time ?? "?"}`
                     : "—"}
                 </td>
                 <td>{run.summary ?? "—"}</td>

@@ -1,6 +1,8 @@
 # Sports Highlight Flow (Current State)
 
-> **Note**: This document describes the current implementation. Some gaps mentioned below have been addressed with the guided UI builder.
+> **Status**: Deprecated – historical reference only. For the up-to-date Sports Highlight feature, see `docs/highlight-mvp.md`, `docs/HIGHLIGHTS_API.md`, and `docs/HIGHLIGHT_PARSING.md`.
+>
+> **Note**: This document describes the implementation at the time of the initial Sports Highlight Channel MVP. Some gaps mentioned below have since been addressed.
 
 ## 1. Frontend (apps/highlights-web)
 

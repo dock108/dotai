@@ -7,33 +7,32 @@ import styles from "./AdminNav.module.css";
 interface NavItem {
   href: string;
   label: string;
-  icon: string;
 }
 
 const navSections: { title: string; items: NavItem[] }[] = [
   {
     title: "Sports",
     items: [
-      { href: "/admin/theory-bets", label: "Dashboard", icon: "📊" },
-      { href: "/admin/theory-bets/games", label: "Games", icon: "🏀" },
-      { href: "/admin/theory-bets/teams", label: "Teams", icon: "👥" },
-      { href: "/admin/theory-bets/ingestion", label: "Scraper Runs", icon: "⚙️" },
+      { href: "/admin/theory-bets", label: "Dashboard" },
+      { href: "/admin/theory-bets/games", label: "Games" },
+      { href: "/admin/theory-bets/teams", label: "Teams" },
+      { href: "/admin/theory-bets/ingestion", label: "Scraper Runs" },
     ],
   },
   {
     title: "Crypto",
     items: [
-      { href: "/admin/theory-crypto", label: "Dashboard", icon: "₿" },
-      { href: "/admin/theory-crypto/ingestion", label: "Ingestion Runs", icon: "⚙️" },
-      { href: "/admin/theory-crypto/assets", label: "Assets", icon: "💹" },
+      { href: "/admin/theory-crypto", label: "Dashboard" },
+      { href: "/admin/theory-crypto/ingestion", label: "Ingestion Runs" },
+      { href: "/admin/theory-crypto/assets", label: "Assets" },
     ],
   },
   {
     title: "Stocks",
     items: [
-      { href: "/admin/theory-stocks", label: "Dashboard", icon: "📈" },
-      { href: "/admin/theory-stocks/ingestion", label: "Ingestion Runs", icon: "⚙️" },
-      { href: "/admin/theory-stocks/assets", label: "Assets", icon: "🏛️" },
+      { href: "/admin/theory-stocks", label: "Dashboard" },
+      { href: "/admin/theory-stocks/ingestion", label: "Ingestion Runs" },
+      { href: "/admin/theory-stocks/assets", label: "Assets" },
     ],
   },
 ];
@@ -60,7 +59,6 @@ export function AdminNav() {
                 href={item.href}
                 className={`${styles.navLink} ${isActive(item.href) ? styles.navLinkActive : ""}`}
               >
-                <span className={styles.navIcon}>{item.icon}</span>
                 {item.label}
               </Link>
             ))}
@@ -70,7 +68,7 @@ export function AdminNav() {
 
       <div className={styles.footer}>
         <Link href="/" className={styles.footerLink}>
-          ← Back to Theory Bets
+          Back to Theory Bets
         </Link>
       </div>
     </aside>

@@ -119,16 +119,16 @@ export default function Home() {
             </Section>
           )}
 
-          {data && (
-            <Section>
-              <TheoryCard response={data as BetsResponse} domain="bets" />
-            </Section>
-          )}
-        </div>
+        {data && (
+          <Section>
+            <TheoryCard response={data as BetsResponse} domain="bets" />
+          </Section>
+        )}
+      </div>
 
-        <Link href="/admin/theory-bets/ingestion" className={styles.adminLink}>
-          Open sports data admin →
-        </Link>
+      <Link href="/admin/theory-bets/ingestion" className={styles.adminLink}>
+        Open sports data admin
+      </Link>
       </Container>
     </div>
   );

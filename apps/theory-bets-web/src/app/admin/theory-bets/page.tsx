@@ -99,28 +99,22 @@ export default function AdminDashboardPage() {
         <h2 className={styles.sectionTitle}>Quick Actions</h2>
         <div className={styles.quickLinks}>
           <Link href="/admin/theory-bets/ingestion" className={styles.quickLink}>
-            <div className={styles.quickLinkIcon}>⚙️</div>
             <div className={styles.quickLinkContent}>
-              <div className={styles.quickLinkTitle}>New Scrape Run</div>
+              <div className={styles.quickLinkTitle}>New scrape run</div>
               <div className={styles.quickLinkDesc}>Start a new data ingestion job</div>
             </div>
-            <div className={styles.quickLinkArrow}>→</div>
           </Link>
           <Link href="/admin/theory-bets/games" className={styles.quickLink}>
-            <div className={styles.quickLinkIcon}>🏀</div>
             <div className={styles.quickLinkContent}>
-              <div className={styles.quickLinkTitle}>Browse Games</div>
+              <div className={styles.quickLinkTitle}>Browse games</div>
               <div className={styles.quickLinkDesc}>View ingested games and boxscores</div>
             </div>
-            <div className={styles.quickLinkArrow}>→</div>
           </Link>
           <Link href="/admin/theory-bets/teams" className={styles.quickLink}>
-            <div className={styles.quickLinkIcon}>👥</div>
             <div className={styles.quickLinkContent}>
-              <div className={styles.quickLinkTitle}>Browse Teams</div>
+              <div className={styles.quickLinkTitle}>Browse teams</div>
               <div className={styles.quickLinkDesc}>View teams across all leagues</div>
             </div>
-            <div className={styles.quickLinkArrow}>→</div>
           </Link>
         </div>
       </section>
@@ -140,9 +134,7 @@ export default function AdminDashboardPage() {
                   <div className={styles.runTitle}>
                     {run.league_code} {run.season} — {run.status}
                   </div>
-                  <div className={styles.runMeta}>
-                    {run.start_date} → {run.end_date}
-                  </div>
+                  <div className={styles.runMeta}>{run.start_date} to {run.end_date}</div>
                 </div>
               </Link>
             ))}

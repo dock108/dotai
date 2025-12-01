@@ -226,7 +226,7 @@ export default function IngestionAdminPage() {
                 <td>{run.season ?? "—"}</td>
                 <td>
                   {run.start_date || run.end_date
-                    ? `${run.start_date ?? "?"} → ${run.end_date ?? "?"}`
+                    ? `${run.start_date ?? "?"} to ${run.end_date ?? "?"}`
                     : "—"}
                 </td>
                 <td>{run.summary ?? "—"}</td>

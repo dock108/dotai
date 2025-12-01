@@ -1,5 +1,7 @@
 # Sports Highlight Phase - Code Audit & Cleanup Notes
 
+> **Status**: Deprecated – historical reference only. Current behavior and constraints are captured in `docs/highlight-mvp.md` and `docs/HIGHLIGHTS_API.md`.
+
 **Phase**: Sports Highlight Channel MVP  
 **Date**: 2024-11-18  
 **Status**: ✅ **COMPLETED** - Historical reference only

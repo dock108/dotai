@@ -11,7 +11,6 @@ export function LoadingState({ message = "Loading...", className = "" }: Loading
   return (
     <div className={className}>
       <div style={{ textAlign: "center", padding: "2rem" }}>
-        <div style={{ marginBottom: "1rem" }}>⏳</div>
         <div>{message}</div>
       </div>
     </div>

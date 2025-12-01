@@ -4,27 +4,17 @@
 :root {
   --dock-font: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --dock-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
-  --dock-bg: #05060b;
-  --dock-surface: #0b0d16;
-  --dock-elevated: #141628;
-  --dock-border: #23263c;
-  --dock-text: #f5f5ff;
-  --dock-text-muted: #8f95b2;
-  --dock-accent: #8a7cff;
-  --dock-accent-secondary: #34d399;
-  --dock-radius: 18px;
+  /* Light theme by default: soft background, white surfaces, dark text */
+  --dock-bg: #f7f8ff;
+  --dock-surface: #ffffff;
+  --dock-elevated: #f2f3fb;
+  --dock-border: #e6e8f0;
+  --dock-text: #090b1a;
+  --dock-text-muted: #5a5f77;
+  --dock-accent: #1d4ed8;
+  --dock-accent-secondary: #16a34a;
+  --dock-radius: 14px;
   --dock-spacing: 1.25rem;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    --dock-bg: #f7f8ff;
-    --dock-surface: #ffffff;
-    --dock-elevated: #f2f3fb;
-    --dock-border: #e6e8f0;
-    --dock-text: #090b1a;
-    --dock-text-muted: #5a5f77;
-  }
 }
 
 body {

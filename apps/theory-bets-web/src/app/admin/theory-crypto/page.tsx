@@ -10,6 +10,7 @@ import {
   type CryptoIngestionRunResponse,
 } from "@/lib/api/cryptoAdmin";
 import { getStatusClass } from "@/lib/utils/status";
+import { AdminCard, AdminStatCard } from "@/components/admin";
 
 interface CryptoDashboardStats {
   totalAssets: number;
@@ -75,63 +76,57 @@ export default function CryptoAdminDashboardPage() {
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        <h1 className={styles.title}>Crypto Admin</h1>
+        <h1 className={styles.title}>Crypto admin</h1>
         <p className={styles.subtitle}>Crypto ingestion overview and quick actions</p>
       </header>
 
       <div className={styles.statsGrid}>
-        <div className={styles.statCard}>
-          <div className={styles.statLabel}>Tracked Assets</div>
-          <div className={styles.statValue}>{stats?.totalAssets.toLocaleString() ?? 0}</div>
-          <div className={styles.statSub}>Across all exchanges</div>
-        </div>
-        <div className={styles.statCard}>
-          <div className={styles.statLabel}>Candles</div>
-          <div className={styles.statValue}>{stats?.totalCandles.toLocaleString() ?? 0}</div>
-          <div className={styles.statSub}>Total OHLCV rows</div>
-        </div>
-        <div className={styles.statCard}>
-          <div className={styles.statLabel}>Ingestion Runs</div>
-          <div className={styles.statValue}>{stats?.totalRuns ?? 0}</div>
-          <div className={styles.statSub}>Total completed</div>
-        </div>
-        <div className={styles.statCard}>
-          <div className={styles.statLabel}>Pending</div>
-          <div className={styles.statValue}>{stats?.pendingRuns ?? 0}</div>
-          <div className={styles.statSub}>Jobs in queue</div>
-        </div>
-        <div className={styles.statCard}>
-          <div className={styles.statLabel}>Running</div>
-          <div className={styles.statValue}>{stats?.runningRuns ?? 0}</div>
-          <div className={styles.statSub}>Active workers</div>
-        </div>
+        <AdminStatCard
+          label="Tracked assets"
+          value={stats?.totalAssets.toLocaleString() ?? 0}
+          hint="Across all exchanges"
+        />
+        <AdminStatCard
+          label="Candles"
+          value={stats?.totalCandles.toLocaleString() ?? 0}
+          hint="Total OHLCV rows"
+        />
+        <AdminStatCard
+          label="Ingestion runs"
+          value={stats?.totalRuns ?? 0}
+          hint="Total completed"
+        />
+        <AdminStatCard
+          label="Pending"
+          value={stats?.pendingRuns ?? 0}
+          hint="Jobs in queue"
+        />
+        <AdminStatCard
+          label="Running"
+          value={stats?.runningRuns ?? 0}
+          hint="Active workers"
+        />
       </div>
 
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Quick Actions</h2>
+      <AdminCard title="Quick actions" subtitle="Jump to crypto admin workflows">
         <div className={styles.quickLinks}>
           <Link href="/admin/theory-crypto/ingestion" className={styles.quickLink}>
-            <div className={styles.quickLinkIcon}>⚙️</div>
             <div className={styles.quickLinkContent}>
-              <div className={styles.quickLinkTitle}>New Ingestion Run</div>
+              <div className={styles.quickLinkTitle}>New ingestion run</div>
               <div className={styles.quickLinkDesc}>Schedule a new crypto ingestion job</div>
             </div>
-            <div className={styles.quickLinkArrow}>→</div>
           </Link>
           <Link href="/admin/theory-crypto/assets" className={styles.quickLink}>
-            <div className={styles.quickLinkIcon}>💹</div>
             <div className={styles.quickLinkContent}>
-              <div className={styles.quickLinkTitle}>Browse Assets</div>
+              <div className={styles.quickLinkTitle}>Browse assets</div>
               <div className={styles.quickLinkDesc}>View tracked exchanges and symbols</div>
             </div>
-            <div className={styles.quickLinkArrow}>→</div>
           </Link>
         </div>
-      </section>
+      </AdminCard>
 
       {recentRuns.length > 0 && (
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>Recent Runs</h2>
+        <AdminCard title="Recent runs">
           <div className={styles.recentRuns}>
             {recentRuns.map((run) => (
               <Link
@@ -145,13 +140,13 @@ export default function CryptoAdminDashboardPage() {
                     {run.exchange_code} — {run.timeframe} — {run.status}
                   </div>
                   <div className={styles.runMeta}>
-                    {run.start_time || "?"} → {run.end_time || "?"}
+                    {(run.start_time || "?") + " to " + (run.end_time || "?")}
                   </div>
                 </div>
               </Link>
             ))}
           </div>
-        </section>
+        </AdminCard>
       )}
     </div>
   );

@@ -18,7 +18,7 @@ export function AppTile({ title, description, href, icon }: AppTileProps) {
         <p>{description}</p>
       </div>
       <a className="dock-btn dock-btn--ghost" href={href} aria-label={`Open ${title}`}>
-        Open →
+        Open
       </a>
     </Card>
   );

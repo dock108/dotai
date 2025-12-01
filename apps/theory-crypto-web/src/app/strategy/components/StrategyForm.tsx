@@ -107,7 +107,7 @@ export function StrategyForm({ onSubmit, loading = false }: StrategyFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <Card className="p-6">
-        <h2 className="text-lg font-semibold mb-4">Describe your crypto situation…</h2>
+        <h2 className="text-lg font-semibold mb-4">Describe your crypto situation</h2>
 
         {/* Scenario Type */}
         <div className="space-y-3 mb-6">

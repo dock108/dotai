@@ -14,6 +14,7 @@ This directory contains all documentation for the dock108 monorepo.
 
 - **[`LOCAL_DEPLOY.md`](LOCAL_DEPLOY.md)** - Complete local development setup guide (includes quick start section)
 - **[`HIGHLIGHTS_USER_GUIDE.md`](HIGHLIGHTS_USER_GUIDE.md)** - End-user guide for the Sports Highlight Channel feature
+- **[`UI_GUIDE.md`](UI_GUIDE.md)** - UI system guide (light theme tokens, admin components, copy conventions)
 
 ### 📡 API Documentation
 
@@ -35,6 +36,7 @@ This directory contains all documentation for the dock108 monorepo.
 - **[`THEORY_ENGINE.md`](THEORY_ENGINE.md)** - Theory engine API blueprint and design
 - **[`CONSPIRACY_THEORY.md`](CONSPIRACY_THEORY.md)** - Narrative-driven conspiracy analysis, rubric-based scoring, and data sources
 - **[`SAFETY_GUARDRAILS.md`](SAFETY_GUARDRAILS.md)** - Guardrail system for content filtering and safety
+- **[`admin_utils_template.md`](admin_utils_template.md)** - Admin utilities pattern for sports, crypto, and stocks (backend, workers, admin UI)
 
 #### Sports Features
 

@@ -13,7 +13,6 @@ export function ErrorDisplay({ error, title = "Error", onRetry }: ErrorDisplayPr
 
   return (
     <div className={styles.container}>
-      <div className={styles.icon}>⚠️</div>
       <h3 className={styles.title}>{title}</h3>
       <p className={styles.message}>{errorMessage}</p>
       {onRetry && (

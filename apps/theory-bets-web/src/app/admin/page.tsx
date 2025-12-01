@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import styles from "./page.module.css";
+import { AdminCard, AdminStatCard } from "@/components/admin";
 import { listScrapeRuns, listGames, type ScrapeRunResponse, type GameFilters } from "@/lib/api/sportsAdmin";
 import { getStatusClass } from "@/lib/utils/status";
 
@@ -73,61 +74,53 @@ export default function AdminDashboardPage() {
       </header>
 
       <div className={styles.statsGrid}>
-        <div className={styles.statCard}>
-          <div className={styles.statLabel}>Total Games</div>
-          <div className={styles.statValue}>{stats?.totalGames.toLocaleString() ?? 0}</div>
-          <div className={styles.statSub}>Across all leagues</div>
-        </div>
-        <div className={styles.statCard}>
-          <div className={styles.statLabel}>Scrape Runs</div>
-          <div className={styles.statValue}>{stats?.totalRuns ?? 0}</div>
-          <div className={styles.statSub}>Total completed</div>
-        </div>
-        <div className={styles.statCard}>
-          <div className={styles.statLabel}>Pending</div>
-          <div className={styles.statValue}>{stats?.pendingRuns ?? 0}</div>
-          <div className={styles.statSub}>Jobs in queue</div>
-        </div>
-        <div className={styles.statCard}>
-          <div className={styles.statLabel}>Running</div>
-          <div className={styles.statValue}>{stats?.runningRuns ?? 0}</div>
-          <div className={styles.statSub}>Active workers</div>
-        </div>
+        <AdminStatCard
+          label="Total Games"
+          value={stats?.totalGames.toLocaleString() ?? 0}
+          hint="Across all leagues"
+        />
+        <AdminStatCard
+          label="Scrape Runs"
+          value={stats?.totalRuns ?? 0}
+          hint="Total completed"
+        />
+        <AdminStatCard
+          label="Pending"
+          value={stats?.pendingRuns ?? 0}
+          hint="Jobs in queue"
+        />
+        <AdminStatCard
+          label="Running"
+          value={stats?.runningRuns ?? 0}
+          hint="Active workers"
+        />
       </div>
 
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Quick Actions</h2>
+      <AdminCard title="Quick actions" subtitle="Jump to common admin workflows">
         <div className={styles.quickLinks}>
           <Link href="/admin/ingestion" className={styles.quickLink}>
-            <div className={styles.quickLinkIcon}>⚙️</div>
             <div className={styles.quickLinkContent}>
-              <div className={styles.quickLinkTitle}>New Scrape Run</div>
+              <div className={styles.quickLinkTitle}>New scrape run</div>
               <div className={styles.quickLinkDesc}>Start a new data ingestion job</div>
             </div>
-            <div className={styles.quickLinkArrow}>→</div>
           </Link>
           <Link href="/admin/games" className={styles.quickLink}>
-            <div className={styles.quickLinkIcon}>🏀</div>
             <div className={styles.quickLinkContent}>
-              <div className={styles.quickLinkTitle}>Browse Games</div>
+              <div className={styles.quickLinkTitle}>Browse games</div>
               <div className={styles.quickLinkDesc}>View ingested games and boxscores</div>
             </div>
-            <div className={styles.quickLinkArrow}>→</div>
           </Link>
           <Link href="/admin/teams" className={styles.quickLink}>
-            <div className={styles.quickLinkIcon}>👥</div>
             <div className={styles.quickLinkContent}>
-              <div className={styles.quickLinkTitle}>Browse Teams</div>
+              <div className={styles.quickLinkTitle}>Browse teams</div>
               <div className={styles.quickLinkDesc}>View teams across all leagues</div>
             </div>
-            <div className={styles.quickLinkArrow}>→</div>
           </Link>
         </div>
-      </section>
+      </AdminCard>
 
       {recentRuns.length > 0 && (
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>Recent Runs</h2>
+        <AdminCard title="Recent runs">
           <div className={styles.recentRuns}>
             {recentRuns.map((run) => (
               <Link
@@ -141,13 +134,13 @@ export default function AdminDashboardPage() {
                     {run.league_code} {run.season} — {run.status}
                   </div>
                   <div className={styles.runMeta}>
-                    {run.start_date} → {run.end_date}
+                    {run.start_date} to {run.end_date}
                   </div>
                 </div>
               </Link>
             ))}
           </div>
-        </section>
+        </AdminCard>
       )}
     </div>
   );
