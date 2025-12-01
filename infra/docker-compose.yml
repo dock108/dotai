@@ -257,6 +257,23 @@ services:
       - "traefik.http.routers.crypto.tls.certresolver=letsencrypt"
       - "traefik.http.services.crypto.loadbalancer.server.port=3005"
 
+  # Theory crypto worker (crypto ingestion)
+  theory-crypto-worker:
+    build:
+      context: ..
+      dockerfile: infra/docker/theory-crypto-worker.Dockerfile
+    container_name: dock108-crypto-worker
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+    depends_on:
+      - theory-engine-api
+      - redis
+    restart: unless-stopped
+    networks:
+      - dock108-network
+
   # Theory stocks web app
   theory-stocks-web:
     build:

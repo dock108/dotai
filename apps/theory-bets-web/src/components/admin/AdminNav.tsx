@@ -12,17 +12,20 @@ interface NavItem {
 
 const navSections: { title: string; items: NavItem[] }[] = [
   {
-    title: "Data",
+    title: "Sports",
     items: [
       { href: "/admin/theory-bets", label: "Dashboard", icon: "📊" },
       { href: "/admin/theory-bets/games", label: "Games", icon: "🏀" },
       { href: "/admin/theory-bets/teams", label: "Teams", icon: "👥" },
+      { href: "/admin/theory-bets/ingestion", label: "Scraper Runs", icon: "⚙️" },
     ],
   },
   {
-    title: "Ingestion",
+    title: "Crypto",
     items: [
-      { href: "/admin/theory-bets/ingestion", label: "Scraper Runs", icon: "⚙️" },
+      { href: "/admin/theory-crypto", label: "Dashboard", icon: "₿" },
+      { href: "/admin/theory-crypto/ingestion", label: "Ingestion Runs", icon: "⚙️" },
+      { href: "/admin/theory-crypto/assets", label: "Assets", icon: "💹" },
     ],
   },
 ];
@@ -30,12 +33,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
 export function AdminNav() {
   const pathname = usePathname();
 
-  const isActive = (href: string) => {
-    if (href === "/admin/theory-bets") {
-      return pathname === "/admin/theory-bets";
-    }
-    return pathname.startsWith(href);
-  };
+  const isActive = (href: string) => pathname.startsWith(href);
 
   return (
     <aside className={styles.sidebar}>

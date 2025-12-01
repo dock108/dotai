@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func, text
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from typing import Any
@@ -115,6 +115,17 @@ class ExternalContextCache(Base):
         Index("idx_context_type_hash", "context_type", "key_hash", unique=True),
         Index("idx_context_expires", "expires_at"),
     )
+
+
+class Timeframe(str, Enum):
+    """Common candle timeframes for market data."""
+
+    one_minute = "1m"
+    five_minutes = "5m"
+    fifteen_minutes = "15m"
+    one_hour = "1h"
+    four_hours = "4h"
+    one_day = "1d"
 
 
 class PlaylistMode(str, Enum):
@@ -477,4 +488,108 @@ class SportsScrapeRun(Base):
     __table_args__ = (
         Index("idx_scrape_runs_league_status", "league_id", "status"),
         Index("idx_scrape_runs_created", "created_at"),
+    )
+
+
+# ============================================================================
+# Crypto Data Models
+# ============================================================================
+
+
+class CryptoExchange(Base):
+    """Crypto exchanges (Binance, Coinbase, etc.)."""
+
+    __tablename__ = "crypto_exchanges"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    timezone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    metadata: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    assets: Mapped[list["CryptoAsset"]] = relationship("CryptoAsset", back_populates="exchange", cascade="all, delete-orphan")
+    candles: Mapped[list["CryptoCandle"]] = relationship("CryptoCandle", back_populates="exchange", cascade="all, delete-orphan")
+
+
+class CryptoAsset(Base):
+    """Crypto trading pairs or assets (e.g., BTC/USDT)."""
+
+    __tablename__ = "crypto_assets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    exchange_id: Mapped[int] = mapped_column(Integer, ForeignKey("crypto_exchanges.id", ondelete="CASCADE"), nullable=False, index=True)
+    symbol: Mapped[str] = mapped_column(String(50), nullable=False, index=True)  # e.g., "BTCUSDT"
+    base: Mapped[str | None] = mapped_column(String(50), nullable=True)  # e.g., "BTC"
+    quote: Mapped[str | None] = mapped_column(String(50), nullable=True)  # e.g., "USDT"
+    external_codes: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
+    metadata: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    exchange: Mapped[CryptoExchange] = relationship("CryptoExchange", back_populates="assets")
+    candles: Mapped[list["CryptoCandle"]] = relationship("CryptoCandle", back_populates="asset", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        UniqueConstraint("exchange_id", "symbol", name="uq_crypto_asset_exchange_symbol"),
+        Index("idx_crypto_assets_symbol", "symbol"),
+    )
+
+
+class CryptoCandle(Base):
+    """Normalized OHLCV candles for crypto assets."""
+
+    __tablename__ = "crypto_candles"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    asset_id: Mapped[int] = mapped_column(Integer, ForeignKey("crypto_assets.id", ondelete="CASCADE"), nullable=False, index=True)
+    exchange_id: Mapped[int] = mapped_column(Integer, ForeignKey("crypto_exchanges.id", ondelete="CASCADE"), nullable=False, index=True)
+    timeframe: Mapped[Timeframe] = mapped_column(String(10), nullable=False, index=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    open: Mapped[float] = mapped_column(nullable=False)
+    high: Mapped[float] = mapped_column(nullable=False)
+    low: Mapped[float] = mapped_column(nullable=False)
+    close: Mapped[float] = mapped_column(nullable=False)
+    volume: Mapped[float] = mapped_column(nullable=False)
+    stats: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Relationships
+    asset: Mapped["CryptoAsset"] = relationship("CryptoAsset", back_populates="candles")
+    exchange: Mapped["CryptoExchange"] = relationship("CryptoExchange", back_populates="candles")
+
+    __table_args__ = (
+        UniqueConstraint("asset_id", "timeframe", "timestamp", name="uq_crypto_candle_identity"),
+        Index("idx_crypto_candles_exchange_time", "exchange_id", "timeframe", "timestamp"),
+    )
+
+
+class CryptoIngestionRun(Base):
+    """Tracks ingestion runs for crypto market data."""
+
+    __tablename__ = "crypto_ingestion_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    exchange_code: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    symbols: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
+    timeframe: Mapped[Timeframe] = mapped_column(String(10), nullable=False)
+    start_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False, index=True)
+    requested_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    job_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error_details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    config: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index("idx_crypto_ingestion_status", "status"),
+        Index("idx_crypto_ingestion_created", "created_at"),
+        Index("idx_crypto_ingestion_exchange_timeframe", "exchange_code", "timeframe"),
     )

@@ -15,6 +15,7 @@ def get_celery_app() -> Celery:
     app.conf.task_default_queue = settings.celery_default_queue
     app.conf.task_routes = {
         "run_scrape_job": {"queue": "bets-scraper", "routing_key": "bets-scraper"},
+        "run_crypto_ingestion_job": {"queue": "crypto-worker", "routing_key": "crypto-worker"},
     }
     app.conf.task_always_eager = False
     app.conf.task_eager_propagates = True
