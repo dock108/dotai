@@ -1,6 +1,6 @@
 # Loading Sports Data Through the Admin UI
 
-> **Note**: This guide covers the sports data ingestion workflow. For general setup, see [`../README.md`](../README.md) and [`START.md`](START.md).
+> **Note**: This guide covers the sports data ingestion workflow. For general setup, see [`../README.md`](../README.md) and [`docs/START.md`](START.md).
 
 ## Prerequisites ✅
 - ✅ PostgreSQL running (port 5432)
@@ -87,6 +87,15 @@ Once a run completes successfully:
 
 ## Troubleshooting
 
+### Force-refresh cached scoreboard pages
+
+The scrapers keep a local HTML cache under `services/theory-bets-scraper/game_data` so we do not hammer Sports Reference. When re-running the same date range, set either of these env vars before starting the worker to override the defaults:
+
+- `SCRAPER_HTML_CACHE_DIR=/tmp/my-fresh-cache` — points the cache at a new directory.
+- `SCRAPER_FORCE_CACHE_REFRESH=true` — ignores whatever is already cached and refetches from the network while still writing updated files.
+
+Both shortcuts map to the nested scraper config automatically, so you do **not** need to use `SCRAPER_CONFIG__...` syntax anymore. The worker logs now emit `cache_hit` / `cache_refresh_forced` events so you can confirm which path was taken.
+
 **"Failed to enqueue scrape job" error:**
 - Make sure the Celery worker is running
 - Check that Redis is accessible and password is correct
@@ -124,4 +133,31 @@ cd services/theory-bets-scraper
 uv sync
 uv run celery -A bets_scraper.celery_app.app worker --loglevel=info --queues=bets-scraper
 ```
+
+## NCAAB End-to-End Smoke Test
+
+1. Export any cache overrides you need (see troubleshooting section) and confirm `ODDS_API_KEY` is set.
+2. Start Postgres/Redis/API as described above plus the scraper worker.
+3. From the admin ingestion UI, enqueue an NCAAB run covering **2024-11-01 → 2024-11-07** with both *Include Boxscores* and *Include Odds* checked.
+4. Watch the worker logs; you should see:
+   - `cache_hit` or `cache_refresh_forced` events per day.
+   - `ncaab_fetch_games_start` and `ncaab_fetch_games_complete` events showing games parsed per day.
+   - `persist_game_payload` entries for each boxscore.
+   - `historical_day_complete` + `odds_persist_skipped` summaries with non-zero insert counts.
+5. When the run finishes, validate data:
+   - `SELECT COUNT(*) FROM sports_game WHERE league_id = (SELECT id FROM sports_league WHERE code='NCAAB');`
+   - `SELECT COUNT(*) FROM sports_game_odds WHERE league_id = (SELECT id FROM sports_league WHERE code='NCAAB');`
+6. Re-run the same window with `SCRAPER_FORCE_CACHE_REFRESH=true` to confirm cached HTML can be bypassed when you need fresh pages.
+
+If any of the checks fail, capture the Celery log output along with the `services/theory-bets-scraper/game_data` folder contents for debugging.
+
+## NCAAB Team Matching Notes
+
+**Important**: NCAAB uses **full team name matching only** (no abbreviations) due to the large number of teams (350+) which causes abbreviation collisions. For example, "UR" could refer to both UTSA Roadrunners and UNLV Rebels. 
+
+- Team abbreviations are set to `NULL` for NCAAB teams in the database
+- Odds matching relies on full team names rather than abbreviations
+- This ensures accurate team matching when linking odds data to games
+
+Other leagues (NBA, NFL, MLB, NHL) continue to use abbreviations for team matching.
 

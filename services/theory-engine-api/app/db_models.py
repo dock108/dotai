@@ -316,7 +316,7 @@ class SportsTeam(Base):
     external_ref: Mapped[str | None] = mapped_column(String(100), nullable=True)  # Primary provider ID
     name: Mapped[str] = mapped_column(String(200), nullable=False)  # Full name: "Rutgers Scarlet Knights"
     short_name: Mapped[str] = mapped_column(String(100), nullable=False)  # Display name: "Rutgers"
-    abbreviation: Mapped[str] = mapped_column(String(20), nullable=False)  # "LAL", "RUT"
+    abbreviation: Mapped[str | None] = mapped_column(String(20), nullable=True)  # "LAL", "RUT" (None for NCAAB to avoid collisions)
     location: Mapped[str | None] = mapped_column(String(100), nullable=True)  # "Los Angeles"
     external_codes: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)  # {provider: id}
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

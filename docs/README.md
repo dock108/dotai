@@ -5,16 +5,19 @@ This directory contains all documentation for the dock108 monorepo.
 ## Quick Start
 
 **New to the project?** Start here:
-- **[`LOCAL_DEPLOY.md`](LOCAL_DEPLOY.md)** - Comprehensive local development and testing guide (Sports Highlight Channel feature)
 - **[`../README.md`](../README.md)** - Main project README with overview and setup instructions
+- **[`START.md`](START.md)** - Quick Docker-based startup guide
+- **[`LOCAL_DEPLOY.md`](LOCAL_DEPLOY.md)** - Comprehensive local development and testing guide
 
 ## Documentation by Category
 
 ### 🚀 Getting Started & User Guides
 
-- **[`LOCAL_DEPLOY.md`](LOCAL_DEPLOY.md)** - Complete local development setup guide (includes quick start section)
+- **[`START.md`](START.md)** - Quick Docker-based startup guide
+- **[`LOCAL_DEPLOY.md`](LOCAL_DEPLOY.md)** - Complete local development setup guide
 - **[`HIGHLIGHTS_USER_GUIDE.md`](HIGHLIGHTS_USER_GUIDE.md)** - End-user guide for the Sports Highlight Channel feature
 - **[`UI_GUIDE.md`](UI_GUIDE.md)** - UI system guide (light theme tokens, admin components, copy conventions)
+- **[`API_KEYS_SETUP.md`](API_KEYS_SETUP.md)** - API key setup guide for all services
 
 ### 📡 API Documentation
 
@@ -36,26 +39,39 @@ This directory contains all documentation for the dock108 monorepo.
 - **[`THEORY_ENGINE.md`](THEORY_ENGINE.md)** - Theory engine API blueprint and design
 - **[`CONSPIRACY_THEORY.md`](CONSPIRACY_THEORY.md)** - Narrative-driven conspiracy analysis, rubric-based scoring, and data sources
 - **[`SAFETY_GUARDRAILS.md`](SAFETY_GUARDRAILS.md)** - Guardrail system for content filtering and safety
-- **[`admin_utils_template.md`](admin_utils_template.md)** - Admin utilities pattern for sports, crypto, and stocks (backend, workers, admin UI)
+- **[`ADMIN_UTILITIES_TEMPLATE.md`](ADMIN_UTILITIES_TEMPLATE.md)** - Admin utilities pattern for sports, crypto, and stocks (backend, workers, admin UI)
 
 #### Sports Features
 
 - **[`HIGHLIGHT_PARSING.md`](HIGHLIGHT_PARSING.md)** - AI parsing system for highlight requests
 - **[`SPORTS_SEARCH.md`](SPORTS_SEARCH.md)** - Sports-focused YouTube search implementation
 - **[`PLAYLIST_DATABASE.md`](PLAYLIST_DATABASE.md)** - Database schema and caching design
-- **[`highlight-mvp.md`](highlight-mvp.md)** - Current constraints, limitations, and future ideas
+- **[`HIGHLIGHTS_MVP.md`](HIGHLIGHTS_MVP.md)** - Current constraints, limitations, and future ideas
 - **[`YOUTUBE_SETUP.md`](YOUTUBE_SETUP.md)** - YouTube OAuth setup and token management guide
 - **[`LOAD_SPORTS_DATA.md`](LOAD_SPORTS_DATA.md)** - Guide for loading sports data via admin UI
-- **[`START.md`](START.md)** - Quick Docker-based startup guide
+
+### 🏭 Deployment & Infrastructure
+
+- **[`DEPLOYMENT.md`](DEPLOYMENT.md)** - Production deployment guide for full monorepo
+- **[`infra/README.md`](infra/README.md)** - Infrastructure documentation
+- **[`infra/docker.md`](infra/docker.md)** - Docker setup and configuration
+- **[`infra/k8s.md`](infra/k8s.md)** - Kubernetes deployment (future)
+
+### 📦 Component Documentation
+
+#### Apps
+- **[`apps/README.md`](apps/README.md)** - Documentation index for all frontend applications
+
+#### Services
+- **[`services/README.md`](services/README.md)** - Documentation index for all backend services
+
+#### Packages
+- **[`packages/README.md`](packages/README.md)** - Documentation index for shared libraries
 
 ### 📋 Planning & Reference
 
 - **[`ROADMAP.md`](ROADMAP.md)** - Future roadmap and planned features
 - **[`CODE_CLEANUP_SUMMARY.md`](CODE_CLEANUP_SUMMARY.md)** - Consolidated code cleanup summaries from all services
-
-### 🏭 Deployment & Infrastructure
-
-- **[`DEPLOYMENT.md`](DEPLOYMENT.md)** - Production deployment guide for full monorepo
 
 ### 📦 Archived Documents
 
@@ -74,7 +90,7 @@ Historical reference documents are in the [`archive/`](archive/) folder:
 - `HIGHLIGHT_PARSING.md` - AI parsing system documentation
 - `SPORTS_SEARCH.md` - Search module documentation
 - `PLAYLIST_DATABASE.md` - Database schema documentation
-- `highlight-mvp.md` - Current constraints and limitations
+- `HIGHLIGHTS_MVP.md` - Current constraints and limitations
 - `CONSPIRACY_THEORY.md` - Narrative-driven conspiracy analysis documentation
 - `THEORY_SURFACES.md` - Theory surfaces design and implementation
 - `THEORY_ENGINE.md` - Theory engine blueprint
@@ -86,7 +102,7 @@ Historical reference documents are in the [`archive/`](archive/) folder:
 - `LOAD_SPORTS_DATA.md` - Sports data loading guide
 - `START.md` - Quick Docker-based startup guide
 - `DEPLOYMENT.md` - Production deployment guide for full monorepo
-- `CODE_CLEANUP_SUMMARY.md` - Consolidated code cleanup summaries from all services
+- `ADMIN_UTILITIES_TEMPLATE.md` - Admin utilities pattern documentation
 
 📝 **Planning Documents** (archived):
 - See `archive/` folder for historical planning documents

@@ -55,5 +55,5 @@ docker-compose --env-file .env -f infra/docker-compose.yml up -d
 
 **Important**: The `.env` file in the repo root is the single source of truth. All passwords and configuration must be set there. Never hardcode passwords in docker-compose.yml.
 
-See [`docs/DEPLOYMENT.md`](../docs/DEPLOYMENT.md) for full deployment instructions.
+See [`DEPLOYMENT.md`](../DEPLOYMENT.md) for full deployment instructions.
 

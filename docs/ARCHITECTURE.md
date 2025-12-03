@@ -91,7 +91,7 @@ See `docs/DATA_PRIVACY.md` for full privacy model.
 
 All subdomains route through Traefik with automatic Let's Encrypt SSL certificates.
 
-See [`docs/DEPLOYMENT.md`](DEPLOYMENT.md) for deployment instructions.
+See [`DEPLOYMENT.md`](DEPLOYMENT.md) for deployment instructions.
 
 ## 5. Environments
 

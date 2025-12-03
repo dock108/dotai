@@ -11,7 +11,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -37,6 +37,7 @@ class ScraperConfig(BaseModel):
     error_delay_max: float = 10.0
     # HTML cache directory for storing scraped pages locally
     html_cache_dir: str = "./game_data"
+    force_cache_refresh: bool = False
 
 
 class Settings(BaseSettings):
@@ -77,6 +78,20 @@ class Settings(BaseSettings):
     scraper_config: ScraperConfig = Field(default_factory=ScraperConfig)
     odds_config: OddsProviderConfig = Field(default_factory=OddsProviderConfig)
     theory_engine_app_path: str | None = Field(None, alias="THEORY_ENGINE_APP_PATH")
+    scraper_html_cache_dir_override: str | None = Field(None, alias="SCRAPER_HTML_CACHE_DIR")
+    scraper_force_cache_refresh_override: bool | None = Field(None, alias="SCRAPER_FORCE_CACHE_REFRESH")
+
+    @model_validator(mode="after")
+    def _apply_scraper_overrides(self) -> "Settings":
+        """
+        Allow top-level env vars (SCRAPER_HTML_CACHE_DIR / SCRAPER_FORCE_CACHE_REFRESH)
+        to override the nested scraper config without requiring double-underscore syntax.
+        """
+        if self.scraper_html_cache_dir_override:
+            self.scraper_config.html_cache_dir = self.scraper_html_cache_dir_override
+        if self.scraper_force_cache_refresh_override is not None:
+            self.scraper_config.force_cache_refresh = bool(self.scraper_force_cache_refresh_override)
+        return self
 
 
 @lru_cache(maxsize=1)

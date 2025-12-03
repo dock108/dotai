@@ -130,7 +130,7 @@ The system gracefully handles:
 
 To test the implementation:
 
-1. Start the backend server (see [Local Deployment Guide](LOCAL_DEPLOY.md))
+1. Start the backend server (see [Local Deployment Guide](docs/LOCAL_DEPLOY.md))
 2. Start the frontend (`apps/theory-conspiracy-web`) and enter a conspiracy theory
 3. Verify:
    - Claim sentence rewrites the user text cleanly

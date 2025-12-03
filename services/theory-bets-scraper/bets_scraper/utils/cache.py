@@ -20,9 +20,10 @@ class HTMLCache:
     and allowing re-parsing without network requests.
     """
     
-    def __init__(self, cache_dir: str | Path, league_code: str) -> None:
+    def __init__(self, cache_dir: str | Path, league_code: str, *, force_refresh: bool = False) -> None:
         self.cache_dir = Path(cache_dir)
         self.league_code = league_code
+        self.force_refresh = force_refresh
         
     def _get_cache_path(self, url: str, game_date: date | None = None) -> Path:
         """Build cache path for a URL.
@@ -59,9 +60,22 @@ class HTMLCache:
         """Load HTML from cache if it exists."""
         cache_path = self._get_cache_path(url, game_date)
         if cache_path.exists():
-            logger.debug("cache_hit", url=url, path=str(cache_path))
+            if self.force_refresh:
+                logger.info(
+                    "cache_refresh_forced",
+                    url=url,
+                    path=str(cache_path),
+                    league=self.league_code,
+                )
+                return None
+            logger.info(
+                "cache_hit",
+                url=url,
+                path=str(cache_path),
+                league=self.league_code,
+            )
             return cache_path.read_text(encoding="utf-8")
-        logger.debug("cache_miss", url=url, path=str(cache_path))
+        logger.debug("cache_miss", url=url, path=str(cache_path), league=self.league_code)
         return None
     
     def put(self, url: str, html: str, game_date: date | None = None) -> Path:

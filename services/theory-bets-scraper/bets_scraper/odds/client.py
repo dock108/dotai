@@ -290,7 +290,10 @@ class OddsAPIClient:
             
             # Warn if normalization fell back to generating abbreviation
             # (indicates team name not in mappings)
-            if len(home_abbr) > 3 or len(away_abbr) > 3:
+            # Skip this check for NCAAB since abbreviations are None
+            if league_code != "NCAAB" and (
+                (home_abbr and len(home_abbr) > 3) or (away_abbr and len(away_abbr) > 3)
+            ):
                 logger.warning(
                     "odds_team_abbreviation_generated",
                     league=league_code,

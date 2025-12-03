@@ -1,6 +1,6 @@
 # Sports Highlight Flow (Current State)
 
-> **Status**: Deprecated – historical reference only. For the up-to-date Sports Highlight feature, see `docs/highlight-mvp.md`, `docs/HIGHLIGHTS_API.md`, and `docs/HIGHLIGHT_PARSING.md`.
+> **Status**: Deprecated – historical reference only. For the up-to-date Sports Highlight feature, see [`HIGHLIGHTS_MVP.md`](../HIGHLIGHTS_MVP.md), [`HIGHLIGHTS_API.md`](../HIGHLIGHTS_API.md), and [`HIGHLIGHT_PARSING.md`](../HIGHLIGHT_PARSING.md).
 >
 > **Note**: This document describes the implementation at the time of the initial Sports Highlight Channel MVP. Some gaps mentioned below have since been addressed.
 

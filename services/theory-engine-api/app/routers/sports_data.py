@@ -16,6 +16,7 @@ from .. import db_models
 from ..celery_client import get_celery_app
 from ..db import AsyncSession, get_db
 from ..services.derived_metrics import compute_derived_metrics
+from ..utils.datetime_utils import now_utc
 
 router = APIRouter(prefix="/api/admin/sports", tags=["sports-data"])
 
@@ -284,6 +285,44 @@ async def fetch_run(run_id: int, session: AsyncSession = Depends(get_db)) -> Scr
     run = result.scalar_one_or_none()
     if not run:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
+    league_code = run.league.code if run.league else "UNKNOWN"
+    return _serialize_run(run, league_code)
+
+
+@router.post("/scraper/runs/{run_id}/cancel", response_model=ScrapeRunResponse)
+async def cancel_scrape_run(run_id: int, session: AsyncSession = Depends(get_db)) -> ScrapeRunResponse:
+    result = await session.execute(
+        select(db_models.SportsScrapeRun)
+        .options(selectinload(db_models.SportsScrapeRun.league))
+        .where(db_models.SportsScrapeRun.id == run_id)
+    )
+    run = result.scalar_one_or_none()
+    if not run:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
+
+    if run.status not in {"pending", "running"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only pending or running jobs can be canceled",
+        )
+
+    if run.job_id:
+        celery_app = get_celery_app()
+        try:
+            celery_app.control.revoke(run.job_id, terminate=True)
+        except Exception as exc:  # pragma: no cover - best-effort logging
+            from ..logging_config import get_logger
+
+            logger = get_logger(__name__)
+            logger.warning("failed_to_revoke_scrape_job", run_id=run.id, job_id=run.job_id, error=str(exc))
+
+    cancel_message = "Canceled by user via admin UI"
+    now = now_utc()
+    run.status = "canceled"
+    run.finished_at = now
+    run.summary = f"{run.summary} | {cancel_message}" if run.summary else cancel_message
+    run.error_details = cancel_message
+    await session.commit()
     league_code = run.league.code if run.league else "UNKNOWN"
     return _serialize_run(run, league_code)
 

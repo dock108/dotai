@@ -1,8 +1,8 @@
 ## AI Curation MVP (Legacy)
 
-> **Status**: Deprecated – historical reference only. For the current Sports Highlight Channel implementation, see `docs/highlight-mvp.md` and `docs/HIGHLIGHTS_API.md`.
+> **Status**: Deprecated – historical reference only. For the current Sports Highlight Channel implementation, see [`HIGHLIGHTS_MVP.md`](../HIGHLIGHTS_MVP.md) and [`HIGHLIGHTS_API.md`](../HIGHLIGHTS_API.md).
 
-> **Note**: This document describes the original playlist-web MVP. For the new Sports Highlight Channel feature, see `docs/highlight-mvp.md` and `docs/HIGHLIGHTS_API.md`.
+> **Note**: This document describes the original playlist-web MVP. For the new Sports Highlight Channel feature, see [`HIGHLIGHTS_MVP.md`](../HIGHLIGHTS_MVP.md) and [`HIGHLIGHTS_API.md`](../HIGHLIGHTS_API.md).
 
 Topic + length → intentional YouTube playlist. This MVP wires a simple UI to an orchestrated backend that:
 

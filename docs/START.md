@@ -1,6 +1,6 @@
 # Step-by-Step Startup Guide
 
-> **Note**: This is a quick Docker-focused startup guide. For comprehensive setup instructions, see [`README.md`](README.md) and [`docs/LOCAL_DEPLOY.md`](docs/LOCAL_DEPLOY.md).
+> **Note**: This is a quick Docker-focused startup guide. For comprehensive setup instructions, see [`../README.md`](../README.md) and [`LOCAL_DEPLOY.md`](LOCAL_DEPLOY.md).
 
 ## Prerequisites
 - Docker Desktop is running

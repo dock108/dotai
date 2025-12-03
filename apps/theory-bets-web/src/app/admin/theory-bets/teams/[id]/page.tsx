@@ -94,7 +94,7 @@ export default function TeamDetailPage() {
               {team.recentGames.map((game) => (
                 <tr key={game.id}>
                   <td>
-                    <Link href={`/admin/theory-bets/games/${game.id}`}>
+                    <Link href={`/admin/boxscores/${game.id}`}>
                       {new Date(game.gameDate).toLocaleDateString()}
                     </Link>
                   </td>

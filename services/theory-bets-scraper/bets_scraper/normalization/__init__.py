@@ -240,7 +240,7 @@ def _fuzzy_match(league_code: SportCode, raw_name: str) -> tuple[str, str] | Non
     return None
 
 
-def normalize_team_name(league_code: SportCode, raw_name: str) -> tuple[str, str]:
+def normalize_team_name(league_code: SportCode, raw_name: str) -> tuple[str, str | None]:
     """Normalize team name to canonical form and return (canonical_name, abbreviation).
     
     Args:
@@ -250,26 +250,39 @@ def normalize_team_name(league_code: SportCode, raw_name: str) -> tuple[str, str
     Returns:
         Tuple of (canonical_name, abbreviation). If no mapping exists, returns
         the input name and a generated abbreviation (first 3-6 chars).
+        For NCAAB, returns None for abbreviation to avoid collisions.
     """
     if not raw_name:
-        return (raw_name, raw_name[:6].upper() if raw_name else "")
+        # For NCAAB, return None for abbreviation; otherwise return empty string
+        abbr = None if league_code == "NCAAB" else (raw_name[:6].upper() if raw_name else "")
+        return (raw_name, abbr)
     
     mappings = TEAM_MAPPINGS.get(league_code, {})
     
     # Try exact match (case-insensitive)
     if raw_name in mappings:
-        return mappings[raw_name]
+        canonical, abbr = mappings[raw_name]
+        # For NCAAB, always return None for abbreviation
+        return (canonical, None if league_code == "NCAAB" else abbr)
     
     # Try lowercase match
     if raw_name.lower() in mappings:
-        return mappings[raw_name.lower()]
+        canonical, abbr = mappings[raw_name.lower()]
+        # For NCAAB, always return None for abbreviation
+        return (canonical, None if league_code == "NCAAB" else abbr)
     
     # Try fuzzy matching
     fuzzy_result = _fuzzy_match(league_code, raw_name)
     if fuzzy_result:
-        return fuzzy_result
+        canonical, abbr = fuzzy_result
+        # For NCAAB, always return None for abbreviation
+        return (canonical, None if league_code == "NCAAB" else abbr)
     
-    # Fallback: generate abbreviation from name
+    # For NCAAB, don't generate abbreviations to avoid collisions
+    if league_code == "NCAAB":
+        return (raw_name, None)
+    
+    # Fallback: generate abbreviation from name (only for non-NCAAB leagues)
     # Remove common words and take first letters
     words = raw_name.split()
     if len(words) >= 2:

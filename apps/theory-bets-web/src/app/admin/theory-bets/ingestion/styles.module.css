@@ -185,6 +185,33 @@
   color: #1e293b;
 }
 
+.actionsCell {
+  min-width: 6rem;
+}
+
+.cancelButton {
+  padding: 0.35rem 0.9rem;
+  border-radius: 6px;
+  border: 1px solid #f87171;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.cancelButton:hover:not(:disabled) {
+  background: #fecaca;
+  border-color: #ef4444;
+  color: #7f1d1d;
+}
+
+.cancelButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .table a {
   color: #2563eb;
   text-decoration: none;

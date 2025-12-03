@@ -223,7 +223,7 @@ Never hardcode passwords in docker-compose.yml or other configuration files.
 - **[`docs/LOCAL_DEPLOY.md`](docs/LOCAL_DEPLOY.md)** - Detailed local development guide
 - **[`docs/LOAD_SPORTS_DATA.md`](docs/LOAD_SPORTS_DATA.md)** - Sports data ingestion guide
 - **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** - System architecture overview
-- **[`infra/README.md`](infra/README.md)** - Infrastructure documentation
+- **[`docs/infra/README.md`](docs/infra/README.md)** - Infrastructure documentation
 
 ## Project Status
 

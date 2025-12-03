@@ -61,8 +61,12 @@ class BaseSportsReferenceScraper:
         self._day_delay_max = settings.scraper_config.day_delay_max
         self._error_delay_min = settings.scraper_config.error_delay_min
         self._error_delay_max = settings.scraper_config.error_delay_max
-        # HTML cache
-        self._cache = HTMLCache(settings.scraper_config.html_cache_dir, self.league_code)
+        # HTML cache (respect force-refresh overrides)
+        self._cache = HTMLCache(
+            settings.scraper_config.html_cache_dir,
+            self.league_code,
+            force_refresh=settings.scraper_config.force_cache_refresh,
+        )
 
     def iter_dates(self, start: date, end: date) -> Iterator[date]:
         current = start
@@ -135,12 +139,19 @@ class BaseSportsReferenceScraper:
     def fetch_date_range(self, start: date, end: date) -> Iterable[NormalizedGame]:
         for day in self.iter_dates(start, end):
             try:
+                logger.debug("scraper_fetching_date", day=str(day), league=self.league_code)
                 games = self.fetch_games_for_date(day)
-                for game in games:
+                games_list = list(games)  # Convert to list to get count
+                logger.debug("scraper_date_complete", day=str(day), games_found=len(games_list), league=self.league_code)
+                for game in games_list:
                     yield game
                 time.sleep(random.uniform(self._day_delay_min, self._day_delay_max))
             except ScraperError as exc:
-                logger.error("scraper_date_error", day=str(day), error=str(exc))
+                logger.error("scraper_date_error", day=str(day), error=str(exc), league=self.league_code, exc_info=True)
+                time.sleep(random.uniform(self._error_delay_min, self._error_delay_max))
+                continue
+            except Exception as exc:
+                logger.exception("scraper_date_unexpected_error", day=str(day), error=str(exc), league=self.league_code)
                 time.sleep(random.uniform(self._error_delay_min, self._error_delay_max))
                 continue
 

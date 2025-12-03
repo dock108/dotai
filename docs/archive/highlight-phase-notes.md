@@ -1,12 +1,12 @@
 # Sports Highlight Phase - Code Audit & Cleanup Notes
 
-> **Status**: Deprecated – historical reference only. Current behavior and constraints are captured in `docs/highlight-mvp.md` and `docs/HIGHLIGHTS_API.md`.
+> **Status**: Deprecated – historical reference only. Current behavior and constraints are captured in [`HIGHLIGHTS_MVP.md`](../HIGHLIGHTS_MVP.md) and [`HIGHLIGHTS_API.md`](../HIGHLIGHTS_API.md).
 
 **Phase**: Sports Highlight Channel MVP  
 **Date**: 2024-11-18  
 **Status**: ✅ **COMPLETED** - Historical reference only
 
-> **Note**: This document is kept for historical reference. The work described here has been completed. See `docs/highlight-mvp.md` for current constraints and limitations.
+> **Note**: This document is kept for historical reference. The work described here has been completed. See [`HIGHLIGHTS_MVP.md`](../HIGHLIGHTS_MVP.md) for current constraints and limitations.
 
 ## Executive Summary
 
@@ -43,14 +43,14 @@ This audit was performed during the initial planning phase of the Sports Highlig
 
 4. **Documentation**:
    - Updated all documentation
-   - Created `docs/highlight-mvp.md` with constraints and future ideas
+   - Created [`HIGHLIGHTS_MVP.md`](../HIGHLIGHTS_MVP.md) with constraints and future ideas
 
 ## Current State (as of completion)
 
 All identified issues have been resolved. The codebase is now ready for testing and local deployment.
 
 For current information, see:
-- `docs/highlight-mvp.md` - Current constraints, limitations, and future ideas
+- [`HIGHLIGHTS_MVP.md`](../HIGHLIGHTS_MVP.md) - Current constraints, limitations, and future ideas
 - `docs/HIGHLIGHTS_API.md` - API documentation
 - `docs/HIGHLIGHT_PARSING.md` - Parsing documentation
 - `docs/PLAYLIST_DATABASE.md` - Database schema documentation

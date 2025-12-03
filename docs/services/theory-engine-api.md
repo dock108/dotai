@@ -69,7 +69,7 @@ Cache entries are stored in `external_context_cache` table with `key_hash` (SHA-
 - `POST /api/conspiracies/evaluate` - Evaluate conspiracy theory
 - `POST /api/playlist/evaluate` - Evaluate playlist request
 
-See `docs/THEORY_ENGINE.md` for the full blueprint and `docs/HIGHLIGHTS_API.md` for highlights API documentation.
+See [`THEORY_ENGINE.md`](../THEORY_ENGINE.md) for the full blueprint and [`HIGHLIGHTS_API.md`](../HIGHLIGHTS_API.md) for highlights API documentation.
 
 ## Maintenance Scripts
 

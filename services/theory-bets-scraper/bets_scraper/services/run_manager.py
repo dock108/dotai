@@ -117,6 +117,19 @@ class ScrapeRunManager:
         start = config.start_date or date.today()
         end = config.end_date or start
         scraper = self.scrapers.get(config.league_code)
+        
+        # Log configuration for debugging
+        logger.info(
+            "scrape_run_config",
+            run_id=run_id,
+            league=config.league_code,
+            include_boxscores=config.include_boxscores,
+            include_odds=config.include_odds,
+            scraper_found=scraper is not None,
+            start_date=str(start),
+            end_date=str(end),
+        )
+        
         if not scraper and (config.include_boxscores or config.backfill_player_stats):
             raise RuntimeError(f"No scraper implemented for {config.league_code}")
 
@@ -125,6 +138,13 @@ class ScrapeRunManager:
         try:
             # Standard boxscore scraping
             if config.include_boxscores and scraper:
+                logger.info(
+                    "boxscore_scraping_start",
+                    run_id=run_id,
+                    league=config.league_code,
+                    start_date=str(start),
+                    end_date=str(end),
+                )
                 game_count = 0
                 for game_payload in scraper.fetch_date_range(start, end):
                     try:
@@ -136,7 +156,9 @@ class ScrapeRunManager:
                     except Exception as exc:
                         logger.exception("game_persist_failed", error=str(exc), game_date=game_payload.identity.game_date, run_id=run_id)
                         continue
-                logger.info("games_persisted", count=game_count, run_id=run_id)
+                logger.info("games_persisted", count=game_count, run_id=run_id, league=config.league_code)
+            elif config.include_boxscores and not scraper:
+                logger.warning("boxscore_scraping_skipped_no_scraper", run_id=run_id, league=config.league_code)
 
             # Standard odds scraping
             if config.include_odds:
