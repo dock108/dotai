@@ -124,7 +124,7 @@ class CryptoIngestionRunManager:
             code=code,
             name=code.title(),
             timezone="UTC",
-            metadata={"ccxt_id": ccxt_id},
+            extra_metadata={"ccxt_id": ccxt_id},
         )
         session.add(exchange)
         session.flush()
@@ -157,7 +157,7 @@ class CryptoIngestionRunManager:
             base=base,
             quote=quote,
             external_codes={"ccxt": market.get("id")},
-            metadata={"info": market.get("info", {})},
+            extra_metadata={"info": market.get("info", {})},
         )
         session.add(asset)
         session.flush()

@@ -110,7 +110,7 @@ class StocksIngestionRunManager:
             code=code,
             name=code.title(),
             timezone="UTC",
-            metadata={},
+            extra_metadata={},
         )
         session.add(exchange)
         session.flush()
@@ -145,7 +145,7 @@ class StocksIngestionRunManager:
             sector=sector,
             industry=industry,
             external_codes={"yfinance": ticker},
-            metadata={"info": info or {}},
+            extra_metadata={"info": info or {}},
         )
         session.add(asset)
         session.flush()

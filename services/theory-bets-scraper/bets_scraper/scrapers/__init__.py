@@ -61,4 +61,4 @@ def get_all_scrapers() -> Dict[str, BaseSportsReferenceScraper]:
     Returns:
         Dictionary mapping league codes to scraper instances
     """
-    return {code: get_scraper(code)! for code in _SCRAPER_REGISTRY.keys() if get_scraper(code) is not None}
+    return {code: get_scraper(code) for code in _SCRAPER_REGISTRY.keys() if get_scraper(code) is not None}

@@ -20,18 +20,29 @@ class NCAABSportsReferenceScraper(BaseSportsReferenceScraper):
     base_url = "https://www.sports-reference.com/cbb/boxscores/"
 
     def _parse_team_row(self, row) -> tuple[TeamIdentity, int]:
-        # NCAAB uses last td for score instead of class="right"
+        """
+        NCAA basketball scoreboards occasionally append a trailing status cell
+        (e.g., \"Final\" or \"Final/OT\"). Instead of assuming the last <td>
+        contains the numeric score, scan cells from right to left until we find
+        the first value that can be parsed as an integer.
+        """
         team_link = row.find("a")
         if not team_link:
             raise ScraperError("Missing team link")
         team_name = team_link.text.strip()
         canonical_name, abbreviation = normalize_team_name(self.league_code, team_name)
-        score_cell = row.find_all("td")[-1]
-        if score_cell is None:
-            raise ScraperError("Missing score cell")
-        score = parse_int(score_cell.text.strip())
+
+        score = None
+        score_text: str | None = None
+        for cell in reversed(row.find_all("td")):
+            score_text = cell.text.strip()
+            score = parse_int(score_text)
+            if score is not None:
+                break
+
         if score is None:
-            raise ScraperError(f"Invalid score: {score_cell.text.strip()}")
+            raise ScraperError(f"Invalid score: {score_text or 'unknown'}")
+
         identity = TeamIdentity(
             league_code=self.league_code,
             name=canonical_name,

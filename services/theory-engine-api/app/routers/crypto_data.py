@@ -279,7 +279,7 @@ async def fetch_asset(
         base=asset.base,
         quote=asset.quote,
         exchange_code=asset.exchange.code if asset.exchange else "",
-        metadata=asset.metadata or {},
+        metadata=asset.extra_metadata or {},
     )
 
 

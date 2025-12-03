@@ -15,6 +15,7 @@ from ..models import IngestionConfig
 from ..odds.synchronizer import OddsSynchronizer
 from ..persistence import persist_game_payload, upsert_player_boxscores
 from ..scrapers import get_all_scrapers
+from ..utils.datetime_utils import utcnow
 
 
 class ScrapeRunManager:
@@ -205,7 +206,7 @@ class ScrapeRunManager:
             self._update_run(
                 run_id,
                 status="success",
-                finished_at=datetime.utcnow(),
+                finished_at=utcnow(),
                 summary=", ".join(summary_parts),
             )
             logger.info("scrape_run_complete", run_id=run_id, summary=summary)

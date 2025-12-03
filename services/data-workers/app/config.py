@@ -8,8 +8,8 @@ This service runs background Celery workers for:
 - Market price data updates
 """
 
+import logging
 import os
-from typing import Optional
 
 
 class Settings:
@@ -35,8 +35,21 @@ class Settings:
         self.youtube_api_key = os.getenv("YOUTUBE_API_KEY")
 
         # Worker settings
-        self.worker_log_level = os.getenv("WORKER_LOG_LEVEL", "INFO")
+        self.worker_log_level = self._resolve_log_level(os.getenv("WORKER_LOG_LEVEL", "INFO"))
         self.worker_concurrency = int(os.getenv("WORKER_CONCURRENCY", "4"))
+
+    @staticmethod
+    def _resolve_log_level(value: str) -> int:
+        """
+        Convert human-readable log level names (e.g., "INFO") into the numeric
+        levels expected by structlog's filtering logger helper. Falls back to
+        INFO whenever an unknown value is provided to keep the worker booting.
+        """
+        normalized = value.strip().upper()
+        resolved = logging.getLevelName(normalized)
+        if isinstance(resolved, int):
+            return resolved
+        return logging.INFO
 
 
 # Global settings instance
