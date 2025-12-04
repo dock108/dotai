@@ -13,7 +13,6 @@ for database access, logging, and context fetching.
 """
 
 from collections.abc import Callable
-from datetime import datetime
 
 from .utils import now_utc
 
@@ -41,7 +40,21 @@ from py_core import (
     ContextResult,
 )
 
-from .routers import bets, conspiracies, crypto, crypto_data, highlights, playlist, sports_data, stocks, stocks_data_admin, strategy, stocks_strategy
+from .routers import (
+    bets,
+    conspiracies,
+    crypto,
+    crypto_data,
+    highlights,
+    playlist,
+    sports_data,
+    sports_eda,
+    sports_models,
+    stocks,
+    stocks_data_admin,
+    strategy,
+    stocks_strategy,
+)
 
 app = FastAPI(title="Dock108 Theory Engine", version="0.1.0")
 
@@ -63,6 +76,8 @@ app.include_router(conspiracies.router)
 app.include_router(highlights.router)
 app.include_router(strategy.router)
 app.include_router(sports_data.router)
+app.include_router(sports_eda.router)
+app.include_router(sports_models.router)
 app.include_router(crypto_data.router)
 app.include_router(stocks_data_admin.router)
 
@@ -157,4 +172,3 @@ async def evaluate_theory(req: TheoryRequest) -> TheoryResponse:
         model_version="gpt-4o-mini",
         evaluation_date=now_utc().isoformat(),
     )
-

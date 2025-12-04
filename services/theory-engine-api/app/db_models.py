@@ -491,6 +491,59 @@ class SportsScrapeRun(Base):
     )
 
 
+class SportsModelConfig(Base):
+    """Stored modeling / EDA configurations for sports leagues.
+
+    These configs describe how to build features and targets for a given league
+    and can be used by internal modeling and simulation services.
+    """
+
+    __tablename__ = "sports_model_configs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    league_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("sports_leagues.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="draft",
+        index=True,
+    )  # "draft" | "active" | "deprecated"
+    config: Mapped[dict] = mapped_column(
+        JSONB,
+        server_default=text("'{}'::jsonb"),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    # Relationships
+    league: Mapped[SportsLeague] = relationship("SportsLeague")
+
+    __table_args__ = (
+        Index(
+            "idx_sports_model_configs_league_status",
+            "league_id",
+            "status",
+        ),
+    )
+
+
 # ============================================================================
 # Crypto Data Models
 # ============================================================================

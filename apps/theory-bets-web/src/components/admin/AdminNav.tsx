@@ -17,6 +17,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
       { href: "/admin/theory-bets/games", label: "Games" },
       { href: "/admin/theory-bets/teams", label: "Teams" },
       { href: "/admin/theory-bets/ingestion", label: "Scraper Runs" },
+      { href: "/admin/theory-bets/eda", label: "EDA / Modeling Lab" },
     ],
   },
   {
