@@ -11,7 +11,7 @@
   "dependencies": {
     "@dock108/ui": "workspace:*",
     "@dock108/ui-kit": "workspace:*",
-    "next": "16.0.3",
+    "next": "16.0.7",
     "openai": "^6.9.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
