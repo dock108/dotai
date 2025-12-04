@@ -60,7 +60,7 @@ export default function BoxscoreAdminPage() {
         onFiltersChange={setFormFilters}
         onApply={applyFilters}
         onReset={resetFilters}
-      />
+                />
 
       {error ? (
         <ErrorDisplay error={new Error(error)} title="Unable to load games" />

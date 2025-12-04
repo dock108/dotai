@@ -135,3 +135,4 @@ async def activate_model_config(
   return _serialize_model_config(cfg, league_code)
 
 
+

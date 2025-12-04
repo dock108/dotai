@@ -385,8 +385,8 @@ class NCAABSportsReferenceScraper(BaseSportsReferenceScraper):
                 skipped_count += 1
                 continue
             try:
-                away_identity, away_score = self._parse_team_row(team_rows[0])
-                home_identity, home_score = self._parse_team_row(team_rows[1])
+            away_identity, away_score = self._parse_team_row(team_rows[0])
+            home_identity, home_score = self._parse_team_row(team_rows[1])
             except ScraperError as exc:
                 message = str(exc)
                 if message.startswith("score_unavailable_status:"):
@@ -484,7 +484,7 @@ class NCAABSportsReferenceScraper(BaseSportsReferenceScraper):
             games_parsed=len(games),
             games_skipped=skipped_count,
             games_error=error_count,
-        )
+            )
         return games
 
 
