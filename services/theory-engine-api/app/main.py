@@ -54,6 +54,8 @@ from .routers import (
     stocks_data_admin,
     strategy,
     stocks_strategy,
+    theory_admin,
+    theory_runs,
 )
 
 app = FastAPI(title="Dock108 Theory Engine", version="0.1.0")
@@ -80,6 +82,8 @@ app.include_router(sports_eda.router)
 app.include_router(sports_models.router)
 app.include_router(crypto_data.router)
 app.include_router(stocks_data_admin.router)
+app.include_router(theory_admin.router)
+app.include_router(theory_runs.router)
 
 
 @app.get("/healthz", tags=["health"])

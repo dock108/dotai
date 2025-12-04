@@ -13,9 +13,8 @@ const navSections: { title: string; items: NavItem[] }[] = [
   {
     title: "Sports",
     items: [
-      { href: "/admin/theory-bets", label: "Dashboard" },
-      { href: "/admin/theory-bets/games", label: "Games" },
-      { href: "/admin/theory-bets/teams", label: "Teams" },
+      { href: "/admin/theory-bets/browser", label: "Data Browser" },
+      { href: "/admin/theory-bets/requests", label: "Theory Requests" },
       { href: "/admin/theory-bets/ingestion", label: "Scraper Runs" },
       { href: "/admin/theory-bets/eda", label: "EDA / Modeling Lab" },
     ],

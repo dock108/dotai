@@ -9,6 +9,7 @@ from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, Integer
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from typing import Any
+from .utils.odds import american_to_decimal
 
 
 class Base(DeclarativeBase):
@@ -448,6 +449,11 @@ class SportsGameOdds(Base):
     # Relationships
     game: Mapped[SportsGame] = relationship("SportsGame", back_populates="odds")
 
+    @property
+    def market_decimal_odds(self) -> float | None:
+        """Decimal odds derived from stored American price."""
+        return american_to_decimal(self.price)
+
     __table_args__ = (
         Index(
             "uq_sports_game_odds_identity",
@@ -490,6 +496,20 @@ class SportsScrapeRun(Base):
         Index("idx_scrape_runs_created", "created_at"),
     )
 
+
+class TheoryRun(Base):
+    """Stored theory run results for betting v1 pipeline."""
+
+    __tablename__ = "theory_runs"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    sport: Mapped[str] = mapped_column(String(20), nullable=False)
+    theory_text: Mapped[str] = mapped_column(Text, nullable=False)
+    model_config: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    results: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 class SportsModelConfig(Base):
     """Stored modeling / EDA configurations for sports leagues.
