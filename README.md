@@ -81,6 +81,11 @@ Users submit betting theories → LLM grades prompt and infers config → histor
 **User flow:** `/` → submit theory → redirect to `/theory/{run_id}`
 **Admin flow:** `/admin/theory-bets/runs` → browse/filter runs → click through to results
 
+### EDA / Modeling Lab (admin)
+- Generate features from selected stats and context (rest/rolling), run correlation analysis, and build lightweight models.
+- Results card links to the exact game sample in `/admin/theory-bets/games` and provides a CSV export of the feature matrix (opens in a new tab).
+- Endpoints: `POST /api/admin/sports/eda/generate-features`, `POST /api/admin/sports/eda/analyze`, `POST /api/admin/sports/eda/build-model`, `POST /api/admin/sports/eda/analyze/export` (CSV).
+
 ### Sports Data Ingestion
 Celery workers scrape boxscores and odds for NBA, NFL, MLB, NHL, NCAAB, NCAAF. Admin UI at `/admin/theory-bets/ingestion` to trigger and monitor runs.
 
@@ -97,6 +102,10 @@ Natural language requests → AI parsing → YouTube search with channel reputat
 | `POST /api/highlights/plan` | Plan highlight playlist |
 | `GET /api/admin/sports/games` | Browse games data |
 | `POST /api/admin/sports/scraper/runs` | Trigger scrape run |
+| `POST /api/admin/sports/eda/generate-features` | Generate derived features for EDA |
+| `POST /api/admin/sports/eda/analyze` | Run correlation analysis for selected features/target |
+| `POST /api/admin/sports/eda/build-model` | Train lightweight model on feature matrix |
+| `POST /api/admin/sports/eda/analyze/export` | Export feature matrix + targets as CSV |
 
 Full API docs at `http://localhost:8000/docs` when backend is running.
 
