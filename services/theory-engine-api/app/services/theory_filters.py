@@ -8,7 +8,7 @@ from typing import Any
 from .bet_performance import StoredBetRow
 from .odds_selection import get_last_seen_odds
 from .. import db_models
-from .utils.odds import american_to_decimal
+from ..utils.odds import american_to_decimal
 
 
 async def apply_theory_filters(

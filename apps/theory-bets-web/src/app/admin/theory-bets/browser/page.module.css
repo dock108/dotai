@@ -1,5 +1,5 @@
 .container {
-  color: #e2e8f0;
+  color: #1e293b;
   padding: 2rem;
   max-width: 1400px;
   margin: 0 auto;
@@ -12,13 +12,13 @@
 .title {
   font-size: 2rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: #0f172a;
   margin: 0 0 0.5rem 0;
   letter-spacing: -0.02em;
 }
 
 .subtitle {
-  color: #94a3b8;
+  color: #64748b;
   font-size: 1rem;
 }
 
@@ -26,39 +26,40 @@
   display: flex;
   gap: 0.5rem;
   margin-bottom: 2rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 0;
 }
 
 .tab {
   background: transparent;
   border: none;
   padding: 0.75rem 1.5rem;
-  color: #94a3b8;
+  color: #64748b;
   font-size: 0.95rem;
   font-weight: 500;
   cursor: pointer;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -0.5rem;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
   transition: all 0.2s ease;
 }
 
 .tab:hover {
-  color: #e2e8f0;
+  color: #3b82f6;
 }
 
 .tabActive {
-  color: #60a5fa;
+  color: #3b82f6;
   border-bottom-color: #3b82f6;
+  font-weight: 600;
 }
 
 .filtersCard {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 1.5rem;
   margin-bottom: 1.5rem;
-  backdrop-filter: blur(8px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .filterRow {
@@ -75,7 +76,7 @@
 
 .filterLabel {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: #475569;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 0.5rem;
@@ -85,11 +86,11 @@
 
 .input {
   width: 100%;
-  background: rgba(30, 41, 59, 0.8);
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
   border-radius: 8px;
   padding: 0.625rem 0.875rem;
-  color: #e2e8f0;
+  color: #1e293b;
   font-size: 0.875rem;
   transition: all 0.2s ease;
 }
@@ -108,27 +109,27 @@
 }
 
 .stat {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 1rem 1.5rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 120px;
-  backdrop-filter: blur(8px);
+  min-width: 140px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .statValue {
   font-size: 1.75rem;
   font-weight: 700;
-  color: #60a5fa;
+  color: #3b82f6;
   margin-bottom: 0.25rem;
 }
 
 .statLabel {
   font-size: 0.7rem;
-  color: #94a3b8;
+  color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 600;
@@ -142,14 +143,14 @@
   gap: 1rem;
   margin-bottom: 1.5rem;
   padding: 1rem 1.5rem;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: #475569;
+  border: 1px solid #334155;
   border-radius: 10px;
-  backdrop-filter: blur(8px);
+  color: #ffffff;
 }
 
 .paginationInfo {
-  color: #94a3b8;
+  color: #e2e8f0;
   font-size: 0.875rem;
   font-weight: 500;
 }
@@ -165,23 +166,23 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #94a3b8;
+  color: #e2e8f0;
   font-size: 0.875rem;
 }
 
 .pageSizeSelect {
-  background: rgba(30, 41, 59, 0.8);
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: #334155;
+  border: 1px solid #475569;
   border-radius: 6px;
   padding: 0.5rem 0.75rem;
-  color: #e2e8f0;
+  color: #ffffff;
   font-size: 0.875rem;
   cursor: pointer;
 }
 
 .pageSizeSelect:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: #60a5fa;
 }
 
 .paginationButtons {
@@ -191,11 +192,11 @@
 }
 
 .paginationButton {
-  background: rgba(30, 41, 59, 0.8);
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: #334155;
+  border: 1px solid #475569;
   border-radius: 8px;
   padding: 0.625rem 1rem;
-  color: #94a3b8;
+  color: #e2e8f0;
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
@@ -203,10 +204,9 @@
 }
 
 .paginationButton:hover:not(:disabled) {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.5);
-  color: #60a5fa;
-  transform: translateY(-1px);
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #ffffff;
 }
 
 .paginationButton:disabled {
@@ -215,12 +215,12 @@
 }
 
 .pageInfo {
-  color: #94a3b8;
+  color: #ffffff;
   font-size: 0.875rem;
   padding: 0 0.75rem;
   min-width: 100px;
   text-align: center;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .teamsGrid {
@@ -231,20 +231,20 @@
 }
 
 .teamCard {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 1.25rem;
   text-decoration: none;
   color: inherit;
   transition: all 0.2s ease;
-  backdrop-filter: blur(8px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .teamCard:hover {
-  border-color: rgba(59, 130, 246, 0.5);
+  border-color: #3b82f6;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
 }
 
 .teamHeader {
@@ -255,8 +255,8 @@
 }
 
 .teamAbbr {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(59, 130, 246, 0.1) 100%);
-  color: #60a5fa;
+  background: #eff6ff;
+  color: #3b82f6;
   font-size: 0.875rem;
   font-weight: 700;
   padding: 0.375rem 0.625rem;
@@ -268,14 +268,14 @@
 .teamName {
   font-size: 1rem;
   font-weight: 600;
-  color: #e2e8f0;
+  color: #1e293b;
 }
 
 .teamMeta {
   display: flex;
   gap: 1rem;
   font-size: 0.8rem;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .metaItem {
@@ -291,19 +291,20 @@
 }
 
 .runCard {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 1.25rem;
   text-decoration: none;
   color: inherit;
   transition: all 0.2s ease;
-  backdrop-filter: blur(8px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .runCard:hover {
-  border-color: rgba(59, 130, 246, 0.5);
+  border-color: #3b82f6;
   transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
 }
 
 .runHeader {
@@ -326,21 +327,21 @@
 .runTitle {
   font-size: 1rem;
   font-weight: 600;
-  color: #e2e8f0;
+  color: #1e293b;
   margin-bottom: 0.25rem;
 }
 
 .runMeta {
   font-size: 0.85rem;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .error {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: #fef2f2;
+  border: 1px solid #fecaca;
   border-radius: 10px;
   padding: 1rem 1.5rem;
-  color: #fca5a5;
+  color: #dc2626;
   margin-bottom: 1rem;
   font-weight: 500;
 }
@@ -348,7 +349,7 @@
 .loading {
   text-align: center;
   padding: 3rem;
-  color: #94a3b8;
+  color: #64748b;
   font-size: 1rem;
 }
 
@@ -356,8 +357,8 @@
   text-align: center;
   padding: 4rem 2rem;
   color: #64748b;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
   font-size: 1rem;
 }
@@ -372,12 +373,18 @@
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-.statusCompleted {
+.statusCompleted,
+.statusSuccess {
   background: #22c55e;
 }
 
-.statusFailed {
+.statusFailed,
+.statusError {
   background: #ef4444;
+}
+
+.statusInterrupted {
+  background: #f97316;
 }
 
 @keyframes pulse {
@@ -396,8 +403,7 @@
   gap: 1rem;
   margin-top: 2rem;
   padding: 1rem;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
 }
-

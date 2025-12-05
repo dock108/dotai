@@ -15,7 +15,7 @@ interface GamesTableProps {
  * Table component for displaying game summaries.
  * Shows game metadata, scores, and data completeness indicators.
  */
-export function GamesTable({ games, detailLinkPrefix = "/admin/games", showCompleteness = true }: GamesTableProps) {
+export function GamesTable({ games, detailLinkPrefix = "/admin/theory-bets/games", showCompleteness = true }: GamesTableProps) {
   const stats = useMemo(() => {
     const withBoxscore = games.filter((g) => g.has_boxscore).length;
     const withPlayerStats = games.filter((g) => g.has_player_stats).length;

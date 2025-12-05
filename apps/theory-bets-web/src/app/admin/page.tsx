@@ -98,22 +98,22 @@ export default function AdminDashboardPage() {
 
       <AdminCard title="Quick actions" subtitle="Jump to common admin workflows">
         <div className={styles.quickLinks}>
-          <Link href="/admin/ingestion" className={styles.quickLink}>
+          <Link href="/admin/theory-bets/ingestion" className={styles.quickLink}>
             <div className={styles.quickLinkContent}>
               <div className={styles.quickLinkTitle}>New scrape run</div>
               <div className={styles.quickLinkDesc}>Start a new data ingestion job</div>
             </div>
           </Link>
-          <Link href="/admin/games" className={styles.quickLink}>
+          <Link href="/admin/theory-bets/browser" className={styles.quickLink}>
             <div className={styles.quickLinkContent}>
-              <div className={styles.quickLinkTitle}>Browse games</div>
-              <div className={styles.quickLinkDesc}>View ingested games and boxscores</div>
+              <div className={styles.quickLinkTitle}>Data browser</div>
+              <div className={styles.quickLinkDesc}>Browse games, teams, and scrape runs</div>
             </div>
           </Link>
-          <Link href="/admin/teams" className={styles.quickLink}>
+          <Link href="/admin/theory-bets/runs" className={styles.quickLink}>
             <div className={styles.quickLinkContent}>
-              <div className={styles.quickLinkTitle}>Browse teams</div>
-              <div className={styles.quickLinkDesc}>View teams across all leagues</div>
+              <div className={styles.quickLinkTitle}>Theory runs</div>
+              <div className={styles.quickLinkDesc}>View and trace user theory evaluations</div>
             </div>
           </Link>
         </div>
@@ -125,7 +125,7 @@ export default function AdminDashboardPage() {
             {recentRuns.map((run) => (
               <Link
                 key={run.id}
-                href={`/admin/ingestion/${run.id}`}
+                href={`/admin/theory-bets/ingestion/${run.id}`}
                 className={styles.runItem}
               >
                 <div className={`${styles.runStatus} ${getStatusClassName(run.status)}`} />

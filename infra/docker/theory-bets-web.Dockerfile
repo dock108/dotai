@@ -21,15 +21,15 @@ COPY packages/ui ./packages/ui
 COPY packages/ui-kit ./packages/ui-kit
 COPY packages/js-core ./packages/js-core
 
-# Build (creates .next/standalone with everything bundled)
-WORKDIR /app/apps/theory-bets-web
-
 # NEXT_PUBLIC_* vars must be set at build time (embedded in client JS)
 # Passed from docker-compose.yml which reads from root .env
 ARG NEXT_PUBLIC_THEORY_ENGINE_URL
 ENV NEXT_PUBLIC_THEORY_ENGINE_URL=${NEXT_PUBLIC_THEORY_ENGINE_URL}
 
-RUN mkdir -p public && pnpm build
+# Build from the workspace root using pnpm filter to resolve deps correctly
+WORKDIR /app
+RUN pnpm --filter theory-bets-web install --frozen-lockfile \ 
+ && pnpm --filter theory-bets-web run build
 
 # Production image - minimal, no package manager needed
 FROM node:20-alpine

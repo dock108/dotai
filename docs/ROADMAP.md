@@ -1,30 +1,77 @@
 # Roadmap
 
-## Phase 0 (now)
-- Consolidate code into this monorepo ✅
-- Document architecture, guardrails, backend vision ✅
-- Keep Swift AI game operational inside `apps/prompt-game-web/swift-prototype`
+## Completed ✅
 
-## Phase 1 – Shared Backend Foundations
-- Bootstrap FastAPI service with playlist endpoints + health checks
-- Create `packages/py-core` with shared schemas + guardrail helpers
-- Add docker-compose stack (FastAPI + Postgres + Redis) for local dev
-- Wire playlist Next.js app to the FastAPI proxy instead of the built-in API routes
+### Infrastructure & Architecture
+- Monorepo structure with pnpm workspaces
+- Docker Compose orchestration with centralized `.env`
+- PostgreSQL database with Alembic migrations
+- Redis for caching and Celery task queue
+- Makefile for simplified Docker commands
 
-## Phase 2 – Theory Surfaces
-- Clone playlist UI patterns into `theory-bets-web`, `theory-crypto-web`, etc.
-- Stand up `packages/ui-kit` and `packages/js-core` to unify components + API SDKs
-- Build data workers for odds, crypto, stocks; push caches to Redis with TTLs
-- Launch guardrail admin dashboard (basic) for manual review
+### Backend Services
+- **Theory Engine API** (FastAPI)
+  - Multi-domain theory evaluation (bets, crypto, stocks, conspiracies)
+  - Sports highlights playlist generation with AI parsing
+  - Admin endpoints for data management
+  - Structured logging with structlog
+  
+- **Sports Data Scraper** (Celery workers)
+  - Boxscore ingestion for 6 major US sports (NBA, NFL, MLB, NHL, NCAAB, NCAAF)
+  - Odds API integration for betting lines
+  - Team name normalization
+  - Idempotent persistence
 
-## Phase 3 – Guardrails + Game Port
-- Expand guardrail policies per domain (sports compliance, misinformation, financial advice)
-- Backfill anonymized theory data into warehouse for scoring improvements
-- Start React port of the AI game (`apps/prompt-game-web`), reusing shared UI + guardrail aware flows
-- Introduce experiments (A/B) for card formatting across surfaces
+### Frontend Applications
+- Theory evaluation surfaces (bets, crypto, stocks, conspiracies)
+- Sports highlights playlist generator
+- Unified landing portal (dock108-web)
+- Admin UI for data management and tracing
 
-## Phase 4 – Scale + Custom Models
-- Add Kubernetes manifests + GitOps deployment pipeline for Hetzner cluster
-- Train bespoke graders on collected theory data; host via `services/theory-engine-api`
-- Offer API access for partners (rate limited, key-based)
-- Automate onboarding for new theory domains via config-driven routers
+### Shared Packages
+- `py-core`: Python schemas, guardrails, scoring
+- `js-core`: TypeScript SDK, React hooks
+- `ui`: Shared UI components
+- `ui-kit`: Domain-specific components
+
+### Theory Bets v1 Pipeline
+- LLM prompt grading and config inference
+- Historical data retrieval with "last seen" odds
+- 2-season historical performance analysis
+- 30-day backtest
+- Monte Carlo simulation for upcoming bets
+- Kelly criterion and P2P pricing
+- Results page with tabbed interface
+- Admin tracing for debugging
+
+## In Progress 🚧
+
+### Model Refinement
+- Real filters implementation (back-to-back, altitude, etc.)
+- Enhanced Monte Carlo simulations with actual model predictions
+- Better edge detection algorithms
+
+### Admin Tools
+- Improved data browser styling
+- Aggregate stats in API responses
+- Enhanced filtering capabilities
+
+## Planned 📋
+
+### Short Term
+- [ ] Fix admin UI contrast issues
+- [ ] Add aggregate stats to games API
+- [ ] Implement real theory filters
+- [ ] Enhanced Monte Carlo with trained models
+
+### Medium Term
+- [ ] User authentication and theory history
+- [ ] Kubernetes manifests for production deployment
+- [ ] API rate limiting and key management
+- [ ] Custom model training on collected data
+
+### Long Term
+- [ ] Partner API access
+- [ ] Real-time market data integration
+- [ ] A/B testing infrastructure
+- [ ] Mobile apps (React Native)

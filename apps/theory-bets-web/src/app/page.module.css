@@ -74,13 +74,31 @@
   box-shadow: 0 0 0 2px rgba(138, 124, 255, 0.25);
 }
 
-.adminLink {
+.navLinks {
   margin-top: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.adminLink {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+  padding: 0.5rem 1rem;
   font-weight: 600;
+  font-size: 0.875rem;
   color: var(--dock-accent);
   text-decoration: none;
+  border: 1px solid var(--dock-border);
+  border-radius: 0.5rem;
+  background: var(--dock-surface);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.adminLink:hover {
+  background: var(--dock-bg);
+  border-color: var(--dock-accent);
 }
 

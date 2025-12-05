@@ -193,5 +193,92 @@
   margin-top: 0.25rem;
 }
 
+/* Full width field for stat key sections */
+.fieldFull {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  grid-column: 1 / -1;
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* Badge showing count */
+.countBadge {
+  font-weight: 500;
+  font-size: 0.7rem;
+  color: #2563eb;
+  margin-left: 0.5rem;
+}
+
+.loadingBadge {
+  font-weight: 400;
+  font-size: 0.7rem;
+  color: #94a3b8;
+  margin-left: 0.5rem;
+  font-style: italic;
+}
+
+/* Stat key action buttons */
+.statKeyActions {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.linkButton {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.linkButton:hover {
+  color: #1d4ed8;
+}
+
+/* Checkbox grid for stat keys */
+.checkboxGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.25rem 0.75rem;
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 0.5rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0.15rem 0;
+}
+
+.checkboxLabel:hover {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.checkboxLabel input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+
+.checkboxText {
+  color: #334155;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+}
 
 

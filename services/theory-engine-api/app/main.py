@@ -41,7 +41,6 @@ from py_core import (
 )
 
 from .routers import (
-    bets,
     conspiracies,
     crypto,
     crypto_data,
@@ -56,6 +55,7 @@ from .routers import (
     stocks_strategy,
     theory_admin,
     theory_runs,
+    theory_runs_admin,
 )
 
 app = FastAPI(title="Dock108 Theory Engine", version="0.1.0")
@@ -70,7 +70,6 @@ app.add_middleware(
 
 configure_logging()
 app.include_router(playlist.router)
-app.include_router(bets.router)
 app.include_router(crypto.router)
 app.include_router(stocks.router)
 app.include_router(stocks_strategy.router)
@@ -84,6 +83,7 @@ app.include_router(crypto_data.router)
 app.include_router(stocks_data_admin.router)
 app.include_router(theory_admin.router)
 app.include_router(theory_runs.router)
+app.include_router(theory_runs_admin.router)
 
 
 @app.get("/healthz", tags=["health"])

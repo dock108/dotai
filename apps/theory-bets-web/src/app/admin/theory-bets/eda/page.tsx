@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import styles from "./page.module.css";
 import { AdminCard, LoadingState, ErrorState } from "@/components/admin";
 import { SUPPORTED_LEAGUES, type LeagueCode } from "@/lib/constants/sports";
-import { runEdaQuery, type EDAFilters, type EDAGameRow } from "@/lib/api/sportsAdmin";
+import { runEdaQuery, fetchStatKeys, type EDAFilters, type EDAGameRow, type AvailableStatKeysResponse } from "@/lib/api/sportsAdmin";
 
 type FormState = {
   leagueCode: LeagueCode;
@@ -17,8 +17,8 @@ type FormState = {
   side: string;
   closingOnly: boolean;
   includePlayerStats: boolean;
-  teamStatKeys: string;
-  playerStatKeys: string;
+  teamStatKeys: string[];
+  playerStatKeys: string[];
 };
 
 const INITIAL_FORM: FormState = {
@@ -32,8 +32,8 @@ const INITIAL_FORM: FormState = {
   side: "",
   closingOnly: true,
   includePlayerStats: false,
-  teamStatKeys: "",
-  playerStatKeys: "",
+  teamStatKeys: [],
+  playerStatKeys: [],
 };
 
 export default function TheoryBetsEdaPage() {
@@ -42,6 +42,56 @@ export default function TheoryBetsEdaPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statKeys, setStatKeys] = useState<AvailableStatKeysResponse | null>(null);
+  const [loadingStatKeys, setLoadingStatKeys] = useState(false);
+
+  // Fetch available stat keys when league changes
+  const loadStatKeys = useCallback(async (leagueCode: string) => {
+    setLoadingStatKeys(true);
+    try {
+      const keys = await fetchStatKeys(leagueCode);
+      setStatKeys(keys);
+    } catch (err) {
+      console.error("Failed to load stat keys:", err);
+      setStatKeys(null);
+    } finally {
+      setLoadingStatKeys(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadStatKeys(form.leagueCode);
+  }, [form.leagueCode, loadStatKeys]);
+
+  const handleLeagueChange = (newLeague: LeagueCode) => {
+    setForm((prev) => ({
+      ...prev,
+      leagueCode: newLeague,
+      teamStatKeys: [],
+      playerStatKeys: [],
+    }));
+  };
+
+  const toggleStatKey = (type: "teamStatKeys" | "playerStatKeys", key: string) => {
+    setForm((prev) => {
+      const current = prev[type];
+      const updated = current.includes(key)
+        ? current.filter((k) => k !== key)
+        : [...current, key];
+      return { ...prev, [type]: updated };
+    });
+  };
+
+  const selectAllStatKeys = (type: "teamStatKeys" | "playerStatKeys") => {
+    const keys = type === "teamStatKeys" ? statKeys?.team_stat_keys : statKeys?.player_stat_keys;
+    if (keys) {
+      setForm((prev) => ({ ...prev, [type]: [...keys] }));
+    }
+  };
+
+  const clearStatKeys = (type: "teamStatKeys" | "playerStatKeys") => {
+    setForm((prev) => ({ ...prev, [type]: [] }));
+  };
 
   const summary = useMemo(() => {
     if (!rows.length) {
@@ -98,12 +148,8 @@ export default function TheoryBetsEdaPage() {
         side: form.side || undefined,
         closingOnly: form.closingOnly,
         includePlayerStats: form.includePlayerStats,
-        teamStatKeys: form.teamStatKeys
-          ? form.teamStatKeys.split(",").map((s) => s.trim()).filter(Boolean)
-          : [],
-        playerStatKeys: form.playerStatKeys
-          ? form.playerStatKeys.split(",").map((s) => s.trim()).filter(Boolean)
-          : [],
+        teamStatKeys: form.teamStatKeys,
+        playerStatKeys: form.playerStatKeys,
         limit: 200,
         offset: 0,
       };
@@ -184,7 +230,7 @@ export default function TheoryBetsEdaPage() {
               <select
                 className={styles.select}
                 value={form.leagueCode}
-                onChange={(e) => setForm((prev) => ({ ...prev, leagueCode: e.target.value as LeagueCode }))}
+                onChange={(e) => handleLeagueChange(e.target.value as LeagueCode)}
               >
                 {SUPPORTED_LEAGUES.map((code) => (
                   <option key={code} value={code}>
@@ -276,28 +322,86 @@ export default function TheoryBetsEdaPage() {
               </select>
             </div>
 
-            <div className={styles.field}>
-              <label className={styles.label}>Team stat keys (comma separated)</label>
-              <input
-                className={styles.input}
-                type="text"
-                placeholder="points,rebound,total_yards..."
-                value={form.teamStatKeys}
-                onChange={(e) => setForm((prev) => ({ ...prev, teamStatKeys: e.target.value }))}
-              />
-              <p className={styles.hint}>Leave blank to include all team stats.</p>
+            <div className={styles.fieldFull}>
+              <label className={styles.label}>
+                Team stat keys
+                {loadingStatKeys && <span className={styles.loadingBadge}>Loading...</span>}
+                {!loadingStatKeys && statKeys && (
+                  <span className={styles.countBadge}>
+                    {form.teamStatKeys.length}/{statKeys.team_stat_keys.length} selected
+                  </span>
+                )}
+              </label>
+              {statKeys && statKeys.team_stat_keys.length > 0 ? (
+                <>
+                  <div className={styles.statKeyActions}>
+                    <button type="button" className={styles.linkButton} onClick={() => selectAllStatKeys("teamStatKeys")}>
+                      Select all
+                    </button>
+                    <button type="button" className={styles.linkButton} onClick={() => clearStatKeys("teamStatKeys")}>
+                      Clear
+                    </button>
+                  </div>
+                  <div className={styles.checkboxGrid}>
+                    {statKeys.team_stat_keys.map((key) => (
+                      <label key={key} className={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          checked={form.teamStatKeys.includes(key)}
+                          onChange={() => toggleStatKey("teamStatKeys", key)}
+                        />
+                        <span className={styles.checkboxText}>{key}</span>
+                      </label>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className={styles.hint}>
+                  {loadingStatKeys ? "Loading available stats..." : "No team stats found for this league."}
+                </p>
+              )}
+              <p className={styles.hint}>Leave empty to include all team stats in results.</p>
             </div>
 
-            <div className={styles.field}>
-              <label className={styles.label}>Player stat keys (comma separated)</label>
-              <input
-                className={styles.input}
-                type="text"
-                placeholder="minutes,points,rebounds..."
-                value={form.playerStatKeys}
-                onChange={(e) => setForm((prev) => ({ ...prev, playerStatKeys: e.target.value }))}
-              />
-              <p className={styles.hint}>Only used when including player stats.</p>
+            <div className={styles.fieldFull}>
+              <label className={styles.label}>
+                Player stat keys
+                {loadingStatKeys && <span className={styles.loadingBadge}>Loading...</span>}
+                {!loadingStatKeys && statKeys && (
+                  <span className={styles.countBadge}>
+                    {form.playerStatKeys.length}/{statKeys.player_stat_keys.length} selected
+                  </span>
+                )}
+              </label>
+              {statKeys && statKeys.player_stat_keys.length > 0 ? (
+                <>
+                  <div className={styles.statKeyActions}>
+                    <button type="button" className={styles.linkButton} onClick={() => selectAllStatKeys("playerStatKeys")}>
+                      Select all
+                    </button>
+                    <button type="button" className={styles.linkButton} onClick={() => clearStatKeys("playerStatKeys")}>
+                      Clear
+                    </button>
+                  </div>
+                  <div className={styles.checkboxGrid}>
+                    {statKeys.player_stat_keys.map((key) => (
+                      <label key={key} className={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          checked={form.playerStatKeys.includes(key)}
+                          onChange={() => toggleStatKey("playerStatKeys", key)}
+                        />
+                        <span className={styles.checkboxText}>{key}</span>
+                      </label>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className={styles.hint}>
+                  {loadingStatKeys ? "Loading available stats..." : "No player stats found for this league."}
+                </p>
+              )}
+              <p className={styles.hint}>Only used when &quot;Include player-level stats&quot; is checked.</p>
             </div>
           </div>
 

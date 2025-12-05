@@ -1,17 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import {
-  TheoryForm,
-  TheoryCard,
-  DomainHeader,
-  ErrorDisplay,
-  LoadingSpinner,
-  Container,
-  Section,
-} from "@dock108/ui-kit";
-import { useBetsEvaluation, type BetsRequest, type BetsResponse } from "@dock108/js-core";
+import { TheoryForm, DomainHeader, ErrorDisplay, LoadingSpinner, Container, Section } from "@dock108/ui-kit";
+import { createTheoryRun } from "@/lib/api/theoryRuns";
+import { TheoryRunRequest } from "@/lib/types/theoryRuns";
 import styles from "./page.module.css";
 
 /**
@@ -26,22 +20,38 @@ import styles from "./page.module.css";
  * which handles API communication with the theory-engine-api backend.
  */
 export default function Home() {
-  const { data, loading, error, evaluate } = useBetsEvaluation();
-  const [submitError, setSubmitError] = useState<Error | null>(null);
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
   const handleSubmit = async (text: string, extraFields?: Record<string, any>) => {
-    setSubmitError(null);
+    setError(null);
+    setLoading(true);
     try {
-      const request: BetsRequest = {
-        text,
-        domain: "bets",
-        sport: extraFields?.sport || null,
-        league: extraFields?.league || null,
-        horizon: extraFields?.horizon || "single_game",
+      const payload: TheoryRunRequest = {
+        sport: (extraFields?.sport as string) || "NBA",
+        theory_text: text,
+        user_stats: extraFields?.user_stats
+          ? String(extraFields.user_stats)
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : undefined,
+        user_bet_types: extraFields?.user_bet_types
+          ? String(extraFields.user_bet_types)
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : undefined,
       };
-      await evaluate(request);
+      const result = await createTheoryRun(payload);
+      if (result.run_id) {
+        router.push(`/theory/${result.run_id}`);
+      }
     } catch (err) {
-      setSubmitError(err instanceof Error ? err : new Error(String(err)));
+      setError(err instanceof Error ? err : new Error(String(err)));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -49,28 +59,22 @@ export default function Home() {
     <div className={styles.extraFields}>
       <label className={styles.fieldLabel}>
         Sport
-        <input
-          type="text"
-          className={styles.fieldInput}
-          placeholder="MLB, NBA, NFL, etc."
-          name="sport"
-        />
-      </label>
-      <label className={styles.fieldLabel}>
-        League
-        <input
-          type="text"
-          className={styles.fieldInput}
-          placeholder="Optional league name"
-          name="league"
-        />
-      </label>
-      <label className={styles.fieldLabel}>
-        Horizon
-        <select className={styles.fieldInput} name="horizon" defaultValue="single_game">
-          <option value="single_game">Single Game</option>
-          <option value="full_season">Full Season</option>
+        <select className={styles.fieldInput} name="sport" defaultValue="NBA">
+          <option value="NBA">NBA</option>
+          <option value="NFL">NFL</option>
+          <option value="MLB">MLB</option>
+          <option value="NHL">NHL</option>
+          <option value="NCAAB">NCAAB</option>
+          <option value="NCAAF">NCAAF</option>
         </select>
+      </label>
+      <label className={styles.fieldLabel}>
+        Stats override (comma-separated)
+        <input type="text" className={styles.fieldInput} placeholder="pace, altitude, back_to_back" name="user_stats" />
+      </label>
+      <label className={styles.fieldLabel}>
+        Bet types override (comma-separated)
+        <input type="text" className={styles.fieldInput} placeholder="spread,total,moneyline" name="user_bet_types" />
       </label>
     </div>
   );
@@ -102,33 +106,31 @@ export default function Home() {
 
           {loading && (
             <Section>
-              <LoadingSpinner message="Evaluating your betting theory..." />
+              <LoadingSpinner message="Running theory v1 pipeline..." />
             </Section>
           )}
 
-          {(error || submitError) && (
+          {error && (
             <Section>
               <ErrorDisplay
-                error={error || submitError || new Error("Unknown error")}
+                error={error || new Error("Unknown error")}
                 title="Failed to Evaluate Theory"
                 onRetry={() => {
-                  setSubmitError(null);
-                  // Retry is handled by the form resubmission
+                  setError(null);
                 }}
               />
-            </Section>
-          )}
-
-        {data && (
-          <Section>
-            <TheoryCard response={data as BetsResponse} domain="bets" />
           </Section>
         )}
       </div>
 
-      <Link href="/admin/theory-bets/ingestion" className={styles.adminLink}>
-        Open sports data admin
+      <nav className={styles.navLinks}>
+        <Link href="/admin/theory-bets/runs" className={styles.adminLink}>
+          Admin: Trace Runs
+        </Link>
+        <Link href="/admin/theory-bets/browser" className={styles.adminLink}>
+          Admin: Data Browser
       </Link>
+      </nav>
       </Container>
     </div>
   );

@@ -8,7 +8,7 @@ import random
 
 from .p2p_pricing import suggested_p2p_price, compute_mm_ev, clamp_posted_odds
 from .kelly import compute_kelly_fraction, map_recommendation
-from .utils.odds import implied_probability_from_decimal
+from ..utils.odds import implied_probability_from_decimal
 
 
 class UpcomingBet(dict):

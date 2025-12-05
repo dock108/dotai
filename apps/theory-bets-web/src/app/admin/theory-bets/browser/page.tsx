@@ -110,12 +110,22 @@ export default function UnifiedBrowserPage() {
     setFormFilters((prev) => ({ ...prev, startDate, endDate }));
   };
 
-  const stats = useMemo(() => {
-    if (viewMode === "games") {
+  // Stats for current page (note: aggregate stats would require API update)
+  const pageStats = useMemo(() => {
+    if (viewMode === "games" && games.length > 0) {
       const withBoxscore = games.filter((g) => g.has_boxscore).length;
       const withPlayerStats = games.filter((g) => g.has_player_stats).length;
       const withOdds = games.filter((g) => g.has_odds).length;
-      return { withBoxscore, withPlayerStats, withOdds, total: games.length };
+      const pageSize = games.length;
+      return {
+        withBoxscore,
+        withPlayerStats,
+        withOdds,
+        pageSize,
+        boxscorePercent: Math.round((withBoxscore / pageSize) * 100),
+        playerStatsPercent: Math.round((withPlayerStats / pageSize) * 100),
+        oddsPercent: Math.round((withOdds / pageSize) * 100),
+      };
     }
     return null;
   }, [games, viewMode]);
@@ -164,26 +174,29 @@ export default function UnifiedBrowserPage() {
             onQuickDateRange={handleQuickDateRange}
           />
 
-          {stats && (
-            <div className={styles.statsRow}>
-              <div className={styles.stat}>
-                <span className={styles.statValue}>{total.toLocaleString()}</span>
-                <span className={styles.statLabel}>Total Games</span>
-              </div>
-              <div className={styles.stat}>
-                <span className={styles.statValue}>{stats.withBoxscore}</span>
-                <span className={styles.statLabel}>Boxscores</span>
-              </div>
-              <div className={styles.stat}>
-                <span className={styles.statValue}>{stats.withPlayerStats}</span>
-                <span className={styles.statLabel}>Player Stats</span>
-              </div>
-              <div className={styles.stat}>
-                <span className={styles.statValue}>{stats.withOdds}</span>
-                <span className={styles.statLabel}>Odds</span>
-              </div>
+          {/* Stats row - Total is the full filtered count */}
+          <div className={styles.statsRow}>
+            <div className={styles.stat}>
+              <span className={styles.statValue}>{total.toLocaleString()}</span>
+              <span className={styles.statLabel}>Total Games</span>
             </div>
-          )}
+            {pageStats && (
+              <>
+                <div className={styles.stat}>
+                  <span className={styles.statValue}>{pageStats.boxscorePercent}%</span>
+                  <span className={styles.statLabel}>W/ Boxscores</span>
+                </div>
+                <div className={styles.stat}>
+                  <span className={styles.statValue}>{pageStats.playerStatsPercent}%</span>
+                  <span className={styles.statLabel}>W/ Player Stats</span>
+                </div>
+                <div className={styles.stat}>
+                  <span className={styles.statValue}>{pageStats.oddsPercent}%</span>
+                  <span className={styles.statLabel}>W/ Odds</span>
+                </div>
+              </>
+            )}
+          </div>
 
           {total > 0 && (
             <div className={styles.paginationControls}>
@@ -244,7 +257,7 @@ export default function UnifiedBrowserPage() {
 
           {gamesError && <div className={styles.error}>{gamesError}</div>}
           {gamesLoading && games.length === 0 && <div className={styles.loading}>Loading...</div>}
-          {games.length > 0 && <GamesTable games={games} detailLinkPrefix="/admin/games" showCompleteness={false} />}
+          {games.length > 0 && <GamesTable games={games} detailLinkPrefix="/admin/theory-bets/games" showCompleteness={false} />}
           {!gamesLoading && games.length === 0 && !gamesError && (
             <div className={styles.empty}>No games found. Try adjusting your filters.</div>
           )}

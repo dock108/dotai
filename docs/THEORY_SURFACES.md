@@ -5,7 +5,7 @@ This document describes the domain-specific theory evaluation surfaces in the do
 ## Overview
 
 The theory surfaces are Next.js applications that allow users to evaluate theories in specific domains:
-- **bets.dock108.ai** - Betting theories with edge estimates and Kelly sizing
+- **bets.dock108.ai** - Betting theories with v1 pipeline (LLM grading, historical/backtest, upcoming bets)
 - **crypto.dock108.ai** - Cryptocurrency pattern analysis
 - **stocks.dock108.ai** - Stock market fundamentals and correlation analysis
 - **conspiracies.dock108.ai** - Conspiracy theory fact-checking with evidence analysis
@@ -54,10 +54,11 @@ Shared React components:
 
 All surfaces use the same `services/theory-engine-api` backend:
 
-- `POST /api/theory/bets` - Evaluate betting theory
-- `POST /api/theory/crypto` - Evaluate crypto theory
-- `POST /api/theory/stocks` - Evaluate stock theory
-- `POST /api/theory/conspiracies` - Evaluate conspiracy theory
+- Bets: `POST /api/theory-runs` (v1 pipeline), `GET /api/theory-runs/{id}`
+- Admin (bets v1): `GET /api/admin/theory-runs`, `GET /api/admin/theory-runs/{id}`
+- Crypto: `POST /api/theory/crypto`
+- Stocks: `POST /api/theory/stocks`
+- Conspiracies: `POST /api/theory/conspiracies`
 
 See `services/theory-engine-api/app/routers/` for implementation details.
 
@@ -65,20 +66,21 @@ See `services/theory-engine-api/app/routers/` for implementation details.
 
 ### Bets (`theory-bets-web`)
 
-**Request Fields:**
-- `text`: Theory text (required)
-- `sport`: Sport name (e.g., "NBA", "NFL") (optional)
-- `league`: League name (optional)
-- `horizon`: "single_game" or "full_season" (default: "single_game")
+**Request Fields (v1 pipeline via `/api/theory-runs`):**
+- `sport`: e.g., "NBA", "NFL" (required)
+- `theory_text`: Theory text (required)
+- `user_stats`: Optional list of stat overrides
+- `user_bet_types`: Optional list of bet-type overrides
 
-**Response Fields:**
-- `likelihood_grade`: A-F grade for likelihood
-- `edge_estimate`: Estimated edge (0-1)
-- `kelly_sizing_example`: Long-term outcome with Kelly-lite sizing
+**Response Fields (simplified):**
+- `summary`, `prompt_feedback`
+- `bet_performance_by_type` (historical + last 30d)
+- `upcoming_bets` (recommendations, edge, P2P suggestions)
+- `stat_drivers`, `model_explanation`, `meta`
 
 **Examples:**
-- "The Lakers will cover the spread because their defense improved after the trade deadline"
-- "MLB moneyline trend: Teams with 3+ consecutive wins have 65% win rate"
+- "Home teams cover in back-to-backs at altitude"
+- "Unders hit more in early-season divisional games"
 
 ### Crypto (`theory-crypto-web`)
 

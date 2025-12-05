@@ -12,7 +12,7 @@ from typing import Any, Sequence
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import Select, desc, select
+from sqlalchemy import Select, desc, func, select, text
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql import or_
 
@@ -294,5 +294,56 @@ async def run_eda_query(
 
     next_offset = offset + limit if offset + limit < total else None
     return EDAQueryResponse(rows=rows, total=total, next_offset=next_offset)
+
+
+class AvailableStatKeysResponse(BaseModel):
+    """Response with available stat keys for a league."""
+
+    league_code: str
+    team_stat_keys: list[str]
+    player_stat_keys: list[str]
+
+
+@router.get("/stat-keys/{league_code}", response_model=AvailableStatKeysResponse)
+async def get_available_stat_keys(
+    league_code: str,
+    session: AsyncSession = Depends(get_db),
+) -> AvailableStatKeysResponse:
+    """Get available team and player stat keys for a given league.
+
+    Extracts distinct keys from the JSONB stats columns in the database
+    for use in the EDA UI multi-select dropdowns.
+    """
+    league = await _get_league(session, league_code)
+
+    # Get distinct team stat keys using jsonb_object_keys
+    team_keys_query = text("""
+        SELECT DISTINCT key
+        FROM sports_team_boxscores tb
+        JOIN sports_games g ON tb.game_id = g.id
+        CROSS JOIN LATERAL jsonb_object_keys(tb.stats) AS key
+        WHERE g.league_id = :league_id
+        ORDER BY key
+    """)
+    team_result = await session.execute(team_keys_query, {"league_id": league.id})
+    team_stat_keys = [row[0] for row in team_result.fetchall()]
+
+    # Get distinct player stat keys using jsonb_object_keys
+    player_keys_query = text("""
+        SELECT DISTINCT key
+        FROM sports_player_boxscores pb
+        JOIN sports_games g ON pb.game_id = g.id
+        CROSS JOIN LATERAL jsonb_object_keys(pb.stats) AS key
+        WHERE g.league_id = :league_id
+        ORDER BY key
+    """)
+    player_result = await session.execute(player_keys_query, {"league_id": league.id})
+    player_stat_keys = [row[0] for row in player_result.fetchall()]
+
+    return AvailableStatKeysResponse(
+        league_code=league.code,
+        team_stat_keys=team_stat_keys,
+        player_stat_keys=player_stat_keys,
+    )
 
 

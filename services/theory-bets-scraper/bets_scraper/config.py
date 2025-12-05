@@ -72,7 +72,27 @@ class Settings(BaseSettings):
         if isinstance(v, str) and 'asyncpg' in v:
             return v.replace('asyncpg', 'psycopg')
         return v
+    
+    # Redis configuration - can be set via REDIS_URL or constructed from components
     redis_url: str = Field("redis://localhost:6379/2", alias="REDIS_URL")
+    redis_host: str = Field("localhost", alias="REDIS_HOST")
+    redis_password: str | None = Field(None, alias="REDIS_PASSWORD")
+    redis_db: int = Field(2, alias="REDIS_DB")
+    
+    @model_validator(mode="after")
+    def _build_redis_url(self) -> "Settings":
+        """
+        Build Redis URL from components if REDIS_HOST is set to a non-localhost value.
+        This handles Docker environments where we pass REDIS_HOST=redis and REDIS_PASSWORD separately.
+        """
+        # If redis_host is not localhost, construct the URL from components
+        if self.redis_host != "localhost":
+            if self.redis_password:
+                self.redis_url = f"redis://:{self.redis_password}@{self.redis_host}:6379/{self.redis_db}"
+            else:
+                self.redis_url = f"redis://{self.redis_host}:6379/{self.redis_db}"
+        return self
+    
     odds_api_key: str | None = Field(None, alias="ODDS_API_KEY")
     environment: str = Field("development", alias="ENVIRONMENT")
     scraper_config: ScraperConfig = Field(default_factory=ScraperConfig)

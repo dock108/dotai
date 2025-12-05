@@ -55,8 +55,7 @@ export function useTheoryEvaluation<T extends TheoryResponse = TheoryResponse>(
 
         switch (domain) {
           case "bets":
-            response = await api.evaluateBets(request as BetsRequest);
-            break;
+            throw new Error("Deprecated: /api/theory/bets was removed. Use /api/theory-runs from the web client.");
           case "crypto":
             response = await api.evaluateCrypto(request);
             break;

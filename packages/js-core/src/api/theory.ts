@@ -24,10 +24,11 @@ export class TheoryAPI {
   }
 
   /**
-   * Evaluate a betting theory.
+   * Evaluate a betting theory (deprecated: use /api/theory-runs via web client).
+   * This method now throws to prevent calling the removed endpoint.
    */
-  async evaluateBets(request: BetsRequest): Promise<BetsResponse> {
-    return this.client.post<BetsResponse>("/api/theory/bets", request);
+  async evaluateBets(_request: BetsRequest): Promise<BetsResponse> {
+    throw new Error("Deprecated: /api/theory/bets was removed. Use /api/theory-runs instead.");
   }
 
   /**

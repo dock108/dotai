@@ -1,25 +1,50 @@
-PNPM ?= pnpm
-UVX ?= uvx
+# Dock108 Development Commands
+# Run these from the repo root directory
 
-.PHONY: lint test dev fmt fmt-js fmt-py
+COMPOSE_FILE := infra/docker-compose.yml
+ENV_FILE := .env
 
-lint:
-	$(PNPM) lint
-	$(UVX) ruff check services packages
-	$(UVX) black --check services packages
+.PHONY: up down restart logs ps build clean
 
-test:
-	$(PNPM) test
-	$(UVX) pytest || true
+# Start all services
+up:
+	docker compose --env-file $(ENV_FILE) -f $(COMPOSE_FILE) up -d
 
-dev:
-	$(PNPM) dev
+# Start specific service(s) - usage: make up-svc SVC="theory-engine-api scraper-worker"
+up-svc:
+	docker compose --env-file $(ENV_FILE) -f $(COMPOSE_FILE) up -d $(SVC)
 
-fmt: fmt-js fmt-py
+# Stop all services
+down:
+	docker compose --env-file $(ENV_FILE) -f $(COMPOSE_FILE) down
 
-fmt-js:
-	$(PNPM) format:write
+# Restart all services
+restart: down up
 
-fmt-py:
-	$(UVX) black services packages
+# View logs (all services)
+logs:
+	docker compose --env-file $(ENV_FILE) -f $(COMPOSE_FILE) logs -f
 
+# View logs for specific service - usage: make logs-svc SVC=scraper-worker
+logs-svc:
+	docker compose --env-file $(ENV_FILE) -f $(COMPOSE_FILE) logs -f $(SVC)
+
+# Show running containers
+ps:
+	docker compose --env-file $(ENV_FILE) -f $(COMPOSE_FILE) ps
+
+# Rebuild images
+build:
+	docker compose --env-file $(ENV_FILE) -f $(COMPOSE_FILE) build
+
+# Rebuild specific service - usage: make build-svc SVC=theory-engine-api
+build-svc:
+	docker compose --env-file $(ENV_FILE) -f $(COMPOSE_FILE) build $(SVC)
+
+# Stop and remove containers, networks, volumes
+clean:
+	docker compose --env-file $(ENV_FILE) -f $(COMPOSE_FILE) down -v --remove-orphans
+
+# Rebuild and restart a specific service
+rebuild-svc:
+	docker compose --env-file $(ENV_FILE) -f $(COMPOSE_FILE) up -d --build $(SVC)
