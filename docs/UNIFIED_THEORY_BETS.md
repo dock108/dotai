@@ -16,6 +16,3 @@
 - Admin: `GET /api/admin/theory-runs`, `GET /api/admin/theory-runs/{id}`
 - Admin (EDA): `POST /api/admin/sports/eda/generate-features`, `POST /api/admin/sports/eda/analyze`, `POST /api/admin/sports/eda/build-model`, `POST /api/admin/sports/eda/analyze/export`
 
-## Known limits
-- Monte Carlo and filters are still basic/stubbed; refine with real models/filters as next step.
-

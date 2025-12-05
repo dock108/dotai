@@ -142,14 +142,6 @@ For production, use a secure secrets manager (AWS Secrets Manager, Google Secret
 5. **Monitor token usage** for suspicious activity
 6. **Revoke tokens** if compromised
 
-## Next Steps
-
-Once OAuth is set up:
-1. Test playlist creation with a simple request
-2. Verify tokens refresh automatically
-3. Monitor token expiration and refresh cycles
-4. Set up production OAuth credentials with proper redirect URIs
-
 ## Additional Resources
 
 - [Google OAuth 2.0 Documentation](https://developers.google.com/identity/protocols/oauth2)

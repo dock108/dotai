@@ -83,10 +83,7 @@ The service currently targets `gpt-4o-mini` with temperature 0.5. Adjust `LLMCon
 
 ## Outstanding / Next Steps
 
-- 🔄 Plug in a real API key and test live completions on physical devices
-- 🎨 Optionally tune the color palette via `Assets.xcassets` to match your brand
-- 🧪 Add more unit/UI tests (see `TESTING.md`)
-- 📋 Consider persisting solved/failed state across launches using your preferred storage
+Tracked centrally in `docs/TODO.md`.
 
 ## Sharing & Docs
 

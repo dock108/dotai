@@ -612,11 +612,3 @@ Data workers use Celery for async task processing:
 
 See [`services/data-workers.md`](../services/data-workers.md) for detailed documentation.
 
-## Next Steps
-
-After successful local setup:
-1. Review `docs/HIGHLIGHTS_API.md` for API details
-2. Review [`HIGHLIGHTS_MVP.md`](HIGHLIGHTS_MVP.md) for constraints and limitations
-3. Review `docs/THEORY_SURFACES.md` for theory surface documentation
-4. See [`DEPLOYMENT.md`](DEPLOYMENT.md) for full monorepo production deployment (all services and apps)
-
