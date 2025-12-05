@@ -7,125 +7,109 @@ simulations. They are **admin-only** and are not exposed to end users.
 
 from __future__ import annotations
 
-from datetime import date, datetime
-from typing import Any, Sequence
+from datetime import datetime
+import csv
+import io
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import Select, desc, func, select, text
+from fastapi import APIRouter, Depends, HTTPException, status
+from starlette.responses import StreamingResponse
+from pydantic import BaseModel
+from sqlalchemy import Select, func, select, text
 from sqlalchemy.orm import selectinload
-from sqlalchemy.sql import or_
 
 from .. import db_models
 from ..db import AsyncSession, get_db
+import numpy as np
+
 from ..services.derived_metrics import compute_derived_metrics
+from ..services.feature_compute import compute_features_for_games
+from ..services.feature_engine import GeneratedFeature as GeneratedFeatureDTO, generate_features, summarize_features
+from ..services.model_builder import TrainedModel, train_logistic_regression
+from ..services.theory_generator import SuggestedTheory, generate_theories
 
 router = APIRouter(prefix="/api/admin/sports/eda", tags=["sports-eda"])
 
 
-class EDAFilters(BaseModel):
-    """High-level filters for an EDA query.
-
-    League-specific by design – callers must choose a single league_code.
-    """
-
-    model_config = ConfigDict(populate_by_name=True)
-
-    league_code: str = Field(..., alias="leagueCode")
-    season: int | None = Field(None, alias="season")
-    start_date: date | None = Field(None, alias="startDate")
-    end_date: date | None = Field(None, alias="endDate")
-    team: str | None = Field(
-        None,
-        description="Optional team name filter (substring match against home/away team names).",
-    )
-    season_type: str | None = Field(
-        None,
-        alias="seasonType",
-        description="Optional season type filter ('regular', 'playoffs', etc.).",
-    )
-    market_type: str | None = Field(
-        None,
-        alias="marketType",
-        description="Optional odds market type filter ('spread', 'total', 'moneyline').",
-    )
-    side: str | None = Field(
-        None,
-        alias="side",
-        description="Optional odds side filter ('home', 'away', 'over', 'under').",
-    )
-    closing_only: bool = Field(
-        True,
-        alias="closingOnly",
-        description="If true, only closing lines are considered when computing derived metrics.",
-    )
-    include_player_stats: bool = Field(
-        False,
-        alias="includePlayerStats",
-        description="If true, include per-player stats in the response.",
-    )
-    team_stat_keys: list[str] = Field(
-        default_factory=list,
-        alias="teamStatKeys",
-        description="Subset of team stat keys to include; empty means include all.",
-    )
-    player_stat_keys: list[str] = Field(
-        default_factory=list,
-        alias="playerStatKeys",
-        description="Subset of player stat keys to include; empty means include all.",
-    )
+# ---------- Feature generation ----------
 
 
-class EDATeamStats(BaseModel):
-    team: str
-    is_home: bool
-    stats: dict[str, Any]
-
-
-class EDAPlayerStats(BaseModel):
-    team: str
-    player_name: str
-    stats: dict[str, Any]
-
-
-class EDATargets(BaseModel):
-    """Standardized outcome targets derived from scores + odds."""
-
-    winner: str | None = None  # "home" | "away" | "tie"
-    did_home_cover: bool | None = None
-    did_away_cover: bool | None = None
-    total_result: str | None = None  # "over" | "under" | "push"
-    moneyline_upset: bool | None = None
-    margin_of_victory: float | None = None
-    combined_score: float | None = None
-    closing_spread_home: float | None = None
-    closing_spread_away: float | None = None
-    closing_total: float | None = None
-
-
-class EDAGameRow(BaseModel):
-    """Single game row used for EDA / modeling."""
-
-    game_id: int
+class FeatureGenerationRequest(BaseModel):
     league_code: str
-    season: int
-    season_type: str
-    game_date: datetime
-    home_team: str
-    away_team: str
-    home_score: int | None
-    away_score: int | None
-    targets: EDATargets
-    team_stats: list[EDATeamStats]
-    player_stats: list[EDAPlayerStats] | None = None
+    raw_stats: list[str]
+    include_rest_days: bool = False
+    include_rolling: bool = False
+    rolling_window: int = 5
 
 
-class EDAQueryResponse(BaseModel):
-    """Response for an EDA query."""
+class GeneratedFeature(BaseModel):
+    name: str
+    formula: str
+    category: str
+    requires: list[str]
 
-    rows: list[EDAGameRow]
-    total: int
-    next_offset: int | None
+
+class FeatureGenerationResponse(BaseModel):
+    features: list[GeneratedFeature]
+    summary: str
+
+
+class AnalysisRequest(BaseModel):
+    league_code: str
+    features: list[GeneratedFeature]
+    target: str  # "cover" | "win" | "over"
+    seasons: list[int] | None = None
+
+
+class CorrelationResult(BaseModel):
+    feature: str
+    correlation: float
+    p_value: float | None = None
+    is_significant: bool = False
+
+
+class SegmentResult(BaseModel):
+    condition: str
+    sample_size: int
+    hit_rate: float
+    baseline_rate: float
+    edge: float
+
+
+class AnalysisResponse(BaseModel):
+    sample_size: int
+    baseline_rate: float
+    correlations: list[CorrelationResult]
+    best_segments: list[SegmentResult]
+    insights: list[str]
+
+
+class ModelBuildRequest(BaseModel):
+    league_code: str
+    features: list[GeneratedFeature]
+    target: str
+    seasons: list[int] | None = None
+
+
+class TrainedModelResponse(BaseModel):
+    model_type: str
+    features_used: list[str]
+    feature_weights: dict[str, float]
+    accuracy: float
+    roi: float
+
+
+class SuggestedTheoryResponse(BaseModel):
+    text: str
+    features_used: list[str]
+    historical_edge: float
+    confidence: str
+
+
+class ModelBuildResponse(BaseModel):
+    model_summary: TrainedModelResponse
+    suggested_theories: list[SuggestedTheoryResponse]
+    validation_stats: dict[str, float]
 
 
 async def _get_league(session: AsyncSession, code: str) -> db_models.SportsLeague:
@@ -135,165 +119,6 @@ async def _get_league(session: AsyncSession, code: str) -> db_models.SportsLeagu
     if not league:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"League {code} not found")
     return league
-
-
-def _apply_eda_filters(stmt: Select, league: db_models.SportsLeague, filters: EDAFilters) -> Select:
-    """Apply league + game filters to a base statement."""
-    stmt = stmt.where(db_models.SportsGame.league_id == league.id)
-
-    if filters.season is not None:
-        stmt = stmt.where(db_models.SportsGame.season == filters.season)
-
-    if filters.season_type:
-        stmt = stmt.where(db_models.SportsGame.season_type == filters.season_type)
-
-    if filters.start_date:
-        stmt = stmt.where(db_models.SportsGame.game_date >= datetime.combine(filters.start_date, datetime.min.time()))
-
-    if filters.end_date:
-        stmt = stmt.where(db_models.SportsGame.game_date <= datetime.combine(filters.end_date, datetime.max.time()))
-
-    if filters.team:
-        pattern = f"%{filters.team}%"
-        stmt = stmt.where(
-            or_(
-                db_models.SportsGame.home_team.has(db_models.SportsTeam.name.ilike(pattern)),
-                db_models.SportsGame.away_team.has(db_models.SportsTeam.name.ilike(pattern)),
-                db_models.SportsGame.home_team.has(db_models.SportsTeam.short_name.ilike(pattern)),
-                db_models.SportsGame.away_team.has(db_models.SportsTeam.short_name.ilike(pattern)),
-                db_models.SportsGame.home_team.has(db_models.SportsTeam.abbreviation.ilike(pattern)),
-                db_models.SportsGame.away_team.has(db_models.SportsTeam.abbreviation.ilike(pattern)),
-            )
-        )
-
-    return stmt
-
-
-def _filter_stats(raw: dict[str, Any], keys: Sequence[str]) -> dict[str, Any]:
-    """Return a filtered stats dict based on requested keys."""
-    if not raw:
-        return {}
-    if not keys:
-        return raw
-    return {k: v for k, v in raw.items() if k in keys}
-
-
-def _build_targets(metrics: dict[str, Any]) -> EDATargets:
-    """Project derived_metrics dict into the standardized EDATargets model."""
-    return EDATargets(
-        winner=metrics.get("winner"),
-        did_home_cover=metrics.get("did_home_cover"),
-        did_away_cover=metrics.get("did_away_cover"),
-        total_result=metrics.get("total_result"),
-        moneyline_upset=metrics.get("moneyline_upset"),
-        margin_of_victory=metrics.get("margin_of_victory"),
-        combined_score=metrics.get("combined_score"),
-        closing_spread_home=metrics.get("closing_spread_home"),
-        closing_spread_away=metrics.get("closing_spread_away"),
-        closing_total=metrics.get("closing_total"),
-    )
-
-
-@router.post("/query", response_model=EDAQueryResponse)
-async def run_eda_query(
-    payload: EDAFilters,
-    session: AsyncSession = Depends(get_db),
-    limit: int = Query(200, ge=1, le=500),
-    offset: int = Query(0, ge=0),
-) -> EDAQueryResponse:
-    """Run an EDA query for a single league.
-
-    This endpoint is intentionally generic:
-    - League-specific (no cross-league queries).
-    - Returns per-game rows with standardized outcome targets and
-      optional team/player stats restricted to requested keys.
-    - Designed for internal tools and modeling pipelines – not for
-      direct end-user consumption.
-    """
-    league = await _get_league(session, payload.league_code)
-
-    base_stmt: Select = select(db_models.SportsGame).options(
-        selectinload(db_models.SportsGame.league),
-        selectinload(db_models.SportsGame.home_team),
-        selectinload(db_models.SportsGame.away_team),
-        selectinload(db_models.SportsGame.team_boxscores),
-        selectinload(db_models.SportsGame.player_boxscores),
-        selectinload(db_models.SportsGame.odds),
-    )
-
-    base_stmt = _apply_eda_filters(base_stmt, league, payload)
-
-    stmt = base_stmt.order_by(desc(db_models.SportsGame.game_date)).offset(offset).limit(limit)
-    results = await session.execute(stmt)
-    games: list[db_models.SportsGame] = results.scalars().unique().all()
-
-    # Separate count query for pagination
-    count_stmt: Select = select(func.count(db_models.SportsGame.id))
-    count_stmt = _apply_eda_filters(count_stmt, league, payload)
-    total = (await session.execute(count_stmt)).scalar_one()
-
-    rows: list[EDAGameRow] = []
-
-    for game in games:
-        # Optionally filter odds by market_type/side/closing flag before computing metrics
-        odds = game.odds
-        if payload.market_type:
-            odds = [o for o in odds if o.market_type == payload.market_type]
-        if payload.side:
-            odds = [o for o in odds if (o.side or "").lower() == payload.side.lower()]
-        if payload.closing_only:
-            odds = [o for o in odds if o.is_closing_line]
-
-        metrics = compute_derived_metrics(game, odds)
-        targets = _build_targets(metrics)
-
-        team_stats: list[EDATeamStats] = []
-        for box in game.team_boxscores:
-            # League isolation already enforced; just filter stats
-            team_name = box.team.name if box.team else "Unknown"
-            filtered = _filter_stats(box.stats or {}, payload.team_stat_keys)
-            team_stats.append(
-                EDATeamStats(
-                    team=team_name,
-                    is_home=box.is_home,
-                    stats=filtered,
-                )
-            )
-
-        player_stats: list[EDAPlayerStats] | None = None
-        if payload.include_player_stats:
-            player_stats = []
-            for pb in game.player_boxscores:
-                team_name = pb.team.name if pb.team else "Unknown"
-                filtered = _filter_stats(pb.stats or {}, payload.player_stat_keys)
-                if not filtered:
-                    continue
-                player_stats.append(
-                    EDAPlayerStats(
-                        team=team_name,
-                        player_name=pb.player_name,
-                        stats=filtered,
-                    )
-                )
-
-        row = EDAGameRow(
-            game_id=game.id,
-            league_code=league.code,
-            season=game.season,
-            season_type=game.season_type,
-            game_date=game.game_date,
-            home_team=game.home_team.name if game.home_team else "Unknown",
-            away_team=game.away_team.name if game.away_team else "Unknown",
-            home_score=game.home_score,
-            away_score=game.away_score,
-            targets=targets,
-            team_stats=team_stats,
-            player_stats=player_stats,
-        )
-        rows.append(row)
-
-    next_offset = offset + limit if offset + limit < total else None
-    return EDAQueryResponse(rows=rows, total=total, next_offset=next_offset)
 
 
 class AvailableStatKeysResponse(BaseModel):
@@ -344,6 +169,316 @@ async def get_available_stat_keys(
         league_code=league.code,
         team_stat_keys=team_stat_keys,
         player_stat_keys=player_stat_keys,
+    )
+
+
+@router.post("/generate-features", response_model=FeatureGenerationResponse)
+async def generate_feature_catalog(req: FeatureGenerationRequest) -> FeatureGenerationResponse:
+    """Generate feature descriptors based on selected raw stats and context flags."""
+    generated = generate_features(
+        raw_stats=req.raw_stats,
+        include_rest_days=req.include_rest_days,
+        include_rolling=req.include_rolling,
+        rolling_window=req.rolling_window,
+    )
+    features = [
+        GeneratedFeature(
+            name=f.name,
+            formula=f.formula,
+            category=f.category,
+            requires=f.requires,
+        )
+        for f in generated
+    ]
+    return FeatureGenerationResponse(
+        features=features,
+        summary=summarize_features(generated, req.raw_stats, req.include_rest_days),
+    )
+
+
+def _target_value(metrics: dict[str, Any], target: str) -> float | None:
+    if target == "cover":
+        val = metrics.get("did_home_cover")
+        return 1.0 if val else 0.0 if val is not None else None
+    if target == "win":
+        val = metrics.get("winner")
+        return 1.0 if val == "home" else 0.0 if val == "away" else None
+    if target == "over":
+        val = metrics.get("total_result")
+        return 1.0 if val == "over" else 0.0 if val == "under" else None
+    return None
+
+
+def _pearson_correlation(x: list[float], y: list[float]) -> float | None:
+    if len(x) < 5:
+        return None
+    x_arr = np.array(x, dtype=float)
+    y_arr = np.array(y, dtype=float)
+    if np.std(x_arr) == 0 or np.std(y_arr) == 0:
+        return None
+    return float(np.corrcoef(x_arr, y_arr)[0, 1])
+
+
+@router.post("/analyze", response_model=AnalysisResponse)
+async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get_db)) -> AnalysisResponse:
+    """Run correlation analysis for generated features against a target."""
+    league = await _get_league(session, req.league_code)
+
+    # Fetch game ids filtered by seasons if provided
+    stmt: Select = select(db_models.SportsGame.id, db_models.SportsGame.season).where(db_models.SportsGame.league_id == league.id)
+    if req.seasons:
+        stmt = stmt.where(db_models.SportsGame.season.in_(req.seasons))
+    game_rows = await session.execute(stmt)
+    all_game_ids = [row[0] for row in game_rows.fetchall()]
+
+    if not all_game_ids:
+        return AnalysisResponse(
+            sample_size=0,
+            baseline_rate=0.0,
+            correlations=[],
+            best_segments=[],
+            insights=["No games found for the selected filters."],
+        )
+
+    # Compute feature values
+    feature_data = await compute_features_for_games(session, league.id, all_game_ids, req.features)
+
+    # Fetch derived targets
+    game_to_targets: dict[int, float] = {}
+    stmt_games = (
+        select(db_models.SportsGame)
+        .where(db_models.SportsGame.id.in_(all_game_ids))
+        .options(
+            selectinload(db_models.SportsGame.odds),
+            selectinload(db_models.SportsGame.home_team),
+            selectinload(db_models.SportsGame.away_team),
+        )
+    )
+    games_res = await session.execute(stmt_games)
+    for game in games_res.scalars().all():
+        metrics = compute_derived_metrics(game, game.odds)
+        tgt_val = _target_value(metrics, req.target)
+        if tgt_val is not None:
+            game_to_targets[game.id] = tgt_val
+
+    # Assemble aligned data
+    aligned_features: dict[str, list[float]] = {f.name: [] for f in req.features}
+    aligned_target: list[float] = []
+
+    for row in feature_data:
+        game_id = row.get("game_id")
+        if game_id not in game_to_targets:
+            continue
+        target_val = game_to_targets[game_id]
+        row_has_all = False
+        for f in req.features:
+            val = row.get(f.name)
+            if isinstance(val, (int, float)) and val is not None:
+                aligned_features[f.name].append(float(val))
+                row_has_all = True
+            else:
+                aligned_features[f.name].append(np.nan)
+        if row_has_all:
+            aligned_target.append(target_val)
+
+    sample_size = len(aligned_target)
+    if sample_size == 0:
+        return AnalysisResponse(
+            sample_size=0,
+            baseline_rate=0.0,
+            correlations=[],
+            best_segments=[],
+            insights=["No target values available for selected games."],
+        )
+
+    baseline_rate = float(np.mean(aligned_target))
+
+    correlations: list[CorrelationResult] = []
+    insights: list[str] = []
+
+    # Drop duplicate/identical feature vectors and near-constant features to avoid skew
+    usable_features: dict[str, list[float]] = {}
+    seen_signatures: set[tuple] = set()
+    dropped_dupe = 0
+    dropped_low_var = 0
+    for name, values in aligned_features.items():
+        if len(values) != sample_size:
+            continue
+        clean_vals = [v for v in values if not np.isnan(v)]
+        if len(clean_vals) < 5:
+            continue
+        if np.std(clean_vals) < 1e-9:  # effectively constant
+            dropped_low_var += 1
+            continue
+        signature = tuple(None if np.isnan(v) else round(float(v), 6) for v in values)
+        if signature in seen_signatures:
+            dropped_dupe += 1
+            continue
+        seen_signatures.add(signature)
+        usable_features[name] = values
+
+    for name, values in usable_features.items():
+        clean_pairs = [(x, y) for x, y in zip(values, aligned_target) if not (np.isnan(x) or np.isnan(y))]
+        if len(clean_pairs) < 5:
+            continue
+        xs = [p[0] for p in clean_pairs]
+        ys = [p[1] for p in clean_pairs]
+        corr = _pearson_correlation(xs, ys)
+        if corr is None:
+            continue
+        is_sig = abs(corr) >= 0.05
+        correlations.append(CorrelationResult(feature=name, correlation=corr, p_value=None, is_significant=is_sig))
+        if is_sig:
+            direction = "more" if corr > 0 else "less"
+            insights.append(f"{name} correlates with {req.target}: {direction} {req.target} when this increases.")
+
+    correlations = sorted(correlations, key=lambda c: abs(c.correlation), reverse=True)[:10]
+
+    return AnalysisResponse(
+        sample_size=sample_size,
+        baseline_rate=baseline_rate,
+        correlations=correlations,
+        best_segments=[],  # Placeholder for future segment discovery
+        insights=(
+            insights[:5]
+            or [
+                "No strong correlations detected.",
+                f"Dropped {dropped_dupe} duplicate feature vectors and {dropped_low_var} low-variance features."
+                if (dropped_dupe or dropped_low_var)
+                else "",
+            ]
+        ),
+    )
+
+
+@router.post("/analyze/export")
+async def export_analysis_csv(req: AnalysisRequest, session: AsyncSession = Depends(get_db)) -> StreamingResponse:
+    """Export the feature matrix with targets as CSV, for the same filters/features/target used in analysis."""
+    league = await _get_league(session, req.league_code)
+
+    stmt: Select = select(db_models.SportsGame.id).where(db_models.SportsGame.league_id == league.id)
+    if req.seasons:
+        stmt = stmt.where(db_models.SportsGame.season.in_(req.seasons))
+    game_rows = await session.execute(stmt)
+    all_game_ids = [row[0] for row in game_rows.fetchall()]
+
+    if not all_game_ids:
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(["game_id", "target", *[f.name for f in req.features]])
+        return StreamingResponse(iter([buffer.getvalue()]), media_type="text/csv")
+
+    feature_data = await compute_features_for_games(session, league.id, all_game_ids, req.features)
+
+    # Fetch derived targets
+    game_to_targets: dict[int, float] = {}
+    stmt_games = select(db_models.SportsGame).where(db_models.SportsGame.id.in_(all_game_ids)).options(
+        selectinload(db_models.SportsGame.odds),
+        selectinload(db_models.SportsGame.home_team),
+        selectinload(db_models.SportsGame.away_team),
+    )
+    games_res = await session.execute(stmt_games)
+    for game in games_res.scalars().all():
+        metrics = compute_derived_metrics(game, game.odds)
+        tgt_val = _target_value(metrics, req.target)
+        if tgt_val is not None:
+            game_to_targets[game.id] = tgt_val
+
+    feature_names = [f.name for f in req.features]
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(["game_id", "target", *feature_names])
+
+    for row in feature_data:
+        gid = row.get("game_id")
+        if gid not in game_to_targets:
+            continue
+        target_val = game_to_targets[gid]
+        vals = [row.get(fname, "") for fname in feature_names]
+        writer.writerow([gid, target_val, *vals])
+
+    return StreamingResponse(iter([buffer.getvalue()]), media_type="text/csv")
+
+
+@router.post("/build-model", response_model=ModelBuildResponse)
+async def build_model(req: ModelBuildRequest, session: AsyncSession = Depends(get_db)) -> ModelBuildResponse:
+    """Train a lightweight model on the computed features and return suggested theories."""
+    league = await _get_league(session, req.league_code)
+
+    stmt: Select = select(db_models.SportsGame.id, db_models.SportsGame.season).where(db_models.SportsGame.league_id == league.id)
+    if req.seasons:
+        stmt = stmt.where(db_models.SportsGame.season.in_(req.seasons))
+    game_rows = await session.execute(stmt)
+    all_game_ids = [row[0] for row in game_rows.fetchall()]
+
+    if not all_game_ids:
+        return ModelBuildResponse(
+            model_summary=TrainedModelResponse(
+                model_type="logistic_regression",
+                features_used=[],
+                feature_weights={},
+                accuracy=0.0,
+                roi=0.0,
+            ),
+            suggested_theories=[],
+            validation_stats={},
+        )
+
+    feature_data = await compute_features_for_games(session, league.id, all_game_ids, req.features)
+
+    # target values
+    stmt_games = (
+        select(db_models.SportsGame)
+        .where(db_models.SportsGame.id.in_(all_game_ids))
+        .options(
+            selectinload(db_models.SportsGame.odds),
+            selectinload(db_models.SportsGame.home_team),
+            selectinload(db_models.SportsGame.away_team),
+        )
+    )
+    games_res = await session.execute(stmt_games)
+    game_to_target: dict[int, float] = {}
+    for game in games_res.scalars().all():
+        metrics = compute_derived_metrics(game, game.odds)
+        tgt_val = _target_value(metrics, req.target)
+        if tgt_val is not None:
+            game_to_target[game.id] = tgt_val
+
+    aligned_rows: list[dict] = []
+    feature_names = [f.name for f in req.features]
+    for row in feature_data:
+        gid = row.get("game_id")
+        if gid not in game_to_target:
+            continue
+        entry = {"__target__": game_to_target[gid]}
+        for fname in feature_names:
+            entry[fname] = row.get(fname, 0.0) or 0.0
+        aligned_rows.append(entry)
+
+    trained = train_logistic_regression(aligned_rows, feature_names, "__target__")
+
+    # Use previous analysis correlations if available; otherwise empty
+    correlations: list[CorrelationResult] = []
+    suggested = generate_theories(trained, correlations, [])
+
+    return ModelBuildResponse(
+        model_summary=TrainedModelResponse(
+            model_type=trained.model_type,
+            features_used=trained.features_used,
+            feature_weights=trained.feature_weights,
+            accuracy=trained.accuracy,
+            roi=trained.roi,
+        ),
+        suggested_theories=[
+          SuggestedTheoryResponse(
+              text=t.text,
+              features_used=t.features_used,
+              historical_edge=t.historical_edge,
+              confidence=t.confidence,
+          )
+          for t in suggested
+        ],
+        validation_stats={"accuracy": trained.accuracy, "roi": trained.roi},
     )
 
 

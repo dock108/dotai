@@ -281,4 +281,122 @@
   font-size: 0.75rem;
 }
 
+/* Feature generation section */
+.featureSection {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.featureHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.sectionTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.contextRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.inlineField {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.inputInline {
+  width: 72px;
+  border-radius: 6px;
+  border: 1px solid #cbd5f1;
+  padding: 0.35rem 0.45rem;
+}
+
+.featureSummary {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.9rem;
+  color: #0f172a;
+}
+
+.featureList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.6rem;
+}
+
+.featureItem {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.6rem 0.7rem;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.featureName {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.featureFormula {
+  font-size: 0.8rem;
+  color: #475569;
+}
+
+.featureMeta {
+  font-size: 0.75rem;
+  color: #2563eb;
+}
+
+.analysisBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.analysisGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.insightsList {
+  margin: 0.25rem 0 0;
+  padding-left: 1.2rem;
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.modelBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.theoryList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
 

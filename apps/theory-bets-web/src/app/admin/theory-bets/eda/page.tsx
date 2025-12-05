@@ -1,10 +1,21 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import styles from "./page.module.css";
 import { AdminCard, LoadingState, ErrorState } from "@/components/admin";
 import { SUPPORTED_LEAGUES, type LeagueCode } from "@/lib/constants/sports";
-import { runEdaQuery, fetchStatKeys, type EDAFilters, type EDAGameRow, type AvailableStatKeysResponse } from "@/lib/api/sportsAdmin";
+import {
+  fetchStatKeys,
+  generateFeatures,
+  runAnalysis,
+  buildModel,
+  downloadAnalysisCsv,
+  type AvailableStatKeysResponse,
+  type GeneratedFeature,
+  type AnalysisResponse,
+  type ModelBuildResponse,
+} from "@/lib/api/sportsAdmin";
 
 type FormState = {
   leagueCode: LeagueCode;
@@ -38,12 +49,35 @@ const INITIAL_FORM: FormState = {
 
 export default function TheoryBetsEdaPage() {
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
-  const [rows, setRows] = useState<EDAGameRow[]>([]);
-  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statKeys, setStatKeys] = useState<AvailableStatKeysResponse | null>(null);
   const [loadingStatKeys, setLoadingStatKeys] = useState(false);
+  const [generatedFeatures, setGeneratedFeatures] = useState<GeneratedFeature[]>([]);
+  const [featureSummary, setFeatureSummary] = useState<string | null>(null);
+  const [featureError, setFeatureError] = useState<string | null>(null);
+  const [includeRestDays, setIncludeRestDays] = useState(false);
+  const [includeRolling, setIncludeRolling] = useState(false);
+  const [rollingWindow, setRollingWindow] = useState(5);
+  const [analysisTarget, setAnalysisTarget] = useState<"cover" | "win" | "over">("cover");
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResponse | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [csvLoading, setCsvLoading] = useState(false);
+  const [modelResult, setModelResult] = useState<ModelBuildResponse | null>(null);
+  const [modelError, setModelError] = useState<string | null>(null);
+  const [modelLoading, setModelLoading] = useState(false);
+
+  const gamesLink = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set("league", form.leagueCode);
+    if (form.season.trim()) params.set("season", form.season.trim());
+    if (form.startDate.trim()) params.set("startDate", form.startDate.trim());
+    if (form.endDate.trim()) params.set("endDate", form.endDate.trim());
+    if (form.team.trim()) params.set("team", form.team.trim());
+    const qs = params.toString();
+    return `/admin/theory-bets/games${qs ? `?${qs}` : ""}`;
+  }, [form.leagueCode, form.season, form.startDate, form.endDate, form.team]);
 
   // Fetch available stat keys when league changes
   const loadStatKeys = useCallback(async (leagueCode: string) => {
@@ -70,6 +104,9 @@ export default function TheoryBetsEdaPage() {
       teamStatKeys: [],
       playerStatKeys: [],
     }));
+    setGeneratedFeatures([]);
+    setFeatureSummary(null);
+    setFeatureError(null);
   };
 
   const toggleStatKey = (type: "teamStatKeys" | "playerStatKeys", key: string) => {
@@ -93,124 +130,102 @@ export default function TheoryBetsEdaPage() {
     setForm((prev) => ({ ...prev, [type]: [] }));
   };
 
-  const summary = useMemo(() => {
-    if (!rows.length) {
-      return {
-        sampleSize: 0,
-        homeWinRate: null as number | null,
-        homeCoverRate: null as number | null,
-        overRate: null as number | null,
-      };
-    }
-
-    let homeWins = 0;
-    let homeCovers = 0;
-    let totalOver = 0;
-    let totalWithCoverTarget = 0;
-    let totalWithTotalTarget = 0;
-
-    for (const row of rows) {
-      const t = row.targets;
-      if (t.winner === "home") homeWins += 1;
-      if (t.did_home_cover !== null && t.did_home_cover !== undefined) {
-        totalWithCoverTarget += 1;
-        if (t.did_home_cover) homeCovers += 1;
-      }
-      if (t.total_result) {
-        totalWithTotalTarget += 1;
-        if (t.total_result === "over") totalOver += 1;
-      }
-    }
-
-    const sampleSize = rows.length;
-    return {
-      sampleSize,
-      homeWinRate: sampleSize ? homeWins / sampleSize : null,
-      homeCoverRate: totalWithCoverTarget ? homeCovers / totalWithCoverTarget : null,
-      overRate: totalWithTotalTarget ? totalOver / totalWithTotalTarget : null,
-    };
-  }, [rows]);
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setLoading(true);
-    setError(null);
-
+  const handleGenerateFeatures = async () => {
+    setFeatureError(null);
+    setAnalysisResult(null);
+    setAnalysisError(null);
     try {
-      const payload: EDAFilters = {
-        leagueCode: form.leagueCode,
-        season: form.season ? Number(form.season) : undefined,
-        startDate: form.startDate || undefined,
-        endDate: form.endDate || undefined,
-        team: form.team || undefined,
-        seasonType: form.seasonType || undefined,
-        marketType: form.marketType || undefined,
-        side: form.side || undefined,
-        closingOnly: form.closingOnly,
-        includePlayerStats: form.includePlayerStats,
-        teamStatKeys: form.teamStatKeys,
-        playerStatKeys: form.playerStatKeys,
-        limit: 200,
-        offset: 0,
-      };
-
-      const response = await runEdaQuery(payload);
-      setRows(response.rows);
-      setTotal(response.total);
+      const res = await generateFeatures({
+        league_code: form.leagueCode,
+        raw_stats: form.teamStatKeys.length ? form.teamStatKeys : statKeys?.team_stat_keys || [],
+        include_rest_days: includeRestDays,
+        include_rolling: includeRolling,
+        rolling_window: rollingWindow || 5,
+      });
+      setGeneratedFeatures(res.features);
+      setFeatureSummary(res.summary);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      setRows([]);
-      setTotal(0);
+      setFeatureError(err instanceof Error ? err.message : String(err));
+      setGeneratedFeatures([]);
+      setFeatureSummary(null);
+    }
+  };
+
+  const handleRunAnalysis = async () => {
+    setAnalysisLoading(true);
+    setAnalysisError(null);
+    try {
+      const res = await runAnalysis({
+        league_code: form.leagueCode,
+        features: generatedFeatures,
+        target: analysisTarget,
+        seasons: form.season ? [Number(form.season)] : undefined,
+      });
+      setAnalysisResult(res);
+      setModelResult(null);
+    } catch (err) {
+      setAnalysisError(err instanceof Error ? err.message : String(err));
+      setAnalysisResult(null);
     } finally {
-      setLoading(false);
+      setAnalysisLoading(false);
+    }
+  };
+
+  const handleDownloadCsv = async () => {
+    if (!generatedFeatures.length) return;
+    setCsvLoading(true);
+    try {
+      const res = await downloadAnalysisCsv({
+        league_code: form.leagueCode,
+        features: generatedFeatures,
+        target: analysisTarget,
+        seasons: form.season ? [Number(form.season)] : undefined,
+      });
+      const url = URL.createObjectURL(res);
+      const tab = window.open(url, "_blank");
+      if (!tab) {
+        throw new Error("Popup blocked. Please allow popups for this site.");
+      }
+      // Cleanup after some time
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 60_000);
+    } catch (err) {
+      setAnalysisError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCsvLoading(false);
+    }
+  };
+
+  const handleBuildModel = async () => {
+    setModelLoading(true);
+    setModelError(null);
+    try {
+      const res = await buildModel({
+        league_code: form.leagueCode,
+        features: generatedFeatures,
+        target: analysisTarget,
+        seasons: form.season ? [Number(form.season)] : undefined,
+      });
+      setModelResult(res);
+    } catch (err) {
+      setModelError(err instanceof Error ? err.message : String(err));
+      setModelResult(null);
+    } finally {
+      setModelLoading(false);
     }
   };
 
   const handleReset = () => {
     setForm(INITIAL_FORM);
-    setRows([]);
-    setTotal(0);
+    setGeneratedFeatures([]);
+    setFeatureSummary(null);
+    setFeatureError(null);
+    setAnalysisResult(null);
+    setAnalysisError(null);
+    setModelResult(null);
+    setModelError(null);
     setError(null);
-  };
-
-  const renderWinnerPill = (row: EDAGameRow) => {
-    const winner = row.targets.winner;
-    let label = "Unknown";
-    let className = `${styles.pill} ${styles.pillUnknown}`;
-    if (winner === "home") {
-      label = "Home";
-      className = `${styles.pill} ${styles.pillWin}`;
-    } else if (winner === "away") {
-      label = "Away";
-      className = `${styles.pill} ${styles.pillLoss}`;
-    } else if (winner === "tie") {
-      label = "Tie";
-      className = `${styles.pill} ${styles.pillPush}`;
-    }
-    return <span className={className}>{label}</span>;
-  };
-
-  const renderCoverPill = (row: EDAGameRow) => {
-    const value = row.targets.did_home_cover;
-    if (value === null || value === undefined) {
-      return <span className={`${styles.pill} ${styles.pillUnknown}`}>N/A</span>;
-    }
-    return (
-      <span className={`${styles.pill} ${value ? styles.pillWin : styles.pillLoss}`}>
-        {value ? "Home cover" : "No cover"}
-      </span>
-    );
-  };
-
-  const renderTotalPill = (row: EDAGameRow) => {
-    const value = row.targets.total_result;
-    if (!value) {
-      return <span className={`${styles.pill} ${styles.pillUnknown}`}>N/A</span>;
-    }
-    let className = styles.pillPush;
-    if (value === "over") className = styles.pillWin;
-    if (value === "under") className = styles.pillLoss;
-    return <span className={`${styles.pill} ${className}`}>{value}</span>;
   };
 
   return (
@@ -223,7 +238,7 @@ export default function TheoryBetsEdaPage() {
       </header>
 
       <AdminCard>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={(e) => e.preventDefault()}>
           <div className={styles.formGrid}>
             <div className={styles.field}>
               <label className={styles.label}>League</label>
@@ -405,119 +420,204 @@ export default function TheoryBetsEdaPage() {
             </div>
           </div>
 
-          <div className={styles.toggleRow}>
-            <label className={styles.toggle}>
-              <input
-                type="checkbox"
-                checked={form.closingOnly}
-                onChange={(e) => setForm((prev) => ({ ...prev, closingOnly: e.target.checked }))}
-              />
-              Closing lines only
-            </label>
-            <label className={styles.toggle}>
-              <input
-                type="checkbox"
-                checked={form.includePlayerStats}
-                onChange={(e) => setForm((prev) => ({ ...prev, includePlayerStats: e.target.checked }))}
-              />
-              Include player-level stats
-            </label>
+          <div className={styles.featureSection}>
+            <div className={styles.featureHeader}>
+              <h3 className={styles.sectionTitle}>Step 1: Generate features</h3>
+              <p className={styles.hint}>
+                Select basic stats, choose context, then generate derived features the system will use.
+              </p>
+            </div>
+
+            <div className={styles.contextRow}>
+              <label className={styles.toggle}>
+                <input
+                  type="checkbox"
+                  checked={includeRestDays}
+                  onChange={(e) => setIncludeRestDays(e.target.checked)}
+                />
+                Include rest days
+              </label>
+              <label className={styles.toggle}>
+                <input
+                  type="checkbox"
+                  checked={includeRolling}
+                  onChange={(e) => setIncludeRolling(e.target.checked)}
+                />
+                Include rolling averages
+              </label>
+              {includeRolling && (
+                <label className={styles.inlineField}>
+                  Window
+                  <input
+                    type="number"
+                    min={2}
+                    max={15}
+                    className={styles.inputInline}
+                    value={rollingWindow}
+                    onChange={(e) => setRollingWindow(Number(e.target.value) || 5)}
+                  />
+                </label>
+              )}
+              <button type="button" className={styles.primaryButton} onClick={handleGenerateFeatures}>
+                Generate features
+              </button>
+            </div>
+
+            {featureError && <div className={styles.error}>{featureError}</div>}
+            {featureSummary && <div className={styles.featureSummary}>{featureSummary}</div>}
+
+            {generatedFeatures.length > 0 && (
+              <div className={styles.featureList}>
+                {generatedFeatures.map((f) => (
+                  <div key={f.name} className={styles.featureItem}>
+                    <div className={styles.featureName}>{f.name}</div>
+                    <div className={styles.featureFormula}>{f.formula}</div>
+                    <div className={styles.featureMeta}>{f.category}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
+          {generatedFeatures.length > 0 && (
+            <div className={styles.featureSection}>
+              <div className={styles.featureHeader}>
+                <h3 className={styles.sectionTitle}>Step 2: Run analysis</h3>
+                <p className={styles.hint}>Check which generated features correlate with the chosen target.</p>
+              </div>
+              <div className={styles.contextRow}>
+                <label className={styles.inlineField}>
+                  Target
+                  <select
+                    className={styles.select}
+                    value={analysisTarget}
+                    onChange={(e) => setAnalysisTarget(e.target.value as "cover" | "win" | "over")}
+                  >
+                    <option value="cover">Cover (spread)</option>
+                    <option value="win">Win (moneyline)</option>
+                    <option value="over">Over (total)</option>
+                  </select>
+                </label>
+                <button type="button" className={styles.primaryButton} onClick={handleRunAnalysis} disabled={analysisLoading}>
+                  {analysisLoading ? "Running analysis..." : "Run analysis"}
+                </button>
+              </div>
+              {analysisError && <div className={styles.error}>{analysisError}</div>}
+              {analysisResult && (
+                <div className={styles.analysisBlock}>
+                  <div className={styles.summaryRow}>
+                    <span>
+                      Sample size: <span className={styles.summaryValue}>{analysisResult.sample_size.toLocaleString()}</span>
+                    </span>
+                    <span>
+                      Baseline rate:{" "}
+                      <span className={styles.summaryValue}>{(analysisResult.baseline_rate * 100).toFixed(1)}%</span>
+                    </span>
+                  <button
+                    type="button"
+                    className={styles.linkButton}
+                    onClick={handleDownloadCsv}
+                    disabled={csvLoading}
+                  >
+                    {csvLoading ? "Preparing CSV..." : "Download feature matrix (CSV)"}
+                  </button>
+                  </div>
+                  <p className={styles.hint}>
+                    Sample size = games with a computed target. Baseline = overall hit rate for the selected target.
+                    {" "}
+                    <Link href={gamesLink} className={styles.linkButton} target="_blank">
+                      View sample in games table
+                    </Link>
+                  </p>
+
+                  <div className={styles.analysisGrid}>
+                    <div>
+                      <h4 className={styles.sectionTitle}>Top correlations</h4>
+                      {analysisResult.correlations.length === 0 && <p className={styles.hint}>No strong correlations found.</p>}
+                      {analysisResult.correlations.length > 0 && (
+                        <table className={styles.table}>
+                          <thead>
+                            <tr>
+                              <th>Feature</th>
+                              <th>Corr</th>
+                              <th>Significant</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {analysisResult.correlations.map((c) => (
+                              <tr key={c.feature}>
+                                <td>{c.feature}</td>
+                                <td>{c.correlation.toFixed(3)}</td>
+                                <td>{c.is_significant ? "Yes" : "No"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                    <div>
+                      <h4 className={styles.sectionTitle}>Insights</h4>
+                      {analysisResult.insights.length === 0 && <p className={styles.hint}>No insights yet.</p>}
+                      {analysisResult.insights.length > 0 && (
+                        <ul className={styles.insightsList}>
+                          {analysisResult.insights.map((i, idx) => (
+                            <li key={idx}>{i}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                  <div className={styles.actions}>
+                    <button type="button" className={styles.primaryButton} onClick={handleBuildModel} disabled={modelLoading}>
+                      {modelLoading ? "Building model..." : "Build model"}
+                    </button>
+                  </div>
+                  {modelError && <div className={styles.error}>{modelError}</div>}
+                  {modelResult && (
+                    <div className={styles.modelBlock}>
+                      <h4 className={styles.sectionTitle}>Model summary</h4>
+                      <div className={styles.summaryRow}>
+                        <span>
+                          Accuracy: <span className={styles.summaryValue}>{(modelResult.model_summary.accuracy * 100).toFixed(1)}%</span>
+                        </span>
+                        <span>
+                          ROI: <span className={styles.summaryValue}>{(modelResult.model_summary.roi * 100).toFixed(1)}%</span>
+                        </span>
+                      </div>
+                      <div className={styles.featureList}>
+                        {Object.entries(modelResult.model_summary.feature_weights).map(([name, weight]) => (
+                          <div key={name} className={styles.featureItem}>
+                            <div className={styles.featureName}>{name}</div>
+                            <div className={styles.featureFormula}>weight: {weight.toFixed(3)}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <h4 className={styles.sectionTitle}>Suggested theories</h4>
+                      {modelResult.suggested_theories.length === 0 && <p className={styles.hint}>No theories generated.</p>}
+                      {modelResult.suggested_theories.length > 0 && (
+                        <div className={styles.theoryList}>
+                          {modelResult.suggested_theories.map((t, idx) => (
+                            <div key={idx} className={styles.featureItem}>
+                              <div className={styles.featureName}>{t.text}</div>
+                              <div className={styles.hint}>Confidence: {t.confidence}</div>
+                              <div className={styles.hint}>Edge: {(t.historical_edge * 100).toFixed(1)}%</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className={styles.actions}>
-            <button type="submit" className={styles.primaryButton} disabled={loading}>
-              {loading ? "Running query..." : "Run EDA query"}
-            </button>
-            <button type="button" className={styles.secondaryButton} onClick={handleReset} disabled={loading}>
+            <button type="button" className={styles.secondaryButton} onClick={handleReset}>
               Reset
             </button>
           </div>
-
-          {error && <div className={styles.error}>{error}</div>}
         </form>
-      </AdminCard>
-
-      <AdminCard>
-        <div className={styles.header}>
-          <h2 className={styles.title}>Results</h2>
-          <p className={styles.subtitle}>
-            {rows.length
-              ? `Showing ${rows.length.toLocaleString()} of ${total.toLocaleString()} games`
-              : "Run a query to see games and outcome targets."}
-          </p>
-        </div>
-
-        {loading && rows.length === 0 && <LoadingState message="Loading EDA results..." />}
-        {!loading && !rows.length && !error && (
-          <p className={styles.emptyState}>No games match the current filters.</p>
-        )}
-        {rows.length > 0 && (
-          <>
-            <div className={styles.summaryRow}>
-              <span>
-                Sample size: <span className={styles.summaryValue}>{summary.sampleSize.toLocaleString()}</span>
-              </span>
-              {summary.homeWinRate !== null && (
-                <span>
-                  Home win rate:{" "}
-                  <span className={styles.summaryValue}>{(summary.homeWinRate * 100).toFixed(1)}%</span>
-                </span>
-              )}
-              {summary.homeCoverRate !== null && (
-                <span>
-                  Home cover rate:{" "}
-                  <span className={styles.summaryValue}>{(summary.homeCoverRate * 100).toFixed(1)}%</span>
-                </span>
-              )}
-              {summary.overRate !== null && (
-                <span>
-                  Over rate:{" "}
-                  <span className={styles.summaryValue}>{(summary.overRate * 100).toFixed(1)}%</span>
-                </span>
-              )}
-            </div>
-
-            <div className={styles.tableWrapper}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>League</th>
-                    <th>Matchup</th>
-                    <th>Score</th>
-                    <th>Winner</th>
-                    <th>Cover</th>
-                    <th>Total</th>
-                    <th>Margin</th>
-                    <th>Combined</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => (
-                    <tr key={row.game_id}>
-                      <td>{new Date(row.game_date).toLocaleDateString()}</td>
-                      <td>{row.league_code}</td>
-                      <td>
-                        {row.away_team} @ {row.home_team}
-                      </td>
-                      <td>
-                        {row.away_score ?? "—"} - {row.home_score ?? "—"}
-                      </td>
-                      <td>{renderWinnerPill(row)}</td>
-                      <td>{renderCoverPill(row)}</td>
-                      <td>{renderTotalPill(row)}</td>
-                      <td>{row.targets.margin_of_victory ?? "—"}</td>
-                      <td>{row.targets.combined_score ?? "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-
-        {loading && rows.length > 0 && <LoadingState message="Updating results..." />}
-        {error && <ErrorState error={new Error(error)} title="Unable to run EDA query" />}
       </AdminCard>
     </div>
   );
