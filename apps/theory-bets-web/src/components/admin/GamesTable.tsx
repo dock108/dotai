@@ -63,10 +63,11 @@ export function GamesTable({ games, detailLinkPrefix = "/admin/theory-bets/games
             games.map((game) => {
               const gameIds = game as unknown as { id?: number | string; game_id?: number | string };
               const gameId = gameIds.id ?? gameIds.game_id;
-              const idContent = gameId ? (
+              const hasValidId = gameId !== undefined && gameId !== null && gameId !== "" && gameId !== "NaN";
+              const idContent = hasValidId ? (
                 <Link href={`${detailLinkPrefix}/${gameId}`} className={styles.link}>
                   {gameId}
-                  </Link>
+                </Link>
               ) : (
                 "—"
               );

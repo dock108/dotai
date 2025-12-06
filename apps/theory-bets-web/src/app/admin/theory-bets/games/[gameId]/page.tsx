@@ -1,19 +1,9 @@
-type Params = {
-  params: {
-    gameId: string;
-  };
-};
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-/**
- * Game detail placeholder.
- * Renders the game id so links resolve instead of redirecting to a missing route.
- */
-export default function GameDetailPage({ params }: Params) {
-  return (
-    <div style={{ padding: "1.5rem" }}>
-      <h1>Game {params.gameId}</h1>
-      <p>This game detail view is not yet implemented. Game ID: {params.gameId}</p>
-    </div>
-  );
+import GameDetailClient from "./GameDetailClient";
+
+export default function GameDetailPage() {
+  return <GameDetailClient />;
 }
 
