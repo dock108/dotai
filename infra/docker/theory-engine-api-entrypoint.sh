@@ -7,12 +7,12 @@ set -e
 if [ -d "/app/app" ]; then
     # Volume mount case: /app is the service root
     cd /app
-    # Include both current dir and packages path for py-core
-    export PYTHONPATH=/app:/app/services/theory-engine-api:/app/packages/py-core:$PYTHONPATH
+    # Add service root, src for engine package, and py-core
+    export PYTHONPATH=/app:/app/src:/app/packages/py-core:$PYTHONPATH
 else
     # Build case: /app/services/theory-engine-api
     cd /app/services/theory-engine-api
-    export PYTHONPATH=/app/services/theory-engine-api:/app/packages/py-core:$PYTHONPATH
+    export PYTHONPATH=/app/services/theory-engine-api:/app/services/theory-engine-api/src:/app/packages/py-core:$PYTHONPATH
 fi
 
 # Run uvicorn

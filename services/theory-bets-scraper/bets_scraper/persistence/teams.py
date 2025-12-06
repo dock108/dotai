@@ -125,18 +125,25 @@ def _find_team_by_name(
         exact_matches = [row[0] for row in session.execute(exact_match_stmt).all()]
         candidate_ids.extend(exact_matches)
         
-        if not exact_matches:
-            normalized_input = _normalize_ncaab_name_for_matching(team_name)
-            all_teams_stmt = (
-                select(db_models.SportsTeam.id, db_models.SportsTeam.name, db_models.SportsTeam.short_name)
-                .where(db_models.SportsTeam.league_id == league_id)
-            )
-            all_teams = session.execute(all_teams_stmt).all()
-            for team_id, db_name, db_short_name in all_teams:
-                db_name_norm = _normalize_ncaab_name_for_matching(db_name or "")
-                db_short_norm = _normalize_ncaab_name_for_matching(db_short_name or "")
-                if normalized_input == db_name_norm or normalized_input == db_short_norm:
-                    candidate_ids.append(team_id)
+        # Normalized contains/contained-by matching (no abbreviations) to avoid duplicate teams
+        normalized_input = _normalize_ncaab_name_for_matching(team_name)
+        all_teams_stmt = (
+            select(db_models.SportsTeam.id, db_models.SportsTeam.name, db_models.SportsTeam.short_name)
+            .where(db_models.SportsTeam.league_id == league_id)
+        )
+        all_teams = session.execute(all_teams_stmt).all()
+        for team_id, db_name, db_short_name in all_teams:
+            db_name_norm = _normalize_ncaab_name_for_matching(db_name or "")
+            db_short_norm = _normalize_ncaab_name_for_matching(db_short_name or "")
+            if (
+                normalized_input == db_name_norm
+                or normalized_input == db_short_norm
+                or normalized_input in db_name_norm
+                or db_name_norm in normalized_input
+                or normalized_input in db_short_norm
+                or db_short_norm in normalized_input
+            ):
+                candidate_ids.append(team_id)
     else:
         exact_match_stmt = (
             select(db_models.SportsTeam.id)

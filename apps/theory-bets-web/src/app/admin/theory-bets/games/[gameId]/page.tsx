@@ -1,5 +1,3 @@
-import { redirect } from "next/navigation";
-
 type Params = {
   params: {
     gameId: string;
@@ -7,13 +5,15 @@ type Params = {
 };
 
 /**
- * Legacy game detail page - redirects to the comprehensive boxscore detail page.
- * 
- * This route is maintained for backward compatibility with existing links.
- * All game detail views should use /admin/boxscores/[id] which provides
- * a tabbed interface with team stats, player stats, odds, metrics, and actions.
+ * Game detail placeholder.
+ * Renders the game id so links resolve instead of redirecting to a missing route.
  */
-export default async function GameDetailPage({ params }: Params) {
-  redirect(`/admin/boxscores/${params.gameId}`);
+export default function GameDetailPage({ params }: Params) {
+  return (
+    <div style={{ padding: "1.5rem" }}>
+      <h1>Game {params.gameId}</h1>
+      <p>This game detail view is not yet implemented. Game ID: {params.gameId}</p>
+    </div>
+  );
 }
 

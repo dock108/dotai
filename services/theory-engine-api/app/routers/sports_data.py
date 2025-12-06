@@ -7,7 +7,7 @@ from typing import Any, Sequence
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import Select, desc, func, select
+from sqlalchemy import Select, desc, exists, func, select
 from sqlalchemy.orm import selectinload
 
 from sqlalchemy.sql import or_
@@ -97,6 +97,9 @@ class GameListResponse(BaseModel):
     games: list[GameSummary]
     total: int
     next_offset: int | None
+    with_boxscore_count: int | None = 0
+    with_player_stats_count: int | None = 0
+    with_odds_count: int | None = 0
 
 
 class TeamStat(BaseModel):
@@ -462,10 +465,31 @@ async def list_games(
     )
     total = (await session.execute(count_stmt)).scalar_one()
 
+    with_boxscore_count_stmt = count_stmt.where(
+        exists(select(1).where(db_models.SportsTeamBoxscore.game_id == db_models.SportsGame.id))
+    )
+    with_player_stats_count_stmt = count_stmt.where(
+        exists(select(1).where(db_models.SportsPlayerBoxscore.game_id == db_models.SportsGame.id))
+    )
+    with_odds_count_stmt = count_stmt.where(
+        exists(select(1).where(db_models.SportsGameOdds.game_id == db_models.SportsGame.id))
+    )
+
+    with_boxscore_count = (await session.execute(with_boxscore_count_stmt)).scalar_one()
+    with_player_stats_count = (await session.execute(with_player_stats_count_stmt)).scalar_one()
+    with_odds_count = (await session.execute(with_odds_count_stmt)).scalar_one()
+
     next_offset = offset + limit if offset + limit < total else None
     summaries = [_summarize_game(game) for game in games]
 
-    return GameListResponse(games=summaries, total=total, next_offset=next_offset)
+    return GameListResponse(
+        games=summaries,
+        total=total,
+        next_offset=next_offset,
+        with_boxscore_count=with_boxscore_count,
+        with_player_stats_count=with_player_stats_count,
+        with_odds_count=with_odds_count,
+    )
 
 
 def _serialize_team_stat(box: db_models.SportsTeamBoxscore) -> TeamStat:

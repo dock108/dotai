@@ -39,6 +39,7 @@ export default function UnifiedBrowserPage() {
     appliedFilters,
     games,
     total,
+    aggregates,
     loading: gamesLoading,
     error: gamesError,
     applyFilters,
@@ -95,14 +96,15 @@ export default function UnifiedBrowserPage() {
   const handlePageChange = (newPage: number) => {
     const limit = appliedFilters.limit || 25;
     const newOffset = (newPage - 1) * limit;
-    setFormFilters((prev) => ({ ...prev, offset: newOffset }));
-    applyFilters();
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    const nextFilters = { ...formFilters, offset: newOffset };
+    setFormFilters(nextFilters);
+    applyFilters(nextFilters);
   };
 
   const handlePageSizeChange = (newSize: number) => {
-    setFormFilters((prev) => ({ ...prev, limit: newSize, offset: 0 }));
-    applyFilters();
+    const nextFilters = { ...formFilters, limit: newSize, offset: 0 };
+    setFormFilters(nextFilters);
+    applyFilters(nextFilters);
   };
 
   const handleQuickDateRange = (days: number) => {
@@ -110,25 +112,17 @@ export default function UnifiedBrowserPage() {
     setFormFilters((prev) => ({ ...prev, startDate, endDate }));
   };
 
-  // Stats for current page (note: aggregate stats would require API update)
-  const pageStats = useMemo(() => {
-    if (viewMode === "games" && games.length > 0) {
-      const withBoxscore = games.filter((g) => g.has_boxscore).length;
-      const withPlayerStats = games.filter((g) => g.has_player_stats).length;
-      const withOdds = games.filter((g) => g.has_odds).length;
-      const pageSize = games.length;
+  // Stats for the full filtered set (aggregates returned by the API)
+  const aggregateStats = useMemo(() => {
+    if (viewMode === "games" && total > 0 && aggregates) {
       return {
-        withBoxscore,
-        withPlayerStats,
-        withOdds,
-        pageSize,
-        boxscorePercent: Math.round((withBoxscore / pageSize) * 100),
-        playerStatsPercent: Math.round((withPlayerStats / pageSize) * 100),
-        oddsPercent: Math.round((withOdds / pageSize) * 100),
+        boxscorePercent: Math.round((aggregates.withBoxscore / total) * 100),
+        playerStatsPercent: Math.round((aggregates.withPlayerStats / total) * 100),
+        oddsPercent: Math.round((aggregates.withOdds / total) * 100),
       };
     }
     return null;
-  }, [games, viewMode]);
+  }, [aggregates, total, viewMode]);
 
   return (
     <div className={styles.container}>
@@ -169,7 +163,7 @@ export default function UnifiedBrowserPage() {
           <GameFiltersForm
             filters={formFilters}
             onFiltersChange={setFormFilters}
-            onApply={applyFilters}
+            onApply={() => applyFilters(formFilters)}
             onReset={resetFilters}
             onQuickDateRange={handleQuickDateRange}
           />
@@ -180,18 +174,18 @@ export default function UnifiedBrowserPage() {
               <span className={styles.statValue}>{total.toLocaleString()}</span>
               <span className={styles.statLabel}>Total Games</span>
             </div>
-            {pageStats && (
+            {aggregateStats && (
               <>
                 <div className={styles.stat}>
-                  <span className={styles.statValue}>{pageStats.boxscorePercent}%</span>
+                  <span className={styles.statValue}>{aggregateStats.boxscorePercent}%</span>
                   <span className={styles.statLabel}>W/ Boxscores</span>
                 </div>
                 <div className={styles.stat}>
-                  <span className={styles.statValue}>{pageStats.playerStatsPercent}%</span>
+                  <span className={styles.statValue}>{aggregateStats.playerStatsPercent}%</span>
                   <span className={styles.statLabel}>W/ Player Stats</span>
                 </div>
                 <div className={styles.stat}>
-                  <span className={styles.statValue}>{pageStats.oddsPercent}%</span>
+                  <span className={styles.statValue}>{aggregateStats.oddsPercent}%</span>
                   <span className={styles.statLabel}>W/ Odds</span>
                 </div>
               </>
@@ -221,6 +215,7 @@ export default function UnifiedBrowserPage() {
                 <div className={styles.paginationButtons}>
                   <button
                     className={styles.paginationButton}
+                    type="button"
                     onClick={() => handlePageChange(1)}
                     disabled={currentPage === 1 || gamesLoading}
                   >
@@ -228,6 +223,7 @@ export default function UnifiedBrowserPage() {
                   </button>
                   <button
                     className={styles.paginationButton}
+                    type="button"
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1 || gamesLoading}
                   >
@@ -238,6 +234,7 @@ export default function UnifiedBrowserPage() {
                   </span>
                   <button
                     className={styles.paginationButton}
+                    type="button"
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage >= totalPages || gamesLoading}
                   >
@@ -245,6 +242,7 @@ export default function UnifiedBrowserPage() {
                   </button>
                   <button
                     className={styles.paginationButton}
+                    type="button"
                     onClick={() => handlePageChange(totalPages)}
                     disabled={currentPage >= totalPages || gamesLoading}
                   >
@@ -257,7 +255,7 @@ export default function UnifiedBrowserPage() {
 
           {gamesError && <div className={styles.error}>{gamesError}</div>}
           {gamesLoading && games.length === 0 && <div className={styles.loading}>Loading...</div>}
-          {games.length > 0 && <GamesTable games={games} detailLinkPrefix="/admin/theory-bets/games" showCompleteness={false} />}
+          {games.length > 0 && <GamesTable games={games} detailLinkPrefix="/admin/theory-bets/games" showCompleteness />}
           {!gamesLoading && games.length === 0 && !gamesError && (
             <div className={styles.empty}>No games found. Try adjusting your filters.</div>
           )}

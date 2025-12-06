@@ -84,6 +84,9 @@ class GameListResponse(BaseModel):
     games: list[GameSummary]
     total: int
     next_offset: int | None
+    with_boxscore_count: int | None = 0
+    with_player_stats_count: int | None = 0
+    with_odds_count: int | None = 0
 
 
 class TeamStat(BaseModel):

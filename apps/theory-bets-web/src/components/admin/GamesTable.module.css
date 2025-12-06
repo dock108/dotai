@@ -67,13 +67,29 @@
   padding: 2rem;
 }
 
-.check {
-  color: #16a34a;
-  font-weight: 600;
+.statusDot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
 }
 
-.x {
-  color: #dc2626;
+.dotOk {
+  background: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+}
+
+.dotMissing {
+  background: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
+.statusLabel {
+  font-size: 0.85rem;
+  color: #334155;
+  vertical-align: middle;
   font-weight: 600;
 }
 

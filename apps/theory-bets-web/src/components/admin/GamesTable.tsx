@@ -60,13 +60,20 @@ export function GamesTable({ games, detailLinkPrefix = "/admin/theory-bets/games
               </td>
             </tr>
           ) : (
-            games.map((game) => (
-              <tr key={game.id}>
-                <td>
-                  <Link href={`${detailLinkPrefix}/${game.id}`} className={styles.link}>
-                    {game.id}
-                  </Link>
-                </td>
+            games.map((game) => {
+              const gameIds = game as unknown as { id?: number | string; game_id?: number | string };
+              const gameId = gameIds.id ?? gameIds.game_id;
+              const idContent = gameId ? (
+                <Link href={`${detailLinkPrefix}/${gameId}`} className={styles.link}>
+                  {gameId}
+                </Link>
+              ) : (
+                "—"
+              );
+
+              return (
+              <tr key={gameId ?? `${game.away_team}-${game.home_team}-${game.game_date}`}>
+                <td>{idContent}</td>
                 <td>{new Date(game.game_date).toLocaleDateString()}</td>
                 <td>{game.league_code}</td>
                 <td>
@@ -80,18 +87,21 @@ export function GamesTable({ games, detailLinkPrefix = "/admin/theory-bets/games
                 {showCompleteness && (
                   <>
                     <td>
-                      <span className={game.has_boxscore ? styles.check : styles.x}>✓</span>
+                      <span className={`${styles.statusDot} ${game.has_boxscore ? styles.dotOk : styles.dotMissing}`} />
+                      <span className={styles.statusLabel}>Team</span>
                     </td>
                     <td>
-                      <span className={game.has_player_stats ? styles.check : styles.x}>✓</span>
+                      <span className={`${styles.statusDot} ${game.has_player_stats ? styles.dotOk : styles.dotMissing}`} />
+                      <span className={styles.statusLabel}>Players</span>
                     </td>
                     <td>
-                      <span className={game.has_odds ? styles.check : styles.x}>✓</span>
+                      <span className={`${styles.statusDot} ${game.has_odds ? styles.dotOk : styles.dotMissing}`} />
+                      <span className={styles.statusLabel}>Odds</span>
                     </td>
                   </>
                 )}
               </tr>
-            ))
+            )})
           )}
         </tbody>
       </table>
