@@ -1,0 +1,2 @@
+"""NHL feature stubs."""
+

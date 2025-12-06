@@ -22,6 +22,8 @@ from .. import db_models
 from ..db import AsyncSession, get_db
 import numpy as np
 
+from engine.common.feature_layers import build_combined_feature_builder
+
 from ..services.derived_metrics import compute_derived_metrics
 from ..services.feature_compute import compute_features_for_games
 from ..services.feature_engine import GeneratedFeature as GeneratedFeatureDTO, generate_features, summarize_features
@@ -99,6 +101,7 @@ class FeaturePreviewRequest(BaseModel):
     sort_by: str | None = None  # "null_pct" | "non_numeric" | "name"
     sort_dir: str | None = None  # "asc" | "desc"
     feature_filter: list[str] | None = None
+    feature_mode: str | None = None  # "admin" | "full"
 
 
 class AnalysisRequest(BaseModel):
@@ -107,6 +110,7 @@ class AnalysisRequest(BaseModel):
     target: str  # "cover" | "win" | "over"
     seasons: list[int] | None = None
     cleaning: CleaningOptions | None = None
+    feature_mode: str | None = None  # "admin" | "full"
 
 
 class CorrelationResult(BaseModel):
@@ -139,6 +143,7 @@ class ModelBuildRequest(BaseModel):
     target: str
     seasons: list[int] | None = None
     cleaning: CleaningOptions | None = None
+    feature_mode: str | None = None  # "admin" | "full"
 
 
 class TrainedModelResponse(BaseModel):
@@ -170,6 +175,15 @@ async def _get_league(session: AsyncSession, code: str) -> db_models.SportsLeagu
     if not league:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"League {code} not found")
     return league
+
+
+def _resolve_layer_builder(mode: str | None):
+    if not mode:
+        return None
+    normalized = mode.lower()
+    if normalized not in {"admin", "full"}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="feature_mode must be 'admin' or 'full'")
+    return build_combined_feature_builder(normalized)
 
 
 class AvailableStatKeysResponse(BaseModel):
@@ -397,6 +411,7 @@ def _compute_quality_stats(
 async def preview_features(req: FeaturePreviewRequest, session: AsyncSession = Depends(get_db)):
     """Preview feature matrix before running analysis. Supports CSV or JSON quality summary."""
     league = await _get_league(session, req.league_code)
+    layer_builder = _resolve_layer_builder(req.feature_mode)
 
     stmt: Select = select(db_models.SportsGame.id).where(db_models.SportsGame.league_id == league.id)
     if req.seasons:
@@ -433,8 +448,17 @@ async def preview_features(req: FeaturePreviewRequest, session: AsyncSession = D
         writer.writerow(["game_id", *[f.name for f in req.features]])
         return StreamingResponse(iter([buffer.getvalue()]), media_type="text/csv")
 
-    feature_data = await compute_features_for_games(session, league.id, all_game_ids, req.features)
+    feature_data = await compute_features_for_games(
+        session, league.id, all_game_ids, req.features, layer_builder=layer_builder
+    )
     feature_names = [f.name for f in req.features if (not req.feature_filter or f.name in req.feature_filter)]
+    if layer_builder and feature_data:
+        layered_names = [
+            k
+            for k in feature_data[0].keys()
+            if k not in {"game_id"} and (not req.feature_filter or k in req.feature_filter)
+        ]
+        feature_names = feature_names + [name for name in layered_names if name not in feature_names]
 
     fmt = req.format.lower()
     if fmt == "json":
@@ -502,6 +526,7 @@ async def preview_features(req: FeaturePreviewRequest, session: AsyncSession = D
 async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get_db)) -> AnalysisResponse:
     """Run correlation analysis for generated features against a target."""
     league = await _get_league(session, req.league_code)
+    layer_builder = _resolve_layer_builder(req.feature_mode)
 
     # Fetch game ids filtered by seasons if provided
     stmt: Select = select(db_models.SportsGame.id, db_models.SportsGame.season).where(db_models.SportsGame.league_id == league.id)
@@ -520,7 +545,9 @@ async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get
         )
 
     # Compute feature values
-    feature_data = await compute_features_for_games(session, league.id, all_game_ids, req.features)
+    feature_data = await compute_features_for_games(
+        session, league.id, all_game_ids, req.features, layer_builder=layer_builder
+    )
 
     # Fetch derived targets
     game_to_targets: dict[int, float] = {}
@@ -542,6 +569,9 @@ async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get
 
     # Assemble aligned data
     feature_names = [f.name for f in req.features]
+    if layer_builder and feature_data:
+        layered_names = [k for k in feature_data[0].keys() if k not in {"game_id"}]
+        feature_names = feature_names + [name for name in layered_names if name not in feature_names]
     aligned_features, aligned_target, kept_ids, cleaning_summary = _prepare_dataset(
         feature_data, feature_names, game_to_targets, req.cleaning
     )
@@ -621,6 +651,7 @@ async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get
 async def export_analysis_csv(req: AnalysisRequest, session: AsyncSession = Depends(get_db)) -> StreamingResponse:
     """Export the feature matrix with targets as CSV, for the same filters/features/target used in analysis."""
     league = await _get_league(session, req.league_code)
+    layer_builder = _resolve_layer_builder(req.feature_mode)
 
     stmt: Select = select(db_models.SportsGame.id).where(db_models.SportsGame.league_id == league.id)
     if req.seasons:
@@ -634,7 +665,9 @@ async def export_analysis_csv(req: AnalysisRequest, session: AsyncSession = Depe
         writer.writerow(["game_id", "target", *[f.name for f in req.features]])
         return StreamingResponse(iter([buffer.getvalue()]), media_type="text/csv")
 
-    feature_data = await compute_features_for_games(session, league.id, all_game_ids, req.features)
+    feature_data = await compute_features_for_games(
+        session, league.id, all_game_ids, req.features, layer_builder=layer_builder
+    )
 
     # Fetch derived targets
     game_to_targets: dict[int, float] = {}
@@ -651,6 +684,9 @@ async def export_analysis_csv(req: AnalysisRequest, session: AsyncSession = Depe
             game_to_targets[game.id] = tgt_val
 
     feature_names = [f.name for f in req.features]
+    if layer_builder and feature_data:
+        layered_names = [k for k in feature_data[0].keys() if k not in {"game_id"}]
+        feature_names = feature_names + [name for name in layered_names if name not in feature_names]
     aligned_features, aligned_target, kept_ids, _summary = _prepare_dataset(
         feature_data, feature_names, game_to_targets, req.cleaning
     )
@@ -682,6 +718,7 @@ async def export_analysis_csv(req: AnalysisRequest, session: AsyncSession = Depe
 async def build_model(req: ModelBuildRequest, session: AsyncSession = Depends(get_db)) -> ModelBuildResponse:
     """Train a lightweight model on the computed features and return suggested theories."""
     league = await _get_league(session, req.league_code)
+    layer_builder = _resolve_layer_builder(req.feature_mode)
 
     stmt: Select = select(db_models.SportsGame.id, db_models.SportsGame.season).where(db_models.SportsGame.league_id == league.id)
     if req.seasons:
@@ -702,7 +739,9 @@ async def build_model(req: ModelBuildRequest, session: AsyncSession = Depends(ge
             validation_stats={},
         )
 
-    feature_data = await compute_features_for_games(session, league.id, all_game_ids, req.features)
+    feature_data = await compute_features_for_games(
+        session, league.id, all_game_ids, req.features, layer_builder=layer_builder
+    )
 
     # target values
     stmt_games = (
@@ -723,6 +762,9 @@ async def build_model(req: ModelBuildRequest, session: AsyncSession = Depends(ge
             game_to_target[game.id] = tgt_val
 
     feature_names = [f.name for f in req.features]
+    if layer_builder and feature_data:
+        layered_names = [k for k in feature_data[0].keys() if k not in {"game_id"}]
+        feature_names = feature_names + [name for name in layered_names if name not in feature_names]
     aligned_features, aligned_target, kept_ids, cleaning_summary = _prepare_dataset(
         feature_data, feature_names, game_to_target, req.cleaning
     )

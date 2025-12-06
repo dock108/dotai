@@ -8,7 +8,7 @@ feature values using available boxscore data and simple context signals
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 from sqlalchemy import Float, Select, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +16,8 @@ from sqlalchemy.orm import selectinload
 
 from .. import db_models
 from .feature_engine import GeneratedFeature
+from .derived_metrics import compute_derived_metrics
+from engine.common.feature_builder import FeatureBuilder
 
 
 def _to_numeric(val: Any) -> float | None:
@@ -97,17 +99,96 @@ async def _rolling_average(
     return res.scalar_one_or_none()
 
 
+def _build_event_payload(
+    game: db_models.SportsGame,
+    league_id: int,
+    metrics: Mapping[str, Any],
+    home_stats: Mapping[str, Any],
+    away_stats: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Construct a generic event payload for layered feature builders."""
+    metadata = {
+        "game_id": game.id,
+        "league_id": league_id,
+        "game_date": game.game_date,
+        "season": getattr(game, "season", None),
+        "home_team": game.home_team.name if game.home_team else None,
+        "away_team": game.away_team.name if game.away_team else None,
+    }
+
+    closing = {
+        "closing_ml_home": metrics.get("closing_ml_home"),
+        "closing_ml_away": metrics.get("closing_ml_away"),
+    }
+
+    lines = {
+        "closing_spread_home": metrics.get("closing_spread_home"),
+        "closing_spread_home_price": metrics.get("closing_spread_home_price"),
+        "closing_spread_away": metrics.get("closing_spread_away"),
+        "closing_spread_away_price": metrics.get("closing_spread_away_price"),
+        "closing_total": metrics.get("closing_total"),
+        "closing_total_price": metrics.get("closing_total_price"),
+    }
+
+    result = {
+        "home_score": metrics.get("home_score"),
+        "away_score": metrics.get("away_score"),
+        "winner": metrics.get("winner"),
+        "did_home_cover": metrics.get("did_home_cover"),
+        "did_away_cover": metrics.get("did_away_cover"),
+        "total_result": metrics.get("total_result"),
+        "margin_of_victory": metrics.get("margin_of_victory"),
+        "combined_score": metrics.get("combined_score"),
+    }
+
+    ratings = {
+        "home_rating": home_stats.get("team_rating") or home_stats.get("rating"),
+        "away_rating": away_stats.get("team_rating") or away_stats.get("rating"),
+        "home_rating_trend": home_stats.get("rating_trend"),
+        "away_rating_trend": away_stats.get("rating_trend"),
+    }
+
+    projections = {
+        "home_proj_points": home_stats.get("proj_points") or home_stats.get("projected_points"),
+        "away_proj_points": away_stats.get("proj_points") or away_stats.get("projected_points"),
+        "home_proj_reb": home_stats.get("proj_reb") or home_stats.get("projected_rebounds"),
+        "away_proj_reb": away_stats.get("proj_reb") or away_stats.get("projected_rebounds"),
+        "home_proj_ast": home_stats.get("proj_ast") or home_stats.get("projected_assists"),
+        "away_proj_ast": away_stats.get("proj_ast") or away_stats.get("projected_assists"),
+    }
+
+    pace = {
+        "pace_home": home_stats.get("pace"),
+        "pace_away": away_stats.get("pace"),
+        "pace_proj_home": home_stats.get("pace_proj") or home_stats.get("projected_pace"),
+        "pace_proj_away": away_stats.get("pace_proj") or away_stats.get("projected_pace"),
+    }
+
+    return {
+        "metadata": metadata,
+        "closing": closing,
+        "lines": lines,
+        "result": result,
+        "ratings": ratings,
+        "projections": projections,
+        "pace": pace,
+        "metrics": metrics,
+        "stats": {"home": home_stats, "away": away_stats},
+    }
+
+
 async def compute_features_for_games(
     session: AsyncSession,
     league_id: int,
     game_ids: Iterable[int],
     features: list[GeneratedFeature],
+    layer_builder: FeatureBuilder | None = None,
 ) -> list[dict[str, Any]]:
     """Compute feature values for a set of games.
 
     Returns a list of dicts: {\"game_id\": id, <feature>: value}
     """
-    # Load games with boxscores and teams
+    # Load games with boxscores, teams, and odds (for closing lines)
     stmt: Select = (
         select(db_models.SportsGame)
         .where(db_models.SportsGame.id.in_(list(game_ids)), db_models.SportsGame.league_id == league_id)
@@ -115,6 +196,7 @@ async def compute_features_for_games(
             selectinload(db_models.SportsGame.team_boxscores).selectinload(db_models.SportsTeamBoxscore.team),
             selectinload(db_models.SportsGame.home_team),
             selectinload(db_models.SportsGame.away_team),
+            selectinload(db_models.SportsGame.odds),
         )
     )
     games_result = await session.execute(stmt)
@@ -209,6 +291,17 @@ async def compute_features_for_games(
                             av = _to_numeric(row.get(away_name))
                             if hv is not None and av is not None:
                                 row[name] = hv - av
+
+        if layer_builder:
+            metrics = compute_derived_metrics(game, game.odds or [])
+            event_payload = _build_event_payload(game, league_id, metrics, home_stats, away_stats)
+            try:
+                layered = layer_builder.build(event_payload)
+                if layered:
+                    row.update({k: v for k, v in layered.items() if v is not None})
+            except Exception:
+                # Layered builders are best-effort; ignore failures to keep admin mode fast
+                pass
 
         rows.append(row)
 
