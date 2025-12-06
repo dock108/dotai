@@ -229,7 +229,7 @@ def _match_game_by_names_non_ncaab(
     return name_match_id
 
 
-def upsert_odds(session: Session, snapshot: NormalizedOddsSnapshot) -> None:
+def upsert_odds(session: Session, snapshot: NormalizedOddsSnapshot) -> bool:
     """Upsert odds snapshot, matching to existing game.
     
     Tries multiple matching strategies:
@@ -449,7 +449,7 @@ def upsert_odds(session: Session, snapshot: NormalizedOddsSnapshot) -> None:
             potential_games_count=len(potential_games),
             potential_games=[{"id": g[0], "date": str(g[1]), "home_id": g[2], "away_id": g[3]} for g in potential_games[:5]],
         )
-        return
+        return False
 
     side_value = snapshot.side[:20] if snapshot.side else None
 
@@ -480,4 +480,5 @@ def upsert_odds(session: Session, snapshot: NormalizedOddsSnapshot) -> None:
         )
     )
     session.execute(stmt)
+    return True
 

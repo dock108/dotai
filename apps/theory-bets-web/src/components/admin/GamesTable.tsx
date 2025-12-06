@@ -66,7 +66,7 @@ export function GamesTable({ games, detailLinkPrefix = "/admin/theory-bets/games
               const idContent = gameId ? (
                 <Link href={`${detailLinkPrefix}/${gameId}`} className={styles.link}>
                   {gameId}
-                </Link>
+                  </Link>
               ) : (
                 "—"
               );

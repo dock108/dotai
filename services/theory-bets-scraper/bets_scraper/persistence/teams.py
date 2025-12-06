@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from ..db import db_models
 from ..logging import logger
 from ..normalization import normalize_team_name
-from ..utils.db_queries import count_team_games, get_league_id
+from ..utils.db_queries import count_team_games
 from ..utils.datetime_utils import utcnow
 
 if TYPE_CHECKING:
@@ -125,25 +125,25 @@ def _find_team_by_name(
         exact_matches = [row[0] for row in session.execute(exact_match_stmt).all()]
         candidate_ids.extend(exact_matches)
         
-        # Normalized contains/contained-by matching (no abbreviations) to avoid duplicate teams
-        normalized_input = _normalize_ncaab_name_for_matching(team_name)
-        all_teams_stmt = (
-            select(db_models.SportsTeam.id, db_models.SportsTeam.name, db_models.SportsTeam.short_name)
-            .where(db_models.SportsTeam.league_id == league_id)
-        )
-        all_teams = session.execute(all_teams_stmt).all()
-        for team_id, db_name, db_short_name in all_teams:
-            db_name_norm = _normalize_ncaab_name_for_matching(db_name or "")
-            db_short_norm = _normalize_ncaab_name_for_matching(db_short_name or "")
-            if (
-                normalized_input == db_name_norm
-                or normalized_input == db_short_norm
-                or normalized_input in db_name_norm
-                or db_name_norm in normalized_input
-                or normalized_input in db_short_norm
-                or db_short_norm in normalized_input
-            ):
-                candidate_ids.append(team_id)
+        if not exact_matches:
+            normalized_input = _normalize_ncaab_name_for_matching(team_name)
+            all_teams_stmt = (
+                select(db_models.SportsTeam.id, db_models.SportsTeam.name, db_models.SportsTeam.short_name)
+                .where(db_models.SportsTeam.league_id == league_id)
+            )
+            all_teams = session.execute(all_teams_stmt).all()
+            for team_id, db_name, db_short_name in all_teams:
+                db_name_norm = _normalize_ncaab_name_for_matching(db_name or "")
+                db_short_norm = _normalize_ncaab_name_for_matching(db_short_name or "")
+                if (
+                    normalized_input == db_name_norm
+                    or normalized_input == db_short_norm
+                    or normalized_input in db_name_norm
+                    or db_name_norm in normalized_input
+                    or normalized_input in db_short_norm
+                    or db_short_norm in normalized_input
+                ):
+                    candidate_ids.append(team_id)
     else:
         exact_match_stmt = (
             select(db_models.SportsTeam.id)
@@ -221,10 +221,12 @@ def _find_team_by_name(
             team = session.get(db_models.SportsTeam, cid)
             if not team:
                 continue
-            if (team.name.lower() == team_name.lower() or 
+            if (
+                team.name.lower() == team_name.lower() or
                 team.name.lower() == canonical_name.lower() or
                 team.short_name.lower() == team_name.lower() or
-                team.short_name.lower() == canonical_name.lower()):
+                team.short_name.lower() == canonical_name.lower()
+            ):
                 exact_matches.append(cid)
             elif normalized_input:
                 db_name_norm = _normalize_ncaab_name_for_matching(team.name or "")
@@ -246,7 +248,11 @@ def _find_team_by_name(
             )
 
     def team_score(team_id: int) -> tuple[int, int, int]:
-        """Return (matches_canonical, has_full_name, game_count) for sorting."""
+        """
+        Score teams for selection.
+        For NCAAB: prioritize usage (games), then canonical match, then shorter name.
+        For others: keep original bias toward canonical and full name, then usage.
+        """
         team = session.get(db_models.SportsTeam, team_id)
         if not team:
             return (0, 0, 0)
@@ -258,6 +264,9 @@ def _find_team_by_name(
         
         has_full_name = " " in team.name
         usage = team_usage(team_id)
+        if league_code == "NCAAB":
+            # usage first, then canonical, then shorter name
+            return (usage, 1 if matches_canonical else 0, -len(team.name or ""))
         return (10000 if matches_canonical else 0, 1000 if has_full_name else 0, usage)
     
     scored_candidates = [(team_score(cid), cid) for cid in unique_candidates]
@@ -265,4 +274,3 @@ def _find_team_by_name(
     best_id = scored_candidates[0][1]
 
     return best_id
-

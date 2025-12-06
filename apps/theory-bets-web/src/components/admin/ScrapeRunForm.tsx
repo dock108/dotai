@@ -48,7 +48,6 @@ export function ScrapeRunForm({ onSubmit, loading = false, error, success }: Scr
     }
 
     await onSubmit(form);
-    setForm(DEFAULT_SCRAPE_RUN_FORM);
   };
 
   return (

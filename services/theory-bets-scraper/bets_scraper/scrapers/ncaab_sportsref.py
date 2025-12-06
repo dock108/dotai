@@ -397,14 +397,15 @@ class NCAABSportsReferenceScraper(BaseSportsReferenceScraper):
                     )
                     skipped_count += 1
                     continue
+                # Treat any invalid/non-numeric score or parse issue as a skipped game, not fatal
                 logger.warning(
                     "ncaab_game_parse_error",
                     day=str(day),
                     error=message,
                     exc_info=True,
                 )
-                error_count += 1
-                raise
+                skipped_count += 1
+                continue
 
             # Try multiple selectors for boxscore link (HTML structure may vary)
             boxscore_link = (
