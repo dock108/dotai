@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from starlette.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import Select, func, select, text
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, aliased
 
 from .. import db_models
 from ..db import AsyncSession, get_db
@@ -72,6 +72,7 @@ class FeatureQualityStats(BaseModel):
     nulls: int
     null_pct: float
     non_numeric: int
+    distinct_count: int
     count: int
     min: float | None
     max: float | None
@@ -87,9 +88,17 @@ class FeaturePreviewRequest(BaseModel):
     league_code: str
     features: list[GeneratedFeature]
     seasons: list[int] | None = None
-    limit: int | None = 1000
+    start_date: datetime | None = None
+    end_date: datetime | None = None
+    team: str | None = None
+    limit: int | None = None
+    offset: int | None = None
     target: str | None = None  # optional target for CSV export
+    include_target: bool = False
     format: str = "csv"  # "csv" | "json"
+    sort_by: str | None = None  # "null_pct" | "non_numeric" | "name"
+    sort_dir: str | None = None  # "asc" | "desc"
+    feature_filter: list[str] | None = None
 
 
 class AnalysisRequest(BaseModel):
@@ -282,9 +291,10 @@ def _prepare_dataset(
     feature_names: list[str],
     target_map: dict[int, float],
     cleaning: CleaningOptions | None,
-) -> tuple[dict[str, list[float]], list[float], CleaningSummary]:
+) -> tuple[dict[str, list[float]], list[float], list[int], CleaningSummary]:
     aligned_features: dict[str, list[float]] = {name: [] for name in feature_names}
     aligned_target: list[float] = []
+    kept_ids: list[int] = []
     raw_rows = 0
     dropped_null = 0
     dropped_non_numeric = 0
@@ -329,6 +339,7 @@ def _prepare_dataset(
         if drop_row:
             continue
 
+        kept_ids.append(gid)
         aligned_target.append(target_map[gid])
         for name, val in zip(feature_names, coerced_values):
             aligned_features[name].append(np.nan if val is None else val)
@@ -339,7 +350,7 @@ def _prepare_dataset(
         dropped_null=dropped_null,
         dropped_non_numeric=dropped_non_numeric,
     )
-    return aligned_features, aligned_target, summary
+    return aligned_features, aligned_target, kept_ids, summary
 
 
 def _compute_quality_stats(
@@ -351,6 +362,7 @@ def _compute_quality_stats(
         nulls = 0
         non_numeric = 0
         numeric_values: list[float] = []
+        distinct_values: set[Any] = set()
         for row in feature_data:
             num_val, is_non_numeric = _coerce_numeric(row.get(name))
             if num_val is None and not is_non_numeric:
@@ -359,6 +371,9 @@ def _compute_quality_stats(
                 non_numeric += 1
             if num_val is not None:
                 numeric_values.append(num_val)
+            val = row.get(name)
+            if val is not None:
+                distinct_values.add(val)
 
         count = len(numeric_values)
         min_val = min(numeric_values) if numeric_values else None
@@ -369,6 +384,7 @@ def _compute_quality_stats(
             nulls=nulls,
             null_pct=null_pct,
             non_numeric=non_numeric,
+            distinct_count=len(distinct_values),
             count=count,
             min=min_val,
             max=max_val,
@@ -385,10 +401,29 @@ async def preview_features(req: FeaturePreviewRequest, session: AsyncSession = D
     stmt: Select = select(db_models.SportsGame.id).where(db_models.SportsGame.league_id == league.id)
     if req.seasons:
         stmt = stmt.where(db_models.SportsGame.season.in_(req.seasons))
+    if req.start_date:
+        stmt = stmt.where(db_models.SportsGame.game_date >= req.start_date)
+    if req.end_date:
+        stmt = stmt.where(db_models.SportsGame.game_date <= req.end_date)
+    if req.team:
+        away_team = aliased(db_models.SportsTeam)
+        stmt = stmt.join(db_models.SportsTeam, db_models.SportsGame.home_team_id == db_models.SportsTeam.id, isouter=True)
+        stmt = stmt.join(away_team, db_models.SportsGame.away_team_id == away_team.id, isouter=True)
+        team_filter = f"%{req.team.lower()}%"
+        stmt = stmt.where(
+            func.lower(db_models.SportsTeam.name).like(team_filter)
+            | func.lower(db_models.SportsTeam.short_name).like(team_filter)
+            | func.lower(db_models.SportsTeam.abbreviation).like(team_filter)
+            | func.lower(away_team.name).like(team_filter)
+            | func.lower(away_team.short_name).like(team_filter)
+            | func.lower(away_team.abbreviation).like(team_filter)
+        )
+    if req.offset is not None:
+        stmt = stmt.offset(req.offset)
+    if req.limit is not None:
+        stmt = stmt.limit(req.limit)
     game_rows = await session.execute(stmt)
     all_game_ids = [row[0] for row in game_rows.fetchall()]
-    if req.limit:
-        all_game_ids = all_game_ids[: req.limit]
 
     if not all_game_ids:
         if req.format.lower() == "json":
@@ -399,15 +434,29 @@ async def preview_features(req: FeaturePreviewRequest, session: AsyncSession = D
         return StreamingResponse(iter([buffer.getvalue()]), media_type="text/csv")
 
     feature_data = await compute_features_for_games(session, league.id, all_game_ids, req.features)
-    feature_names = [f.name for f in req.features]
+    feature_names = [f.name for f in req.features if (not req.feature_filter or f.name in req.feature_filter)]
 
     fmt = req.format.lower()
     if fmt == "json":
-        stats = _compute_quality_stats(feature_data, feature_names)
-        return FeaturePreviewSummary(rows_inspected=len(feature_data), feature_stats=stats)
+        filtered_data = [
+            {k: v for k, v in row.items() if (k == "game_id" or k in feature_names)} for row in feature_data
+        ]
+        stats = _compute_quality_stats(filtered_data, feature_names)
+        items = list(stats.items())
+        sort_by = (req.sort_by or "null_pct").lower()
+        sort_dir = (req.sort_dir or "desc").lower()
+        reverse = sort_dir != "asc"
+        if sort_by == "non_numeric":
+            items.sort(key=lambda kv: kv[1].non_numeric, reverse=reverse)
+        elif sort_by == "name":
+            items.sort(key=lambda kv: kv[0], reverse=reverse)
+        else:
+            items.sort(key=lambda kv: kv[1].null_pct, reverse=reverse)
+        stats = {k: v for k, v in items}
+        return FeaturePreviewSummary(rows_inspected=len(filtered_data), feature_stats=stats)
 
     # CSV path
-    include_target = req.target is not None
+    include_target = bool(req.include_target or req.target)
     game_to_targets: dict[int, float] = {}
     if include_target:
         stmt_games = select(db_models.SportsGame).where(db_models.SportsGame.id.in_(all_game_ids)).options(
@@ -422,24 +471,31 @@ async def preview_features(req: FeaturePreviewRequest, session: AsyncSession = D
             if tgt_val is not None:
                 game_to_targets[game.id] = tgt_val
 
-    buffer = io.StringIO()
-    writer = csv.writer(buffer)
     header = ["game_id"]
     if include_target:
         header.append("target")
     header.extend(feature_names)
-    writer.writerow(header)
 
-    for row in feature_data:
-        gid = row.get("game_id")
-        vals = [row.get(fname, "") for fname in feature_names]
-        if include_target:
-            tgt = game_to_targets.get(gid, "")
-            writer.writerow([gid, tgt, *vals])
-        else:
-            writer.writerow([gid, *vals])
+    def csv_iter():
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(header)
+        yield buffer.getvalue()
+        buffer.seek(0)
+        buffer.truncate(0)
+        for row in feature_data:
+            gid = row.get("game_id")
+            vals = [row.get(fname, "") for fname in feature_names]
+            if include_target:
+                tgt = game_to_targets.get(gid, "")
+                writer.writerow([gid, tgt, *vals])
+            else:
+                writer.writerow([gid, *vals])
+            yield buffer.getvalue()
+            buffer.seek(0)
+            buffer.truncate(0)
 
-    return StreamingResponse(iter([buffer.getvalue()]), media_type="text/csv")
+    return StreamingResponse(csv_iter(), media_type="text/csv")
 
 
 @router.post("/analyze", response_model=AnalysisResponse)
@@ -486,7 +542,7 @@ async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get
 
     # Assemble aligned data
     feature_names = [f.name for f in req.features]
-    aligned_features, aligned_target, cleaning_summary = _prepare_dataset(
+    aligned_features, aligned_target, kept_ids, cleaning_summary = _prepare_dataset(
         feature_data, feature_names, game_to_targets, req.cleaning
     )
     sample_size = len(aligned_target)
@@ -595,19 +651,31 @@ async def export_analysis_csv(req: AnalysisRequest, session: AsyncSession = Depe
             game_to_targets[game.id] = tgt_val
 
     feature_names = [f.name for f in req.features]
-    buffer = io.StringIO()
-    writer = csv.writer(buffer)
-    writer.writerow(["game_id", "target", *feature_names])
+    aligned_features, aligned_target, kept_ids, _summary = _prepare_dataset(
+        feature_data, feature_names, game_to_targets, req.cleaning
+    )
 
-    for row in feature_data:
-        gid = row.get("game_id")
-        if gid not in game_to_targets:
-            continue
-        target_val = game_to_targets[gid]
-        vals = [row.get(fname, "") for fname in feature_names]
-        writer.writerow([gid, target_val, *vals])
+    def csv_iter():
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(["game_id", "target", *feature_names])
+        yield buffer.getvalue()
+        buffer.seek(0)
+        buffer.truncate(0)
+        for idx, gid in enumerate(kept_ids):
+            row_vals = []
+            for fname in feature_names:
+                val = aligned_features[fname][idx]
+                if val is None or (isinstance(val, float) and np.isnan(val)):
+                    row_vals.append("")
+                else:
+                    row_vals.append(val)
+            writer.writerow([gid, aligned_target[idx], *row_vals])
+            yield buffer.getvalue()
+            buffer.seek(0)
+            buffer.truncate(0)
 
-    return StreamingResponse(iter([buffer.getvalue()]), media_type="text/csv")
+    return StreamingResponse(csv_iter(), media_type="text/csv")
 
 
 @router.post("/build-model", response_model=ModelBuildResponse)
@@ -655,7 +723,7 @@ async def build_model(req: ModelBuildRequest, session: AsyncSession = Depends(ge
             game_to_target[game.id] = tgt_val
 
     feature_names = [f.name for f in req.features]
-    aligned_features, aligned_target, cleaning_summary = _prepare_dataset(
+    aligned_features, aligned_target, kept_ids, cleaning_summary = _prepare_dataset(
         feature_data, feature_names, game_to_target, req.cleaning
     )
 

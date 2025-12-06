@@ -71,6 +71,10 @@ export default function TheoryBetsEdaPage() {
   const [dataQuality, setDataQuality] = useState<DataQualitySummary | null>(null);
   const [qualityError, setQualityError] = useState<string | null>(null);
   const [qualityLoading, setQualityLoading] = useState(false);
+  const [dqSearch, setDqSearch] = useState("");
+  const [dqHideZero, setDqHideZero] = useState(false);
+  const [dqSortKey, setDqSortKey] = useState<"null_pct" | "non_numeric" | "name">("null_pct");
+  const [dqSortDir, setDqSortDir] = useState<"asc" | "desc">("desc");
   const [modelResult, setModelResult] = useState<ModelBuildResponse | null>(null);
   const [modelError, setModelError] = useState<string | null>(null);
   const [modelLoading, setModelLoading] = useState(false);
@@ -150,6 +154,13 @@ export default function TheoryBetsEdaPage() {
     setFeatureError(null);
     setAnalysisResult(null);
     setAnalysisError(null);
+    setDataQuality(null);
+    setQualityError(null);
+    setQualityLoading(false);
+    setDqSearch("");
+    setDqHideZero(false);
+    setDqSortKey("null_pct");
+    setDqSortDir("desc");
     try {
       const res = await generateFeatures({
         league_code: form.leagueCode,
@@ -197,7 +208,7 @@ export default function TheoryBetsEdaPage() {
         features: generatedFeatures,
         seasons: form.season ? [Number(form.season)] : undefined,
         target: analysisTarget,
-        limit: 1000,
+        include_target: true,
       });
       const url = URL.createObjectURL(res);
       const tab = window.open(url, "_blank");
@@ -221,7 +232,8 @@ export default function TheoryBetsEdaPage() {
         league_code: form.leagueCode,
         features: generatedFeatures,
         seasons: form.season ? [Number(form.season)] : undefined,
-        limit: 1000,
+        sort_by: dqSortKey,
+        sort_dir: dqSortDir,
       });
       setDataQuality(summary);
     } catch (err) {
@@ -241,6 +253,7 @@ export default function TheoryBetsEdaPage() {
         features: generatedFeatures,
         target: analysisTarget,
         seasons: form.season ? [Number(form.season)] : undefined,
+        cleaning: cleaningOptions,
       });
       const url = URL.createObjectURL(res);
       const tab = window.open(url, "_blank");
@@ -290,6 +303,10 @@ export default function TheoryBetsEdaPage() {
     setError(null);
     setDataQuality(null);
     setQualityError(null);
+    setDqSearch("");
+    setDqHideZero(false);
+    setDqSortKey("null_pct");
+    setDqSortDir("desc");
     setCleaningOptions({
       drop_if_all_null: false,
       drop_if_any_null: false,
@@ -297,6 +314,29 @@ export default function TheoryBetsEdaPage() {
       min_non_null_features: undefined,
     });
   };
+
+  const dataQualityRows = useMemo(() => {
+    if (!dataQuality) return [];
+    const entries = Object.entries(dataQuality.feature_stats).map(([name, stats]) => ({
+      name,
+      ...stats,
+    }));
+    let rows = entries;
+    if (dqSearch.trim()) {
+      const needle = dqSearch.toLowerCase();
+      rows = rows.filter((r) => r.name.toLowerCase().includes(needle));
+    }
+    if (dqHideZero) {
+      rows = rows.filter((r) => r.nulls > 0 || r.non_numeric > 0);
+    }
+    rows = [...rows].sort((a, b) => {
+      const dir = dqSortDir === "asc" ? 1 : -1;
+      if (dqSortKey === "name") return a.name.localeCompare(b.name) * dir;
+      if (dqSortKey === "non_numeric") return (a.non_numeric - b.non_numeric) * dir;
+      return (a.null_pct - b.null_pct) * dir;
+    });
+    return rows;
+  }, [dataQuality, dqSearch, dqHideZero, dqSortKey, dqSortDir]);
 
   return (
     <div className={styles.container}>
@@ -560,7 +600,40 @@ export default function TheoryBetsEdaPage() {
                     Rows inspected:{" "}
                     <span className={styles.summaryValue}>{dataQuality.rows_inspected.toLocaleString()}</span>
                   </span>
-                  <span className={styles.hint}>Preview is capped to the first 1,000 rows.</span>
+                  <div className={styles.previewActions}>
+                    <input
+                      className={styles.input}
+                      style={{ maxWidth: 180 }}
+                      placeholder="Filter features"
+                      value={dqSearch}
+                      onChange={(e) => setDqSearch(e.target.value)}
+                    />
+                    <select
+                      className={styles.select}
+                      value={dqSortKey}
+                      onChange={(e) => setDqSortKey(e.target.value as typeof dqSortKey)}
+                    >
+                      <option value="null_pct">Sort by null %</option>
+                      <option value="non_numeric">Sort by non-numeric</option>
+                      <option value="name">Sort by name</option>
+                    </select>
+                    <select
+                      className={styles.select}
+                      value={dqSortDir}
+                      onChange={(e) => setDqSortDir(e.target.value as typeof dqSortDir)}
+                    >
+                      <option value="desc">Desc</option>
+                      <option value="asc">Asc</option>
+                    </select>
+                    <label className={styles.toggle}>
+                      <input
+                        type="checkbox"
+                        checked={dqHideZero}
+                        onChange={(e) => setDqHideZero(e.target.checked)}
+                      />
+                      Hide clean columns
+                    </label>
+                  </div>
                 </div>
                 <div className={styles.tableWrapper}>
                   <table className={styles.table}>
@@ -570,6 +643,7 @@ export default function TheoryBetsEdaPage() {
                         <th>Null %</th>
                         <th>Nulls</th>
                         <th>Non-numeric</th>
+                        <th>Distinct</th>
                         <th>Count</th>
                         <th>Min</th>
                         <th>Max</th>
@@ -577,16 +651,17 @@ export default function TheoryBetsEdaPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {Object.entries(dataQuality.feature_stats).map(([name, stats]) => (
-                        <tr key={name}>
-                          <td>{name}</td>
-                          <td>{(stats.null_pct * 100).toFixed(1)}%</td>
-                          <td>{stats.nulls}</td>
-                          <td>{stats.non_numeric}</td>
-                          <td>{stats.count}</td>
-                          <td>{stats.min !== null ? stats.min.toFixed(3) : "—"}</td>
-                          <td>{stats.max !== null ? stats.max.toFixed(3) : "—"}</td>
-                          <td>{stats.mean !== null ? stats.mean.toFixed(3) : "—"}</td>
+                      {dataQualityRows.map((row) => (
+                        <tr key={row.name}>
+                          <td>{row.name}</td>
+                          <td>{(row.null_pct * 100).toFixed(1)}%</td>
+                          <td>{row.nulls}</td>
+                          <td>{row.non_numeric}</td>
+                          <td>{row.distinct_count}</td>
+                          <td>{row.count}</td>
+                          <td>{row.min !== null ? row.min.toFixed(3) : "—"}</td>
+                          <td>{row.max !== null ? row.max.toFixed(3) : "—"}</td>
+                          <td>{row.mean !== null ? row.mean.toFixed(3) : "—"}</td>
                         </tr>
                       ))}
                     </tbody>

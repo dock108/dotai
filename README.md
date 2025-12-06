@@ -83,10 +83,10 @@ Users submit betting theories → LLM grades prompt and infers config → histor
 
 ### EDA / Modeling Lab (admin)
 - Generate features from selected stats and context (rest/rolling), run correlation analysis, and build lightweight models.
-- Preview the feature matrix and data quality (null/non-numeric counts) before analysis; download the raw matrix as CSV from Step 1.
+- Preview the full feature matrix (CSV, new tab) and view a filterable data-quality report (null %, non-numeric, distinct, min/max/mean) before analysis.
 - Results card links to the exact game sample in `/admin/theory-bets/games` and provides a CSV export of the feature matrix (opens in a new tab).
 - Cleaning toggles for analysis/model: drop rows with missing/non-numeric features or enforce a minimum number of non-null features.
-- Endpoints: `POST /api/admin/sports/eda/generate-features`, `POST /api/admin/sports/eda/preview` (CSV/JSON), `POST /api/admin/sports/eda/analyze`, `POST /api/admin/sports/eda/build-model`, `POST /api/admin/sports/eda/analyze/export` (CSV).
+- Endpoints: `POST /api/admin/sports/eda/generate-features`, `POST /api/admin/sports/eda/preview` (CSV/JSON with filters/sorting), `POST /api/admin/sports/eda/analyze`, `POST /api/admin/sports/eda/build-model`, `POST /api/admin/sports/eda/analyze/export` (CSV, respects cleaning).
 
 ### Sports Data Ingestion
 Celery workers scrape boxscores and odds for NBA, NFL, MLB, NHL, NCAAB, NCAAF. Admin UI at `/admin/theory-bets/ingestion` to trigger and monitor runs.
