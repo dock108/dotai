@@ -193,6 +193,25 @@
   margin-top: 0.25rem;
 }
 
+.previewActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.dataQualityBlock {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
 /* Full width field for stat key sections */
 .fieldFull {
   display: flex;

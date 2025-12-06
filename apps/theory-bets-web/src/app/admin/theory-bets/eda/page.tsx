@@ -11,10 +11,14 @@ import {
   runAnalysis,
   buildModel,
   downloadAnalysisCsv,
+  downloadPreviewCsv,
+  fetchDataQuality,
   type AvailableStatKeysResponse,
   type GeneratedFeature,
   type AnalysisResponse,
   type ModelBuildResponse,
+  type CleaningOptions,
+  type DataQualitySummary,
 } from "@/lib/api/sportsAdmin";
 
 type FormState = {
@@ -64,9 +68,18 @@ export default function TheoryBetsEdaPage() {
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [csvLoading, setCsvLoading] = useState(false);
+  const [dataQuality, setDataQuality] = useState<DataQualitySummary | null>(null);
+  const [qualityError, setQualityError] = useState<string | null>(null);
+  const [qualityLoading, setQualityLoading] = useState(false);
   const [modelResult, setModelResult] = useState<ModelBuildResponse | null>(null);
   const [modelError, setModelError] = useState<string | null>(null);
   const [modelLoading, setModelLoading] = useState(false);
+  const [cleaningOptions, setCleaningOptions] = useState<CleaningOptions>({
+    drop_if_all_null: false,
+    drop_if_any_null: false,
+    drop_if_non_numeric: false,
+    min_non_null_features: undefined,
+  });
 
   const gamesLink = useMemo(() => {
     const params = new URLSearchParams();
@@ -107,6 +120,9 @@ export default function TheoryBetsEdaPage() {
     setGeneratedFeatures([]);
     setFeatureSummary(null);
     setFeatureError(null);
+    setDataQuality(null);
+    setQualityError(null);
+    setQualityLoading(false);
   };
 
   const toggleStatKey = (type: "teamStatKeys" | "playerStatKeys", key: string) => {
@@ -160,6 +176,7 @@ export default function TheoryBetsEdaPage() {
         features: generatedFeatures,
         target: analysisTarget,
         seasons: form.season ? [Number(form.season)] : undefined,
+        cleaning: cleaningOptions,
       });
       setAnalysisResult(res);
       setModelResult(null);
@@ -168,6 +185,50 @@ export default function TheoryBetsEdaPage() {
       setAnalysisResult(null);
     } finally {
       setAnalysisLoading(false);
+    }
+  };
+
+  const handlePreviewCsv = async () => {
+    if (!generatedFeatures.length) return;
+    setQualityError(null);
+    try {
+      const res = await downloadPreviewCsv({
+        league_code: form.leagueCode,
+        features: generatedFeatures,
+        seasons: form.season ? [Number(form.season)] : undefined,
+        target: analysisTarget,
+        limit: 1000,
+      });
+      const url = URL.createObjectURL(res);
+      const tab = window.open(url, "_blank");
+      if (!tab) {
+        throw new Error("Popup blocked. Please allow popups for this site.");
+      }
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 60_000);
+    } catch (err) {
+      setQualityError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleLoadDataQuality = async () => {
+    if (!generatedFeatures.length) return;
+    setQualityLoading(true);
+    setQualityError(null);
+    try {
+      const summary = await fetchDataQuality({
+        league_code: form.leagueCode,
+        features: generatedFeatures,
+        seasons: form.season ? [Number(form.season)] : undefined,
+        limit: 1000,
+      });
+      setDataQuality(summary);
+    } catch (err) {
+      setQualityError(err instanceof Error ? err.message : String(err));
+      setDataQuality(null);
+    } finally {
+      setQualityLoading(false);
     }
   };
 
@@ -206,6 +267,7 @@ export default function TheoryBetsEdaPage() {
         features: generatedFeatures,
         target: analysisTarget,
         seasons: form.season ? [Number(form.season)] : undefined,
+        cleaning: cleaningOptions,
       });
       setModelResult(res);
     } catch (err) {
@@ -226,6 +288,14 @@ export default function TheoryBetsEdaPage() {
     setModelResult(null);
     setModelError(null);
     setError(null);
+    setDataQuality(null);
+    setQualityError(null);
+    setCleaningOptions({
+      drop_if_all_null: false,
+      drop_if_any_null: false,
+      drop_if_non_numeric: false,
+      min_non_null_features: undefined,
+    });
   };
 
   return (
@@ -467,6 +537,65 @@ export default function TheoryBetsEdaPage() {
             {featureSummary && <div className={styles.featureSummary}>{featureSummary}</div>}
 
             {generatedFeatures.length > 0 && (
+              <div className={styles.previewActions}>
+                <button type="button" className={styles.secondaryButton} onClick={handlePreviewCsv}>
+                  Preview feature data (CSV)
+                </button>
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  onClick={handleLoadDataQuality}
+                  disabled={qualityLoading}
+                >
+                  {qualityLoading ? "Loading data quality..." : "Data quality & cleaning"}
+                </button>
+                {qualityError && <div className={styles.error}>{qualityError}</div>}
+              </div>
+            )}
+
+            {dataQuality && (
+              <div className={styles.dataQualityBlock}>
+                <div className={styles.summaryRow}>
+                  <span>
+                    Rows inspected:{" "}
+                    <span className={styles.summaryValue}>{dataQuality.rows_inspected.toLocaleString()}</span>
+                  </span>
+                  <span className={styles.hint}>Preview is capped to the first 1,000 rows.</span>
+                </div>
+                <div className={styles.tableWrapper}>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th>Feature</th>
+                        <th>Null %</th>
+                        <th>Nulls</th>
+                        <th>Non-numeric</th>
+                        <th>Count</th>
+                        <th>Min</th>
+                        <th>Max</th>
+                        <th>Mean</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(dataQuality.feature_stats).map(([name, stats]) => (
+                        <tr key={name}>
+                          <td>{name}</td>
+                          <td>{(stats.null_pct * 100).toFixed(1)}%</td>
+                          <td>{stats.nulls}</td>
+                          <td>{stats.non_numeric}</td>
+                          <td>{stats.count}</td>
+                          <td>{stats.min !== null ? stats.min.toFixed(3) : "—"}</td>
+                          <td>{stats.max !== null ? stats.max.toFixed(3) : "—"}</td>
+                          <td>{stats.mean !== null ? stats.mean.toFixed(3) : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {generatedFeatures.length > 0 && (
               <div className={styles.featureList}>
                 {generatedFeatures.map((f) => (
                   <div key={f.name} className={styles.featureItem}>
@@ -502,6 +631,50 @@ export default function TheoryBetsEdaPage() {
                   {analysisLoading ? "Running analysis..." : "Run analysis"}
                 </button>
               </div>
+
+              <div className={styles.toggleRow}>
+                <label className={styles.toggle}>
+                  <input
+                    type="checkbox"
+                    checked={!!cleaningOptions.drop_if_any_null}
+                    onChange={(e) => setCleaningOptions((prev) => ({ ...prev, drop_if_any_null: e.target.checked }))}
+                  />
+                  Drop rows with any missing feature
+                </label>
+                <label className={styles.toggle}>
+                  <input
+                    type="checkbox"
+                    checked={!!cleaningOptions.drop_if_all_null}
+                    onChange={(e) => setCleaningOptions((prev) => ({ ...prev, drop_if_all_null: e.target.checked }))}
+                  />
+                  Drop rows where all features are missing
+                </label>
+                <label className={styles.toggle}>
+                  <input
+                    type="checkbox"
+                    checked={!!cleaningOptions.drop_if_non_numeric}
+                    onChange={(e) => setCleaningOptions((prev) => ({ ...prev, drop_if_non_numeric: e.target.checked }))}
+                  />
+                  Drop rows with non-numeric feature values
+                </label>
+                <label className={styles.inlineField}>
+                  Min non-null features
+                  <input
+                    className={styles.inputInline}
+                    type="number"
+                    min={0}
+                    max={generatedFeatures.length || 1}
+                    value={cleaningOptions.min_non_null_features ?? ""}
+                    onChange={(e) =>
+                      setCleaningOptions((prev) => ({
+                        ...prev,
+                        min_non_null_features: e.target.value === "" ? undefined : Number(e.target.value),
+                      }))
+                    }
+                  />
+                </label>
+              </div>
+
               {analysisError && <div className={styles.error}>{analysisError}</div>}
               {analysisResult && (
                 <div className={styles.analysisBlock}>
@@ -513,6 +686,14 @@ export default function TheoryBetsEdaPage() {
                       Baseline rate:{" "}
                       <span className={styles.summaryValue}>{(analysisResult.baseline_rate * 100).toFixed(1)}%</span>
                     </span>
+                    {analysisResult.cleaning_summary && (
+                      <span className={styles.hint}>
+                        Cleaned: {analysisResult.cleaning_summary.rows_after_cleaning.toLocaleString()} of{" "}
+                        {analysisResult.cleaning_summary.raw_rows.toLocaleString()} rows (
+                        {analysisResult.cleaning_summary.dropped_null} dropped for nulls,{" "}
+                        {analysisResult.cleaning_summary.dropped_non_numeric} for non-numeric)
+                      </span>
+                    )}
                   <button
                     type="button"
                     className={styles.linkButton}

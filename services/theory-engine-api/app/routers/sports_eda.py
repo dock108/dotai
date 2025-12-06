@@ -54,11 +54,50 @@ class FeatureGenerationResponse(BaseModel):
     summary: str
 
 
+class CleaningOptions(BaseModel):
+    drop_if_all_null: bool = False
+    drop_if_any_null: bool = False
+    drop_if_non_numeric: bool = False
+    min_non_null_features: int | None = None
+
+
+class CleaningSummary(BaseModel):
+    raw_rows: int
+    rows_after_cleaning: int
+    dropped_null: int
+    dropped_non_numeric: int
+
+
+class FeatureQualityStats(BaseModel):
+    nulls: int
+    null_pct: float
+    non_numeric: int
+    count: int
+    min: float | None
+    max: float | None
+    mean: float | None
+
+
+class FeaturePreviewSummary(BaseModel):
+    rows_inspected: int
+    feature_stats: dict[str, FeatureQualityStats]
+
+
+class FeaturePreviewRequest(BaseModel):
+    league_code: str
+    features: list[GeneratedFeature]
+    seasons: list[int] | None = None
+    limit: int | None = 1000
+    target: str | None = None  # optional target for CSV export
+    format: str = "csv"  # "csv" | "json"
+
+
 class AnalysisRequest(BaseModel):
     league_code: str
     features: list[GeneratedFeature]
     target: str  # "cover" | "win" | "over"
     seasons: list[int] | None = None
+    cleaning: CleaningOptions | None = None
 
 
 class CorrelationResult(BaseModel):
@@ -82,6 +121,7 @@ class AnalysisResponse(BaseModel):
     correlations: list[CorrelationResult]
     best_segments: list[SegmentResult]
     insights: list[str]
+    cleaning_summary: CleaningSummary | None = None
 
 
 class ModelBuildRequest(BaseModel):
@@ -89,6 +129,7 @@ class ModelBuildRequest(BaseModel):
     features: list[GeneratedFeature]
     target: str
     seasons: list[int] | None = None
+    cleaning: CleaningOptions | None = None
 
 
 class TrainedModelResponse(BaseModel):
@@ -110,6 +151,7 @@ class ModelBuildResponse(BaseModel):
     model_summary: TrainedModelResponse
     suggested_theories: list[SuggestedTheoryResponse]
     validation_stats: dict[str, float]
+    cleaning_summary: CleaningSummary | None = None
 
 
 async def _get_league(session: AsyncSession, code: str) -> db_models.SportsLeague:
@@ -219,6 +261,187 @@ def _pearson_correlation(x: list[float], y: list[float]) -> float | None:
     return float(np.corrcoef(x_arr, y_arr)[0, 1])
 
 
+def _coerce_numeric(val: Any) -> tuple[float | None, bool]:
+    """Return (numeric_value, is_non_numeric)."""
+    if val is None:
+        return None, False
+    if isinstance(val, (int, float)):
+        return float(val), False
+    if isinstance(val, str):
+        if val.strip() == "":
+            return None, False
+        try:
+            return float(val), False
+        except ValueError:
+            return None, True
+    return None, True
+
+
+def _prepare_dataset(
+    feature_data: list[dict[str, Any]],
+    feature_names: list[str],
+    target_map: dict[int, float],
+    cleaning: CleaningOptions | None,
+) -> tuple[dict[str, list[float]], list[float], CleaningSummary]:
+    aligned_features: dict[str, list[float]] = {name: [] for name in feature_names}
+    aligned_target: list[float] = []
+    raw_rows = 0
+    dropped_null = 0
+    dropped_non_numeric = 0
+
+    for row in feature_data:
+        gid = row.get("game_id")
+        if gid not in target_map:
+            continue
+        raw_rows += 1
+
+        coerced_values: list[float | None] = []
+        non_null_count = 0
+        any_null = False
+        has_non_numeric = False
+
+        for name in feature_names:
+            num_val, is_non_numeric = _coerce_numeric(row.get(name))
+            if is_non_numeric:
+                has_non_numeric = True
+            if num_val is not None:
+                non_null_count += 1
+            else:
+                any_null = True
+            coerced_values.append(num_val)
+
+        all_null = non_null_count == 0
+        drop_row = False
+        if cleaning:
+            if cleaning.drop_if_non_numeric and has_non_numeric:
+                drop_row = True
+                dropped_non_numeric += 1
+            elif cleaning.drop_if_any_null and any_null:
+                drop_row = True
+                dropped_null += 1
+            elif cleaning.drop_if_all_null and all_null:
+                drop_row = True
+                dropped_null += 1
+            elif cleaning.min_non_null_features is not None and non_null_count < cleaning.min_non_null_features:
+                drop_row = True
+                dropped_null += 1
+
+        if drop_row:
+            continue
+
+        aligned_target.append(target_map[gid])
+        for name, val in zip(feature_names, coerced_values):
+            aligned_features[name].append(np.nan if val is None else val)
+
+    summary = CleaningSummary(
+        raw_rows=raw_rows,
+        rows_after_cleaning=len(aligned_target),
+        dropped_null=dropped_null,
+        dropped_non_numeric=dropped_non_numeric,
+    )
+    return aligned_features, aligned_target, summary
+
+
+def _compute_quality_stats(
+    feature_data: list[dict[str, Any]], feature_names: list[str]
+) -> dict[str, FeatureQualityStats]:
+    rows = len(feature_data)
+    stats: dict[str, FeatureQualityStats] = {}
+    for name in feature_names:
+        nulls = 0
+        non_numeric = 0
+        numeric_values: list[float] = []
+        for row in feature_data:
+            num_val, is_non_numeric = _coerce_numeric(row.get(name))
+            if num_val is None and not is_non_numeric:
+                nulls += 1
+            if is_non_numeric:
+                non_numeric += 1
+            if num_val is not None:
+                numeric_values.append(num_val)
+
+        count = len(numeric_values)
+        min_val = min(numeric_values) if numeric_values else None
+        max_val = max(numeric_values) if numeric_values else None
+        mean_val = float(np.mean(numeric_values)) if numeric_values else None
+        null_pct = float(nulls / rows) if rows else 0.0
+        stats[name] = FeatureQualityStats(
+            nulls=nulls,
+            null_pct=null_pct,
+            non_numeric=non_numeric,
+            count=count,
+            min=min_val,
+            max=max_val,
+            mean=mean_val,
+        )
+    return stats
+
+
+@router.post("/preview")
+async def preview_features(req: FeaturePreviewRequest, session: AsyncSession = Depends(get_db)):
+    """Preview feature matrix before running analysis. Supports CSV or JSON quality summary."""
+    league = await _get_league(session, req.league_code)
+
+    stmt: Select = select(db_models.SportsGame.id).where(db_models.SportsGame.league_id == league.id)
+    if req.seasons:
+        stmt = stmt.where(db_models.SportsGame.season.in_(req.seasons))
+    game_rows = await session.execute(stmt)
+    all_game_ids = [row[0] for row in game_rows.fetchall()]
+    if req.limit:
+        all_game_ids = all_game_ids[: req.limit]
+
+    if not all_game_ids:
+        if req.format.lower() == "json":
+            return FeaturePreviewSummary(rows_inspected=0, feature_stats={})
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(["game_id", *[f.name for f in req.features]])
+        return StreamingResponse(iter([buffer.getvalue()]), media_type="text/csv")
+
+    feature_data = await compute_features_for_games(session, league.id, all_game_ids, req.features)
+    feature_names = [f.name for f in req.features]
+
+    fmt = req.format.lower()
+    if fmt == "json":
+        stats = _compute_quality_stats(feature_data, feature_names)
+        return FeaturePreviewSummary(rows_inspected=len(feature_data), feature_stats=stats)
+
+    # CSV path
+    include_target = req.target is not None
+    game_to_targets: dict[int, float] = {}
+    if include_target:
+        stmt_games = select(db_models.SportsGame).where(db_models.SportsGame.id.in_(all_game_ids)).options(
+            selectinload(db_models.SportsGame.odds),
+            selectinload(db_models.SportsGame.home_team),
+            selectinload(db_models.SportsGame.away_team),
+        )
+        games_res = await session.execute(stmt_games)
+        for game in games_res.scalars().all():
+            metrics = compute_derived_metrics(game, game.odds)
+            tgt_val = _target_value(metrics, req.target or "")
+            if tgt_val is not None:
+                game_to_targets[game.id] = tgt_val
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    header = ["game_id"]
+    if include_target:
+        header.append("target")
+    header.extend(feature_names)
+    writer.writerow(header)
+
+    for row in feature_data:
+        gid = row.get("game_id")
+        vals = [row.get(fname, "") for fname in feature_names]
+        if include_target:
+            tgt = game_to_targets.get(gid, "")
+            writer.writerow([gid, tgt, *vals])
+        else:
+            writer.writerow([gid, *vals])
+
+    return StreamingResponse(iter([buffer.getvalue()]), media_type="text/csv")
+
+
 @router.post("/analyze", response_model=AnalysisResponse)
 async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get_db)) -> AnalysisResponse:
     """Run correlation analysis for generated features against a target."""
@@ -262,25 +485,10 @@ async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get
             game_to_targets[game.id] = tgt_val
 
     # Assemble aligned data
-    aligned_features: dict[str, list[float]] = {f.name: [] for f in req.features}
-    aligned_target: list[float] = []
-
-    for row in feature_data:
-        game_id = row.get("game_id")
-        if game_id not in game_to_targets:
-            continue
-        target_val = game_to_targets[game_id]
-        row_has_all = False
-        for f in req.features:
-            val = row.get(f.name)
-            if isinstance(val, (int, float)) and val is not None:
-                aligned_features[f.name].append(float(val))
-                row_has_all = True
-            else:
-                aligned_features[f.name].append(np.nan)
-        if row_has_all:
-            aligned_target.append(target_val)
-
+    feature_names = [f.name for f in req.features]
+    aligned_features, aligned_target, cleaning_summary = _prepare_dataset(
+        feature_data, feature_names, game_to_targets, req.cleaning
+    )
     sample_size = len(aligned_target)
     if sample_size == 0:
         return AnalysisResponse(
@@ -289,6 +497,7 @@ async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get
             correlations=[],
             best_segments=[],
             insights=["No target values available for selected games."],
+            cleaning_summary=cleaning_summary,
         )
 
     baseline_rate = float(np.mean(aligned_target))
@@ -348,6 +557,7 @@ async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get
                 else "",
             ]
         ),
+        cleaning_summary=cleaning_summary,
     )
 
 
@@ -444,15 +654,17 @@ async def build_model(req: ModelBuildRequest, session: AsyncSession = Depends(ge
         if tgt_val is not None:
             game_to_target[game.id] = tgt_val
 
-    aligned_rows: list[dict] = []
     feature_names = [f.name for f in req.features]
-    for row in feature_data:
-        gid = row.get("game_id")
-        if gid not in game_to_target:
-            continue
-        entry = {"__target__": game_to_target[gid]}
+    aligned_features, aligned_target, cleaning_summary = _prepare_dataset(
+        feature_data, feature_names, game_to_target, req.cleaning
+    )
+
+    aligned_rows: list[dict[str, float]] = []
+    for idx in range(len(aligned_target)):
+        entry: dict[str, float] = {"__target__": aligned_target[idx]}
         for fname in feature_names:
-            entry[fname] = row.get(fname, 0.0) or 0.0
+            val = aligned_features[fname][idx]
+            entry[fname] = 0.0 if (val is None or np.isnan(val)) else float(val)
         aligned_rows.append(entry)
 
     trained = train_logistic_regression(aligned_rows, feature_names, "__target__")
@@ -479,6 +691,7 @@ async def build_model(req: ModelBuildRequest, session: AsyncSession = Depends(ge
           for t in suggested
         ],
         validation_stats={"accuracy": trained.accuracy, "roi": trained.roi},
+        cleaning_summary=cleaning_summary,
     )
 
 
