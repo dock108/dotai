@@ -179,6 +179,7 @@ docker-compose.override.yml
 .coverage
 .pytest_cache/
 .nyc_output/
+cache*
 coverage/
 *.lcov
 junit.xml

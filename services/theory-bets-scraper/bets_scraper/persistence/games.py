@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..db import db_models
-from ..models import GameIdentification, NormalizedGame
+from ..models import NormalizedGame
 from ..utils.db_queries import get_league_id
 from ..utils.datetime_utils import utcnow
 from .teams import _upsert_team
@@ -29,6 +30,8 @@ def upsert_game(session: Session, normalized: NormalizedGame) -> int:
         "scrape_version": db_models.SportsGame.scrape_version + 1,
         "last_scraped_at": utcnow(),
         "updated_at": utcnow(),
+        # Only set source_game_key if the existing row doesn't have one; avoid clobber.
+        "source_game_key": func.coalesce(db_models.SportsGame.source_game_key, normalized.identity.source_game_key),
     }
 
     base_stmt = insert(db_models.SportsGame).values(
@@ -48,18 +51,13 @@ def upsert_game(session: Session, normalized: NormalizedGame) -> int:
         external_ids={},
     )
 
-    if normalized.identity.source_game_key:
-        stmt = base_stmt.on_conflict_do_update(
-            index_elements=["source_game_key"],
-            set_=conflict_updates,
-        )
-    else:
-        stmt = base_stmt.on_conflict_do_update(
-            constraint="uq_game_identity",
-            set_=conflict_updates,
-        )
+    # Prefer identity constraint to avoid duplicate-key violations when the same game is seen
+    # under a different source_game_key.
+    stmt = base_stmt.on_conflict_do_update(
+        constraint="uq_game_identity",
+        set_=conflict_updates,
+    )
 
     stmt = stmt.returning(db_models.SportsGame.id)
     game_id = session.execute(stmt).scalar_one()
     return int(game_id)
-

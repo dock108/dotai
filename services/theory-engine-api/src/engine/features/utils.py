@@ -19,3 +19,5 @@ def coalesce_stats(source: Mapping[str, Any] | None, keys: tuple[str, ...]) -> d
     src = source or {}
     return {k: src.get(k) for k in keys if k in src}
 
+
+

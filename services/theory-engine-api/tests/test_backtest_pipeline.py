@@ -75,3 +75,5 @@ async def test_backtest_pipeline_chunks_and_saves():
     markets = {r.market for r in repo.saved}
     assert "home_only" in markets
 
+
+

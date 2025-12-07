@@ -34,14 +34,7 @@ class HTMLCache:
         parsed = urlparse(url)
         path_parts = parsed.path.strip("/").split("/")
         
-        # Determine season from date
-        if game_date:
-            # Default season calculation (can be overridden by league-specific logic)
-            season = game_date.year if game_date.month >= 7 else game_date.year - 1
-        else:
-            season = date.today().year
-        
-        # Build filename from URL
+        # Build filename from URL (season is no longer part of path to avoid stale year segments)
         if "boxscores" in parsed.path and path_parts[-1].endswith(".html"):
             # Boxscore URL: .../boxscores/202410220BOS.html
             filename = path_parts[-1]
@@ -54,7 +47,8 @@ class HTMLCache:
             url_hash = hashlib.md5(url.encode()).hexdigest()[:12]
             filename = f"page_{url_hash}.html"
         
-        return self.cache_dir / self.league_code / str(season) / filename
+        # Drop year/season directory to avoid mis-bucketing when season differs from current year
+        return self.cache_dir / self.league_code / filename
     
     def get(self, url: str, game_date: date | None = None) -> str | None:
         """Load HTML from cache if it exists."""

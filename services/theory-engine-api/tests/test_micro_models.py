@@ -50,3 +50,5 @@ def test_underdog_angle_threshold():
     event_low = {"game_id": "g4", "closing_ml_away": 120}
     assert not model.should_trigger(event_low, {})
 
+
+

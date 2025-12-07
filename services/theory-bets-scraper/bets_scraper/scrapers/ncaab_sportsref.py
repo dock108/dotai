@@ -82,24 +82,66 @@ class NCAABSportsReferenceScraper(BaseSportsReferenceScraper):
         )
         return identity, score
 
-    def _extract_team_stats(self, soup: BeautifulSoup, team_abbr: str | None) -> dict:
-        """Extract team stats from boxscore table.
+    def _extract_team_stats(self, soup: BeautifulSoup, team_identity: TeamIdentity, is_home: bool) -> dict:
+        """Extract team totals from NCAAB boxscore tables (no abbreviations provided).
         
-        For NCAAB, team_abbr may be None. In that case, we can't use the standard
-        table ID pattern and will return an empty dict (stats will be missing).
+        NCAAB uses tables with IDs like ``box-score-basic-{team_slug}`` and a ``tfoot``
+        row containing team totals. We match by slug (derived from team name) and fall
+        back to positional order (away first, home second).
         """
-        from ..utils.html_parsing import extract_team_stats_from_table, find_table_by_id
+        from ..utils.html_parsing import extract_team_stats_from_table
         
-        if not team_abbr:
-            # For NCAAB without abbreviations, we can't reliably find the table
-            # Return empty stats dict
+        def _slugify(name: str) -> str:
+            # Lowercase, strip, replace non-alnum with hyphen, collapse duplicates.
+            import re
+            slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+            return slug
+        
+        target_slug = _slugify(team_identity.name)
+        # Some SR slugs drop words like "state"/"university" or apostrophes; keep alternates.
+        alt_slug = target_slug.replace("-state", "").replace("-university", "").replace("st-", "")
+        candidates = {target_slug, alt_slug}
+        
+        tables = [t for t in soup.find_all("table", id=True) if t.get("id", "").startswith("box-score-basic-")]
+        matched_table = None
+        for t in tables:
+            table_id = t.get("id", "").lower()
+            tbl_slug = table_id.split("box-score-basic-", 1)[1]
+            if any(c and (c in tbl_slug or tbl_slug in c) for c in candidates):
+                matched_table = t
+                break
+        
+        # Fallback by position if slug match failed
+        if matched_table is None and tables:
+            matched_table = tables[1] if (is_home and len(tables) > 1) else tables[0]
+        
+        if matched_table is None:
+            logger.warning(
+                "ncaab_team_stats_table_not_found",
+                team=team_identity.name,
+                is_home=is_home,
+                available_tables=[t.get("id") for t in tables][:5],
+            )
             return {}
         
-        table_id = f"box-{team_abbr.lower()}-game-basic"
-        table = find_table_by_id(soup, table_id)
-        if not table:
-            return {}
-        return extract_team_stats_from_table(table, team_abbr, table_id)
+        # Use existing extractor against the located table
+        stats = extract_team_stats_from_table(matched_table, team_identity.name, matched_table.get("id", ""))
+        
+        # Coerce numeric fields
+        parsed: dict[str, int | float | str] = {}
+        for key, val in stats.items():
+            if val in (None, ""):
+                continue
+            parsed_int = parse_int(val)
+            if parsed_int is not None:
+                parsed[key] = parsed_int
+                continue
+            parsed_float = parse_float(val)
+            if parsed_float is not None:
+                parsed[key] = parsed_float
+                continue
+            parsed[key] = val
+        return parsed
 
     def _find_player_table_by_position(
         self, soup: BeautifulSoup, team_identity: TeamIdentity, is_home: bool
@@ -361,6 +403,44 @@ class NCAABSportsReferenceScraper(BaseSportsReferenceScraper):
             raw_stats=stats,
         )
 
+    def _is_probable_womens_game(
+        self,
+        href: str,
+        source_game_key: str,
+        home_team: str,
+        away_team: str,
+        *,
+        is_gender_f: bool = False,
+    ) -> tuple[bool, str]:
+        """
+        Heuristically detect women's games that may appear in the men's scoreboard.
+        
+        Sports Reference women's pages often include markers like \"-women\"
+        or slugs that start with \"w\". We skip these early to avoid persisting
+        women's games into the men's NCAAB universe.
+        """
+        href_lower = href.lower()
+        reasons: list[str] = []
+
+        if is_gender_f:
+            reasons.append("gender_f_class")
+        if "women" in href_lower:
+            reasons.append("href_contains_women")
+        if "/w-" in href_lower or "-w-" in href_lower:
+            reasons.append("href_contains_w_dash")
+        if href_lower.endswith("_w.html") or "_w." in href_lower:
+            reasons.append("href_suffix_w")
+        if source_game_key and not source_game_key[0].isdigit():
+            reasons.append("game_key_not_numeric")
+        if source_game_key.startswith("w"):
+            reasons.append("game_key_starts_with_w")
+        if source_game_key.endswith("_w") or source_game_key.endswith("-w"):
+            reasons.append("game_key_suffix_w")
+        if "women" in home_team.lower() or "women" in away_team.lower():
+            reasons.append("team_name_contains_women")
+
+        return (len(reasons) > 0, ",".join(reasons))
+
     # _season_from_date now inherited from base class
 
     def fetch_games_for_date(self, day: date) -> Sequence[NormalizedGame]:
@@ -375,6 +455,8 @@ class NCAABSportsReferenceScraper(BaseSportsReferenceScraper):
         skipped_count = 0
         error_count = 0
         for div in game_divs:
+            div_classes = div.get("class", [])
+            is_gender_f = "gender-f" in div_classes
             team_rows = div.select("table.teams tr")
             if len(team_rows) < 2:
                 logger.debug(
@@ -430,12 +512,35 @@ class NCAABSportsReferenceScraper(BaseSportsReferenceScraper):
                 )
                 skipped_count += 1
                 continue
-            boxscore_url = urljoin(self.base_url, boxscore_link["href"])
-            source_game_key = boxscore_link["href"].split("/")[-1].replace(".html", "")
+            boxscore_href = boxscore_link["href"]
+            source_game_key = boxscore_href.split("/")[-1].replace(".html", "")
+
+            is_womens, reason = self._is_probable_womens_game(
+                boxscore_href,
+                source_game_key,
+                home_identity.name,
+                away_identity.name,
+                is_gender_f=is_gender_f,
+            )
+            if is_womens:
+                logger.info(
+                    "ncaab_womens_boxscore_skipped",
+                    day=str(day),
+                    href=boxscore_href,
+                    source_game_key=source_game_key,
+                    home_team=home_identity.name,
+                    away_team=away_identity.name,
+                    reason=reason,
+                    gender_f=is_gender_f,
+                )
+                skipped_count += 1
+                continue
+
+            boxscore_url = urljoin(self.base_url, boxscore_href)
             box_soup = self.fetch_html(boxscore_url)
 
-            away_stats = self._extract_team_stats(box_soup, away_identity.abbreviation)
-            home_stats = self._extract_team_stats(box_soup, home_identity.abbreviation)
+            away_stats = self._extract_team_stats(box_soup, away_identity, is_home=False)
+            home_stats = self._extract_team_stats(box_soup, home_identity, is_home=True)
 
             # Extract player-level stats for both teams
             away_players = self._extract_player_stats(box_soup, away_identity, is_home=False)

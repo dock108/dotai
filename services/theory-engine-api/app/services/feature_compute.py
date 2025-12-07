@@ -99,12 +99,26 @@ async def _rolling_average(
     return res.scalar_one_or_none()
 
 
+def _estimate_possessions(stats: Mapping[str, Any]) -> float | None:
+    """Estimate possessions using basic boxscore fields."""
+    try:
+        fga = float(stats.get("fga", stats.get("fg", 0)) or 0)
+        fta = float(stats.get("fta", 0) or 0)
+        orb = float(stats.get("orb", stats.get("oreb", 0)) or 0)
+        tov = float(stats.get("tov", stats.get("turnovers", 0)) or 0)
+    except (TypeError, ValueError):
+        return None
+    poss = fga - orb + tov + 0.475 * fta
+    return poss if poss > 0 else None
+
+
 def _build_event_payload(
     game: db_models.SportsGame,
     league_id: int,
     metrics: Mapping[str, Any],
     home_stats: Mapping[str, Any],
     away_stats: Mapping[str, Any],
+    pace_block: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Construct a generic event payload for layered feature builders."""
     metadata = {
@@ -157,12 +171,7 @@ def _build_event_payload(
         "away_proj_ast": away_stats.get("proj_ast") or away_stats.get("projected_assists"),
     }
 
-    pace = {
-        "pace_home": home_stats.get("pace"),
-        "pace_away": away_stats.get("pace"),
-        "pace_proj_home": home_stats.get("pace_proj") or home_stats.get("projected_pace"),
-        "pace_proj_away": away_stats.get("pace_proj") or away_stats.get("projected_pace"),
-    }
+    pace = pace_block
 
     return {
         "metadata": metadata,
@@ -291,10 +300,53 @@ async def compute_features_for_games(
                             av = _to_numeric(row.get(away_name))
                             if hv is not None and av is not None:
                                 row[name] = hv - av
+        # Pace estimation from boxscore stats
+        poss_home = _estimate_possessions(home_stats)
+        poss_away = _estimate_possessions(away_stats)
+        pace_game = None
+        if poss_home is not None and poss_away is not None:
+            pace_game = (poss_home + poss_away) / 2.0
+            row.setdefault("pace_home_possessions", poss_home)
+            row.setdefault("pace_away_possessions", poss_away)
+            row.setdefault("pace_game", pace_game)
+
+        # Derived gaps from metrics (total, cover margin) if available
+        metrics = compute_derived_metrics(game, game.odds or [])
+        if "combined_score" in metrics:
+            row.setdefault("final_total_points", metrics.get("combined_score"))
+        if "closing_total" in metrics and "combined_score" in metrics:
+            ct = metrics.get("closing_total")
+            cs = metrics.get("combined_score")
+            if ct is not None and cs is not None:
+                row.setdefault("total_delta", cs - ct)
+        if "margin_of_victory" in metrics and "closing_spread_home" in metrics:
+            mov = metrics.get("margin_of_victory")
+            csh = metrics.get("closing_spread_home")
+            if mov is not None and csh is not None:
+                row.setdefault("cover_margin", mov - csh)
+        # Rating / projections diffs
+        hr = row.get("home_rating") or home_stats.get("team_rating") or home_stats.get("rating")
+        ar = row.get("away_rating") or away_stats.get("team_rating") or away_stats.get("rating")
+        if hr is not None and ar is not None and "rating_diff" not in row:
+            row["rating_diff"] = _to_numeric(hr) - _to_numeric(ar) if (_to_numeric(hr) is not None and _to_numeric(ar) is not None) else None
+        hp = row.get("home_proj_points") or home_stats.get("proj_points") or home_stats.get("projected_points")
+        ap = row.get("away_proj_points") or away_stats.get("proj_points") or away_stats.get("projected_points")
+        if hp is not None and ap is not None and "proj_points_diff" not in row:
+            hpv = _to_numeric(hp)
+            apv = _to_numeric(ap)
+            if hpv is not None and apv is not None:
+                row["proj_points_diff"] = hpv - apv
+        # Conference flag
+        row.setdefault("is_conference_game", getattr(game, "is_conference_game", None))
 
         if layer_builder:
             metrics = compute_derived_metrics(game, game.odds or [])
-            event_payload = _build_event_payload(game, league_id, metrics, home_stats, away_stats)
+            pace_block = {
+                "pace_home": row.get("pace_home_possessions"),
+                "pace_away": row.get("pace_away_possessions"),
+                "pace_game": row.get("pace_game"),
+            }
+            event_payload = _build_event_payload(game, league_id, metrics, home_stats, away_stats, pace_block)
             try:
                 layered = layer_builder.build(event_payload)
                 if layered:

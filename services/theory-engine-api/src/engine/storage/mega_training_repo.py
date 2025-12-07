@@ -64,3 +64,5 @@ class MegaTrainingRepository:
             arts = [a for a in arts if a.version == version]
         return arts
 
+
+

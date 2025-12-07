@@ -103,6 +103,90 @@ def _situational_features(include_rest_days: bool) -> list[GeneratedFeature]:
     ]
 
 
+def _builtin_features() -> list[GeneratedFeature]:
+    """Always-helpful derived flags and gaps that don't depend on user raw list."""
+    return [
+        GeneratedFeature(
+            name="is_conference_game",
+            formula="1 if conference game else 0",
+            category="situational",
+            requires=[],
+        ),
+        GeneratedFeature(
+            name="pace_game",
+            formula="estimated possessions per game",
+            category="situational",
+            requires=[],
+        ),
+        GeneratedFeature(
+            name="pace_home_possessions",
+            formula="estimated home possessions",
+            category="situational",
+            requires=[],
+        ),
+        GeneratedFeature(
+            name="pace_away_possessions",
+            formula="estimated away possessions",
+            category="situational",
+            requires=[],
+        ),
+        GeneratedFeature(
+            name="final_total_points",
+            formula="home_score + away_score",
+            category="derived",
+            requires=[],
+        ),
+        GeneratedFeature(
+            name="total_delta",
+            formula="final_total_points - closing_total",
+            category="derived",
+            requires=[],
+        ),
+        GeneratedFeature(
+            name="cover_margin",
+            formula="margin_of_victory - closing_spread_home",
+            category="derived",
+            requires=[],
+        ),
+        GeneratedFeature(
+            name="rating_diff",
+            formula="home_rating - away_rating",
+            category="derived",
+            requires=[],
+        ),
+        GeneratedFeature(
+            name="proj_points_diff",
+            formula="home_proj_points - away_proj_points",
+            category="derived",
+            requires=[],
+        ),
+        GeneratedFeature(
+            name="player_minutes",
+            formula="player minutes (if player filter applied)",
+            category="situational",
+            requires=[],
+        ),
+        GeneratedFeature(
+            name="player_minutes_rolling",
+            formula="rolling avg minutes before game (if player filter applied)",
+            category="situational",
+            requires=[],
+        ),
+        GeneratedFeature(
+            name="player_minutes_delta",
+            formula="player_minutes - player_minutes_rolling",
+            category="situational",
+            requires=[],
+        ),
+        GeneratedFeature(
+            name="ml_implied_edge",
+            formula="implied_prob(home_ml) - implied_prob(away_ml)",
+            category="derived",
+            requires=[],
+        ),
+    ]
+
+
 def _rolling_features(raw_stats: list[str], window: int) -> list[GeneratedFeature]:
     features: list[GeneratedFeature] = []
     for stat in raw_stats:
@@ -149,6 +233,7 @@ def generate_features(
             deduped_stats.append(stat)
 
     features: list[GeneratedFeature] = []
+    features.extend(_builtin_features())
     features.extend(_raw_features(deduped_stats))
     features.extend(_differential_features(deduped_stats))
     features.extend(_combined_features(deduped_stats))

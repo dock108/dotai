@@ -27,3 +27,5 @@ def test_combined_feature_builder_gracefully_handles_failures():
     assert out["closing_ml_home"] == -120
     assert "closing_total" in out
 
+
+

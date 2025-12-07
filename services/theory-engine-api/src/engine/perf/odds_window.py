@@ -19,3 +19,5 @@ def preload_odds_window(rows: Iterable[Mapping[str, Any]]) -> Dict[str, Any]:
         window.setdefault(game_id, []).append(row)
     return window
 
+
+

@@ -126,11 +126,13 @@ class GameMeta(BaseModel):
 
 
 class GameDetailResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     game: GameMeta
-    team_stats: list[TeamStat]
-    player_stats: list[PlayerStat]
+    team_stats: list[TeamStat] = Field(alias="teamStats")
+    player_stats: list[PlayerStat] = Field(alias="playerStats")
     odds: list[OddsEntry]
-    derived_metrics: dict[str, Any] | None = None
+    derived_metrics: dict[str, Any] | None = Field(default=None, alias="derivedMetrics")
 
 
 class JobResponse(BaseModel):

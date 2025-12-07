@@ -646,8 +646,8 @@ async def _enqueue_single_game_run(
     include_odds: bool,
     scraper_type: str,
 ) -> JobResponse:
-    if not game.league:
-        await session.refresh(game, attribute_names=["league"])
+    # Ensure league is loaded without triggering lazy load in async context
+    await session.refresh(game, attribute_names=["league"])
     if not game.league:
         raise HTTPException(status_code=400, detail="League missing for game")
 

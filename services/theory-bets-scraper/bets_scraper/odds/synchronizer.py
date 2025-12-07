@@ -173,6 +173,7 @@ class OddsSynchronizer:
                         "odds_upsert_failed",
                         error=str(exc),
                         game_date=str(snapshot.game_date),
+                        exc_info=True,
                     )
                     skipped += 1
             session.commit()

@@ -17,6 +17,58 @@ from ..logging import logger
 from ..normalization import normalize_team_name
 from ..utils.db_queries import count_team_games
 from ..utils.datetime_utils import utcnow
+_LOG_COUNTERS: dict[str, int] = {}
+_LOG_SAMPLE = 50
+
+
+def _should_log(event_key: str, sample: int = _LOG_SAMPLE) -> bool:
+    count = _LOG_COUNTERS.get(event_key, 0) + 1
+    _LOG_COUNTERS[event_key] = count
+    return count % sample == 1
+
+# Known tricky NCAAB name overrides (requested -> canonical DB name)
+_NCAAB_OVERRIDES = {
+    "george washington colonials": "George Washington",
+    "arkansas-pine bluff golden lions": "Arkansas-Pine Bluff",
+    "south carolina upstate spartans": "USC Upstate",
+    "siu-edwardsville cougars": "SIU Edwardsville",
+}
+
+# Common NCAAB mascot/color tokens that should not drive matching.
+_NCAAB_STOPWORDS = {
+    # Mascots
+    "aggies", "bearcats", "bears", "beavers", "bison", "blazers", "blue",
+    "bobcats", "broncos", "bulldogs", "cardinals", "catamounts", "cavaliers",
+    "cougars", "cowboys", "crimson", "dolphins", "eagles", "flames", "flashes",
+    "gaels", "gators", "gophers", "hawks", "hornets", "huskies", "jackrabbits",
+    "jaguars", "knights", "lions", "lumberjacks", "mountaineers", "mustangs",
+    "owls", "panthers", "patriots", "phoenix", "pioneers", "pirates",
+    "raiders", "ramblers", "rams", "rebels", "red", "redbirds", "redhawks",
+    "roadrunners", "scarlet", "seminoles", "shockers", "skyhawks", "spartans",
+    "stags", "storm", "terrapins", "terriers", "thundering", "tigers",
+    "tommies", "trailblazers", "trojans", "warriors", "wildcats", "wolverines",
+    "yellow", "zips",
+    # Color/descriptor tokens frequently paired with mascots
+    "gold", "golden", "green", "purple", "white", "bluejays", "maroon",
+}
+
+# Abbreviation/short-name expansions frequently used by books.
+_NCAAB_ABBREV_EXPANSIONS = {
+    "byu": "brigham young",
+    "uab": "alabama birmingham",
+    "uconn": "connecticut",
+    "lsu": "louisiana state",
+    "utrgv": "texas rio grande valley",
+    "sfa": "stephen f austin",
+    "fdu": "fairleigh dickinson",
+    "siue": "siu edwardsville",
+    "utep": "texas el paso",
+    "utsa": "texas san antonio",
+    "uncg": "north carolina greensboro",
+    "uncw": "north carolina wilmington",
+    "unc": "north carolina",
+}
+
 
 if TYPE_CHECKING:
     from ..models import TeamIdentity
@@ -26,18 +78,42 @@ def _normalize_ncaab_name_for_matching(name: str) -> str:
     """Normalize NCAAB team name for matching purposes.
     
     Handles common variations:
-    - "St" -> "State"
+    - Expands common abbreviations (BYU -> Brigham Young, UConn -> Connecticut, etc.)
+    - Drops mascots/colors (Tigers, Golden, Red, etc.) so school/city drives the match
+    - "St" -> "State" (but NOT "St." which is "Saint" like "St. John's")
     - "U" -> "University"
+    - Removes parenthetical qualifiers (e.g., "(NY)")
     - Removes punctuation
     - Normalizes whitespace
     - Returns lowercase for case-insensitive comparison
     """
     normalized = name.strip()
-    normalized = re.sub(r'\bSt\b', 'State', normalized, flags=re.IGNORECASE)
-    normalized = re.sub(r'\bU\b', 'University', normalized, flags=re.IGNORECASE)
-    normalized = re.sub(r'[.,\-]', ' ', normalized)
-    normalized = re.sub(r'\s+', ' ', normalized).strip()
-    return normalized.lower()
+    # Drop parenthetical qualifiers to allow matching "St. John's (NY)" with "St. John's Red Storm"
+    normalized = re.sub(r"\([^)]*\)", " ", normalized)
+    # Only convert "St" to "State" if it's NOT followed by a period
+    # This prevents "St. John's" from becoming "State. John's"
+    normalized = re.sub(r"\bSt(?![.])\s+", "State ", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"\bSt(?![.])$", "State", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"\bU\b", "University", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"[.,\-]", " ", normalized)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    normalized = normalized.lower()
+    
+    tokens: list[str] = []
+    for token in normalized.split(" "):
+        if not token:
+            continue
+        expanded = _NCAAB_ABBREV_EXPANSIONS.get(token, token)
+        for piece in expanded.split(" "):
+            piece = piece.strip()
+            if not piece or piece in _NCAAB_STOPWORDS:
+                continue
+            tokens.append(piece)
+    
+    if not tokens:
+        return normalized  # fallback to original lowercased form
+    
+    return " ".join(tokens)
 
 
 def _upsert_team(session: Session, league_id: int, identity: TeamIdentity) -> int:
@@ -102,6 +178,12 @@ def _find_team_by_name(
     league = session.get(db_models.SportsLeague, league_id)
     league_code = league.code if league else None
 
+    # Apply overrides for NCAAB before matching
+    if league_code == "NCAAB":
+        override_key = team_name.lower().strip()
+        if override_key in _NCAAB_OVERRIDES:
+            team_name = _NCAAB_OVERRIDES[override_key]
+
     candidate_ids: list[int] = []
 
     if league_code == "NCAAB":
@@ -136,12 +218,12 @@ def _find_team_by_name(
                 db_name_norm = _normalize_ncaab_name_for_matching(db_name or "")
                 db_short_norm = _normalize_ncaab_name_for_matching(db_short_name or "")
                 if (
-                    normalized_input == db_name_norm
-                    or normalized_input == db_short_norm
-                    or normalized_input in db_name_norm
-                    or db_name_norm in normalized_input
-                    or normalized_input in db_short_norm
-                    or db_short_norm in normalized_input
+                    normalized_input == db_name_norm or
+                    normalized_input == db_short_norm or
+                    normalized_input in db_name_norm or
+                    db_name_norm in normalized_input or
+                    normalized_input in db_short_norm or
+                    db_short_norm in normalized_input
                 ):
                     candidate_ids.append(team_id)
     else:
@@ -213,6 +295,18 @@ def _find_team_by_name(
             seen.add(cid)
             unique_candidates.append(cid)
 
+    # Drop obviously bogus candidates (empty/very short names)
+    filtered_candidates: list[int] = []
+    for cid in unique_candidates:
+        team = session.get(db_models.SportsTeam, cid)
+        if not team or not team.name or len(team.name.strip()) < 3:
+            continue
+        filtered_candidates.append(cid)
+    unique_candidates = filtered_candidates
+
+    if not unique_candidates:
+        return None
+
     if league_code == "NCAAB" and len(unique_candidates) > 1:
         canonical_name, _ = normalize_team_name(league_code, team_name)
         normalized_input = _normalize_ncaab_name_for_matching(team_name)
@@ -238,14 +332,15 @@ def _find_team_by_name(
             unique_candidates = exact_matches
         elif unique_candidates:
             team = session.get(db_models.SportsTeam, unique_candidates[0])
-            logger.warning(
-                "ncaab_team_match_ambiguous",
-                requested_name=team_name,
-                canonical_name=canonical_name,
-                matched_team_id=unique_candidates[0],
-                matched_team_name=team.name if team else None,
-                total_candidates=len(unique_candidates),
-            )
+            if _should_log("ncaab_team_match_ambiguous", sample=20):
+                logger.warning(
+                    "ncaab_team_match_ambiguous",
+                    requested_name=team_name,
+                    canonical_name=canonical_name,
+                    matched_team_id=unique_candidates[0],
+                    matched_team_name=team.name if team else None,
+                    total_candidates=len(unique_candidates),
+                )
 
     def team_score(team_id: int) -> tuple[int, int, int]:
         """
@@ -258,15 +353,25 @@ def _find_team_by_name(
             return (0, 0, 0)
         
         matches_canonical = False
+        normalized_contains = False
         if league_code:
             canonical_name, _ = normalize_team_name(league_code, team.name)
             matches_canonical = (team.name == canonical_name)
+            if league_code == "NCAAB":
+                normalized_input = _normalize_ncaab_name_for_matching(team_name)
+                db_name_norm = _normalize_ncaab_name_for_matching(team.name or "")
+                normalized_contains = normalized_input and (normalized_input in db_name_norm or db_name_norm in normalized_input)
         
         has_full_name = " " in team.name
         usage = team_usage(team_id)
         if league_code == "NCAAB":
-            # usage first, then canonical, then shorter name
-            return (usage, 1 if matches_canonical else 0, -len(team.name or ""))
+            # Prefer exact canonical, then normalized contains, then usage, then shorter name
+            return (
+                1 if matches_canonical else 0,
+                1 if normalized_contains else 0,
+                usage,
+                -len(team.name or ""),
+            )
         return (10000 if matches_canonical else 0, 1000 if has_full_name else 0, usage)
     
     scored_candidates = [(team_score(cid), cid) for cid in unique_candidates]
