@@ -16,7 +16,7 @@ def mc_assumptions_payload(target_def: Any, exposure: Dict[str, Any] | None) -> 
     return {
         "bet_sizing": "1 unit flat risk (historical simulation artifact)",
         "kelly": "not used",
-        "odds_assumption": tdef.get("odds_assumption"),
+        "odds_assumption": None,
         "independence_assumption": True,
         "selection_policy": (exposure or {}).get("notes", []),
     }

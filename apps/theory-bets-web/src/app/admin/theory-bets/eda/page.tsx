@@ -77,9 +77,10 @@ export default function TheoryBetsEdaPage() {
   const [rollingWindow, setRollingWindow] = useState(5);
   const [diagnosticMode, setDiagnosticMode] = useState(false);
   const [targetDefinition, setTargetDefinition] = useState<TargetDefinition>({
-    market_type: "spread",
-    side: "home",
-    odds_assumption: "use_closing",
+    target_class: "stat",
+    target_name: "combined_score",
+    metric_type: "numeric",
+    odds_required: false,
   });
   const [targetLocked, setTargetLocked] = useState(true);
   const [triggerDefinition, setTriggerDefinition] = useState<TriggerDefinition>({
@@ -439,9 +440,10 @@ export default function TheoryBetsEdaPage() {
     setFeatureError(null);
     setDiagnosticMode(false);
     setTargetDefinition({
-      market_type: "spread",
-      side: "home",
-      odds_assumption: "use_closing",
+      target_class: "stat",
+      target_name: "combined_score",
+      metric_type: "numeric",
+      odds_required: false,
     });
     setTargetLocked(true);
     setTriggerDefinition({

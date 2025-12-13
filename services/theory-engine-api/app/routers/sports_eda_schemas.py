@@ -98,13 +98,25 @@ class FeaturePreviewRequest(BaseModel):
 
 
 class TargetDefinition(BaseModel):
-    market_type: Literal["spread", "total", "moneyline"]
-    side: Literal["home", "away", "over", "under"]
-    odds_assumption: Literal["use_closing", "flat_-110"] = "use_closing"
+    target_class: Literal["stat", "market"]
+    target_name: str
+    metric_type: Literal["numeric", "binary"]
+    market_type: Literal["spread", "total", "moneyline"] | None = None
+    side: Literal["home", "away", "over", "under"] | None = None
+    odds_required: bool = True
+
+    @field_validator("market_type")
+    @classmethod
+    def _validate_market_type(cls, v, info):
+        if info.data.get("target_class") == "market" and v is None:
+            raise ValueError("market_type is required for market targets")
+        return v
 
     @field_validator("side")
     @classmethod
     def _validate_side(cls, v, info):
+        if info.data.get("target_class") != "market":
+            return None
         mt = (info.data.get("market_type") or "").lower()
         if mt in {"spread", "moneyline"} and v not in {"home", "away"}:
             raise ValueError("side must be 'home' or 'away' for spread/moneyline markets")
@@ -116,7 +128,6 @@ class TargetDefinition(BaseModel):
 class AnalysisRequest(BaseModel):
     league_code: str
     features: list[GeneratedFeature]
-    target: Literal["cover", "win", "over"] | None = None
     seasons: list[int] | None = None
     date_start: datetime | None = None
     date_end: datetime | None = None
@@ -134,7 +145,7 @@ class AnalysisRequest(BaseModel):
     cleaning: CleaningOptions | None = None
     feature_mode: str | None = None
     context: Literal["deployable", "diagnostic"] = "deployable"
-    target_definition: TargetDefinition | None = None
+    target_definition: TargetDefinition
     trigger_definition: Optional["TriggerDefinition"] = None
     exposure_controls: Optional["ExposureControls"] = None
 
@@ -182,12 +193,12 @@ class AnalysisResponse(BaseModel):
     insights: list[str]
     cleaning_summary: CleaningSummary | None = None
     feature_policy: dict[str, Any] | None = None
+    run_id: str | None = None
 
 
 class ModelBuildRequest(BaseModel):
     league_code: str
     features: list[GeneratedFeature]
-    target: Literal["cover", "win", "over"] | None = None
     seasons: list[int] | None = None
     date_start: datetime | None = None
     date_end: datetime | None = None
@@ -205,7 +216,7 @@ class ModelBuildRequest(BaseModel):
     cleaning: CleaningOptions | None = None
     feature_mode: str | None = None
     context: Literal["deployable", "diagnostic"] = "deployable"
-    target_definition: TargetDefinition | None = None
+    target_definition: TargetDefinition
     trigger_definition: Optional["TriggerDefinition"] = None
     exposure_controls: Optional["ExposureControls"] = None
 
@@ -229,8 +240,11 @@ class ModelBuildRequest(BaseModel):
 class MicroModelRow(BaseModel):
     theory_id: str | None = None
     game_id: int
-    market_type: str
-    side: str
+    target_name: str
+    target_value: float | str | None = None
+    baseline_value: float | None = None
+    market_type: str | None = None
+    side: str | None = None
     closing_line: float | None = None
     closing_odds: float | None = None
     implied_prob: float | None = None
@@ -278,6 +292,7 @@ class ModelBuildResponse(BaseModel):
     suggested_theories: list[SuggestedTheoryResponse]
     validation_stats: dict[str, float]
     cleaning_summary: CleaningSummary | None = None
+    run_id: str | None = None
     feature_policy: dict[str, Any] | None = None
     features_dropped: list[dict[str, Any]] | None = None
     exposure_summary: dict[str, Any] | None = None

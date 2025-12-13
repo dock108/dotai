@@ -86,32 +86,47 @@ export function ResultsSection({
                   <thead>
                     <tr>
                       <th>Game</th>
-                      <th>Side</th>
-                      <th>Line</th>
-                      <th>Odds</th>
-                      <th>Model p</th>
-                      <th>Edge</th>
+                      <th>Target</th>
+                      <th>Value</th>
+                      {microRows.some((r) => r.market_type) && (
+                        <>
+                          <th>Side</th>
+                          <th>Line</th>
+                          <th>Odds</th>
+                          <th>Model p</th>
+                          <th>Edge</th>
+                          <th>EV%</th>
+                        </>
+                      )}
                       <th>Outcome</th>
-                      <th>EV%</th>
                       <th>Trigger</th>
                       <th>Why</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {microRows.slice(0, 10).map((r) => (
-                      <tr key={r.game_id}>
-                        <td>{r.game_id}</td>
-                        <td>{r.side}</td>
-                        <td>{r.closing_line ?? "—"}</td>
-                        <td>{r.closing_odds ?? "—"}</td>
-                        <td>{r.model_prob != null ? r.model_prob.toFixed(3) : "—"}</td>
-                        <td>{r.edge_vs_implied != null ? r.edge_vs_implied.toFixed(3) : "—"}</td>
-                        <td>{r.outcome ?? "—"}</td>
-                        <td>{r.est_ev_pct != null ? `${r.est_ev_pct.toFixed(1)}%` : "—"}</td>
-                        <td>{r.trigger_flag ? "Yes" : "No"}</td>
-                        <td>{Array.isArray(r.meta?.trigger_reasons) ? r.meta?.trigger_reasons?.[0] ?? "—" : "—"}</td>
-                      </tr>
-                    ))}
+                    {microRows.slice(0, 10).map((r) => {
+                      const isMarket = !!r.market_type;
+                      return (
+                        <tr key={`${r.game_id}-${r.target_name}`}>
+                          <td>{r.game_id}</td>
+                          <td>{r.target_name}</td>
+                          <td>{r.target_value ?? "—"}</td>
+                          {isMarket && (
+                            <>
+                              <td>{r.side ?? "—"}</td>
+                              <td>{r.closing_line ?? "—"}</td>
+                              <td>{r.closing_odds ?? "—"}</td>
+                              <td>{r.model_prob != null ? r.model_prob.toFixed(3) : "—"}</td>
+                              <td>{r.edge_vs_implied != null ? r.edge_vs_implied.toFixed(3) : "—"}</td>
+                              <td>{r.est_ev_pct != null ? `${r.est_ev_pct.toFixed(1)}%` : "—"}</td>
+                            </>
+                          )}
+                          <td>{r.outcome ?? "—"}</td>
+                          <td>{r.trigger_flag ? "Yes" : "No"}</td>
+                          <td>{Array.isArray(r.meta?.trigger_reasons) ? r.meta?.trigger_reasons?.[0] ?? "—" : "—"}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

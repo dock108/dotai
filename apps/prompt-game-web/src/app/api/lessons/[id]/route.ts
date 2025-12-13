@@ -10,13 +10,14 @@ import { join } from "path";
  * Used by the game page to load lesson details including scenario, goal,
  * answer format, and max turns.
  */
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const puzzlesPath = join(process.cwd(), "swift-prototype/ios-app/AITrainerGame/AITrainerGame/Resources/puzzles.json");
     const puzzlesData = readFileSync(puzzlesPath, "utf-8");
     const puzzles = JSON.parse(puzzlesData);
     
-    const puzzle = puzzles.find((p: any) => p.id === parseInt(params.id));
+    const puzzle = puzzles.find((p: any) => p.id === parseInt(id));
 
     if (!puzzle) {
       return NextResponse.json({ error: "Lesson not found" }, { status: 404 });
