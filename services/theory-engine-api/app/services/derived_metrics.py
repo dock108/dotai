@@ -39,17 +39,46 @@ def compute_derived_metrics(
 
     spread_lines = _select_closing_lines(odds, "spread")
     if spread_lines and game.home_score is not None and game.away_score is not None:
-        # assume spread lines have side field referencing team (home/away)
+        home_keys = {
+            (game.home_team.name or "").lower() if game.home_team else "",
+            (game.home_team.short_name or "").lower() if game.home_team else "",
+            (game.home_team.abbreviation or "").lower() if game.home_team else "",
+        }
+        away_keys = {
+            (game.away_team.name or "").lower() if game.away_team else "",
+            (game.away_team.short_name or "").lower() if game.away_team else "",
+            (game.away_team.abbreviation or "").lower() if game.away_team else "",
+        }
+
+        def _matches_side(side_val: str | None, keys: set[str]) -> bool:
+            if not side_val:
+                return False
+            s = side_val.lower()
+            for k in keys:
+                if not k:
+                    continue
+                if k.startswith(s) or s.startswith(k):
+                    return True
+            return s in {"home", "away"}
+
         for line in spread_lines:
-            if not line.side:
-                continue
-            side = line.side.lower()
-            if side in {"home", game.home_team.name.lower() if game.home_team else ""}:
+            side = (line.side or "").lower()
+            if _matches_side(side, home_keys):
                 metrics["closing_spread_home"] = line.line
                 metrics["closing_spread_home_price"] = line.price
-            if side in {"away", game.away_team.name.lower() if game.away_team else ""}:
+            elif _matches_side(side, away_keys):
                 metrics["closing_spread_away"] = line.line
                 metrics["closing_spread_away_price"] = line.price
+
+        # If only one side found, infer the other as the opposite line
+        if "closing_spread_home" not in metrics and "closing_spread_away" in metrics:
+            away_line = metrics["closing_spread_away"]
+            if away_line is not None:
+                metrics["closing_spread_home"] = -(away_line)
+        if "closing_spread_away" not in metrics and "closing_spread_home" in metrics:
+            home_line = metrics["closing_spread_home"]
+            if home_line is not None:
+                metrics["closing_spread_away"] = -(home_line)
 
         if "closing_spread_home" in metrics:
             cover = metrics["margin_of_victory"] - (metrics["closing_spread_home"] or 0)

@@ -18,6 +18,7 @@ class TrainedModel:
     model_type: str
     features_used: List[str]
     feature_weights: Dict[str, float]
+    bias: float
     accuracy: float
     roi: float
 
@@ -50,6 +51,7 @@ def train_logistic_regression(
             model_type="logistic_regression",
             features_used=features,
             feature_weights={f: 0.0 for f in features},
+            bias=0.0,
             accuracy=0.0,
             roi=0.0,
         )
@@ -107,7 +109,16 @@ def train_logistic_regression(
         model_type="logistic_regression",
         features_used=features,
         feature_weights={f: weights[f] for f in features},
+        bias=bias,
         accuracy=accuracy,
         roi=roi,
     )
+
+
+def predict_proba(model: TrainedModel, row: dict, *, default: float = 0.0) -> float:
+    """Predict P(y=1) for a single row dict using the trained linear weights + bias."""
+    z = float(model.bias or 0.0)
+    for f in model.features_used:
+        z += float(model.feature_weights.get(f, 0.0)) * float(row.get(f, default) or default)
+    return _sigmoid(z)
 

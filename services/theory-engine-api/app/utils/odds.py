@@ -33,3 +33,23 @@ def implied_probability_from_decimal(decimal_odds: float | None) -> float | None
         return None
     return round(1.0 / decimal_odds, 4)
 
+
+def implied_probability_from_american(american_odds: float | None) -> float | None:
+    """Return implied win probability from American odds."""
+    if american_odds is None or american_odds == 0:
+        return None
+    if american_odds > 0:
+        return round(100.0 / (american_odds + 100.0), 4)
+    return round((-american_odds) / ((-american_odds) + 100.0), 4)
+
+
+def profit_for_american_odds(american_odds: float, risk_units: float = 1.0) -> float:
+    """
+    Profit (not including stake) for a winning bet risking `risk_units` at the given American odds.
+    Loss is always `-risk_units` when the bet loses.
+    """
+    dec = american_to_decimal(american_odds)
+    if dec is None:
+        return 0.0
+    return (dec - 1.0) * risk_units
+

@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import styles from "./page.module.css";
 import { AdminCard, LoadingState, ErrorState } from "@/components/admin";
 import { SUPPORTED_LEAGUES, type LeagueCode } from "@/lib/constants/sports";
+import { useEdaViewModel, type EdaFormState } from "@/components/admin/eda/useEdaViewModel";
 import {
   fetchStatKeys,
   generateFeatures,
@@ -23,18 +24,17 @@ import {
   type MicroModelRow,
   type TheoryMetrics,
   type McSummary,
+  type TargetDefinition,
+  type TriggerDefinition,
+  type ExposureControls,
 } from "@/lib/api/sportsAdmin";
+import { TargetDefinitionCard } from "@/components/admin/eda/TargetDefinitionCard";
+import { TriggerLogicCard } from "@/components/admin/eda/TriggerLogicCard";
+import { ExposureControlsCard } from "@/components/admin/eda/ExposureControlsCard";
+import { FeatureListPanel } from "@/components/admin/eda/FeatureListPanel";
+import { ResultsSection } from "@/components/admin/eda/ResultsSection";
 
-type FormState = {
-  leagueCode: LeagueCode;
-  seasons: string; // comma-separated seasons for UI; parsed before requests
-  seasonScope: "full" | "current" | "recent";
-  recentDays: string;
-  phase: "all" | "out_conf" | "conf" | "postseason";
-  team: string;
-  player: string;
-  homeSpreadMin: string;
-  homeSpreadMax: string;
+type FormState = EdaFormState & {
   seasonType: string;
   marketType: string;
   side: string;
@@ -75,7 +75,24 @@ export default function TheoryBetsEdaPage() {
   const [includeRestDays, setIncludeRestDays] = useState(false);
   const [includeRolling, setIncludeRolling] = useState(false);
   const [rollingWindow, setRollingWindow] = useState(5);
-  const [analysisTarget, setAnalysisTarget] = useState<"cover" | "win" | "over">("cover");
+  const [diagnosticMode, setDiagnosticMode] = useState(false);
+  const [targetDefinition, setTargetDefinition] = useState<TargetDefinition>({
+    market_type: "spread",
+    side: "home",
+    odds_assumption: "use_closing",
+  });
+  const [targetLocked, setTargetLocked] = useState(true);
+  const [triggerDefinition, setTriggerDefinition] = useState<TriggerDefinition>({
+    prob_threshold: 0.55,
+    confidence_band: null,
+    min_edge_vs_implied: null,
+  });
+  const [exposureControls, setExposureControls] = useState<ExposureControls>({
+    max_bets_per_day: 5,
+    max_bets_per_side_per_day: null,
+    spread_abs_min: null,
+    spread_abs_max: null,
+  });
   const [analysisResult, setAnalysisResult] = useState<AnalysisResponse | null>(null);
   const [microRows, setMicroRows] = useState<MicroModelRow[] | null>(null);
   const [theoryMetrics, setTheoryMetrics] = useState<TheoryMetrics | null>(null);
@@ -100,16 +117,41 @@ export default function TheoryBetsEdaPage() {
     drop_if_non_numeric: false,
     min_non_null_features: undefined,
   });
+  const [theoryDraftEdits, setTheoryDraftEdits] = useState<Record<string, string>>({});
+  const [theoryDraftStatus, setTheoryDraftStatus] = useState<Record<string, "draft" | "accepted" | "rejected">>({});
 
-  const gamesLink = useMemo(() => {
-    const params = new URLSearchParams();
-    params.set("league", form.leagueCode);
-    if (form.seasons.trim()) params.set("seasons", form.seasons.trim());
-    if (form.team.trim()) params.set("team", form.team.trim());
-    if (form.player.trim()) params.set("player", form.player.trim());
-    const qs = params.toString();
-    return `/admin/theory-bets/games${qs ? `?${qs}` : ""}`;
-  }, [form.leagueCode, form.seasons, form.team, form.player]);
+  const {
+    parseSeasons,
+    seasonsForScope,
+    recentDaysValue,
+    gamesLink,
+    featureLeakageSummary,
+    featurePolicyMessage,
+    primarySignalDrivers,
+    dataQualityRows,
+  } = useEdaViewModel({
+    form,
+    generatedFeatures,
+    analysisResult,
+    modelResult,
+    dataQuality,
+    dqSearch,
+    dqHideZero,
+    dqSortKey,
+    dqSortDir,
+  });
+
+  const downloadJson = useCallback((filename: string, data: any) => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  }, []);
 
   // Fetch available stat keys when league changes
   const loadStatKeys = useCallback(async (leagueCode: string) => {
@@ -165,32 +207,6 @@ export default function TheoryBetsEdaPage() {
     setForm((prev) => ({ ...prev, [type]: [] }));
   };
 
-  const parseSeasons = useCallback((): number[] | undefined => {
-    if (!form.seasons.trim()) return undefined;
-    const nums = form.seasons
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .map((s) => Number(s))
-      .filter((n) => !Number.isNaN(n));
-    return nums.length ? nums : undefined;
-  }, [form.seasons]);
-
-  const seasonsForScope = useMemo(() => {
-    const parsed = parseSeasons();
-    if (!parsed) return undefined;
-    if (form.seasonScope === "current") {
-      return [Math.max(...parsed)];
-    }
-    return parsed;
-  }, [form.seasonScope, parseSeasons]);
-
-  const recentDaysValue = useMemo(() => {
-    if (form.seasonScope !== "recent") return undefined;
-    const n = Number(form.recentDays);
-    return Number.isFinite(n) && n > 0 ? n : undefined;
-  }, [form.seasonScope, form.recentDays]);
-
   const handleGenerateFeatures = async () => {
     setFeatureError(null);
     setAnalysisResult(null);
@@ -229,7 +245,8 @@ export default function TheoryBetsEdaPage() {
       const res = await runAnalysis({
         league_code: form.leagueCode,
         features: generatedFeatures,
-        target: analysisTarget,
+        target_definition: targetDefinition,
+        context: diagnosticMode ? "diagnostic" : "deployable",
         seasons: seasonsForScope,
         phase: form.phase,
         recent_days: recentDaysValue,
@@ -265,7 +282,8 @@ export default function TheoryBetsEdaPage() {
         seasons: seasonsForScope,
         phase: form.phase,
         recent_days: recentDaysValue,
-        target: analysisTarget,
+        target_definition: targetDefinition,
+        context: diagnosticMode ? "diagnostic" : "deployable",
         team: form.team || undefined,
         player: form.player || undefined,
         home_spread_min: form.homeSpreadMin ? Number(form.homeSpreadMin) : undefined,
@@ -296,6 +314,8 @@ export default function TheoryBetsEdaPage() {
         seasons: seasonsForScope,
         phase: form.phase,
         recent_days: recentDaysValue,
+        target_definition: targetDefinition,
+        context: diagnosticMode ? "diagnostic" : "deployable",
         team: form.team || undefined,
         player: form.player || undefined,
         home_spread_min: form.homeSpreadMin ? Number(form.homeSpreadMin) : undefined,
@@ -319,7 +339,8 @@ export default function TheoryBetsEdaPage() {
       const res = await downloadAnalysisCsv({
         league_code: form.leagueCode,
         features: generatedFeatures,
-        target: analysisTarget,
+        target_definition: targetDefinition,
+        context: diagnosticMode ? "diagnostic" : "deployable",
         seasons: seasonsForScope,
         phase: form.phase,
         recent_days: recentDaysValue,
@@ -352,7 +373,8 @@ export default function TheoryBetsEdaPage() {
       const res = await downloadMicroModelCsv({
         league_code: form.leagueCode,
         features: generatedFeatures,
-        target: analysisTarget,
+        target_definition: targetDefinition,
+        context: diagnosticMode ? "diagnostic" : "deployable",
         seasons: seasonsForScope,
         phase: form.phase,
         recent_days: recentDaysValue,
@@ -384,7 +406,10 @@ export default function TheoryBetsEdaPage() {
       const res = await buildModel({
         league_code: form.leagueCode,
         features: generatedFeatures,
-        target: analysisTarget,
+        target_definition: targetDefinition,
+        trigger_definition: triggerDefinition,
+        exposure_controls: exposureControls,
+        context: diagnosticMode ? "diagnostic" : "deployable",
         seasons: seasonsForScope,
         phase: form.phase,
         recent_days: recentDaysValue,
@@ -412,6 +437,24 @@ export default function TheoryBetsEdaPage() {
     setGeneratedFeatures([]);
     setFeatureSummary(null);
     setFeatureError(null);
+    setDiagnosticMode(false);
+    setTargetDefinition({
+      market_type: "spread",
+      side: "home",
+      odds_assumption: "use_closing",
+    });
+    setTargetLocked(true);
+    setTriggerDefinition({
+      prob_threshold: 0.55,
+      confidence_band: null,
+      min_edge_vs_implied: null,
+    });
+    setExposureControls({
+      max_bets_per_day: 5,
+      max_bets_per_side_per_day: null,
+      spread_abs_min: null,
+      spread_abs_max: null,
+    });
     setAnalysisResult(null);
     setAnalysisError(null);
     setMicroRows(null);
@@ -432,30 +475,9 @@ export default function TheoryBetsEdaPage() {
       drop_if_non_numeric: false,
       min_non_null_features: undefined,
     });
+    setTheoryDraftEdits({});
+    setTheoryDraftStatus({});
   };
-
-  const dataQualityRows = useMemo(() => {
-    if (!dataQuality) return [];
-    const entries = Object.entries(dataQuality.feature_stats).map(([name, stats]) => ({
-      name,
-      ...stats,
-    }));
-    let rows = entries;
-    if (dqSearch.trim()) {
-      const needle = dqSearch.toLowerCase();
-      rows = rows.filter((r) => r.name.toLowerCase().includes(needle));
-    }
-    if (dqHideZero) {
-      rows = rows.filter((r) => r.nulls > 0 || r.non_numeric > 0);
-    }
-    rows = [...rows].sort((a, b) => {
-      const dir = dqSortDir === "asc" ? 1 : -1;
-      if (dqSortKey === "name") return a.name.localeCompare(b.name) * dir;
-      if (dqSortKey === "non_numeric") return (a.non_numeric - b.non_numeric) * dir;
-      return (a.null_pct - b.null_pct) * dir;
-    });
-    return rows;
-  }, [dataQuality, dqSearch, dqHideZero, dqSortKey, dqSortDir]);
 
   return (
     <div className={styles.container}>
@@ -721,6 +743,21 @@ export default function TheoryBetsEdaPage() {
               <p className={styles.hint}>Generate → Analyze → Review micro/metrics → Build model → MC.</p>
             </div>
 
+            <TargetDefinitionCard
+              targetDefinition={targetDefinition}
+              targetLocked={targetLocked}
+              onChange={setTargetDefinition}
+              onToggleLock={() => setTargetLocked((v) => !v)}
+            />
+
+            <TriggerLogicCard triggerDefinition={triggerDefinition} onChange={setTriggerDefinition} />
+
+            <ExposureControlsCard
+              exposureControls={exposureControls}
+              onChange={setExposureControls}
+              targetDefinition={targetDefinition}
+            />
+
             <div className={styles.contextRow}>
               <label className={styles.toggle}>
                 <input type="checkbox" checked={includeRestDays} onChange={(e) => setIncludeRestDays(e.target.checked)} />
@@ -729,6 +766,10 @@ export default function TheoryBetsEdaPage() {
               <label className={styles.toggle}>
                 <input type="checkbox" checked={includeRolling} onChange={(e) => setIncludeRolling(e.target.checked)} />
                 Include rolling averages
+              </label>
+              <label className={styles.toggle}>
+                <input type="checkbox" checked={diagnosticMode} onChange={(e) => setDiagnosticMode(e.target.checked)} />
+                Diagnostic mode (allow post-game features)
               </label>
               {includeRolling && (
                 <label className={styles.inlineField}>
@@ -750,7 +791,7 @@ export default function TheoryBetsEdaPage() {
                 type="button"
                 className={styles.primaryButton}
                 onClick={handleRunAnalysis}
-                disabled={analysisLoading || generatedFeatures.length === 0}
+                disabled={analysisLoading || generatedFeatures.length === 0 || !targetLocked}
               >
                 {analysisLoading ? "Running analysis..." : "Analyze"}
               </button>
@@ -758,153 +799,85 @@ export default function TheoryBetsEdaPage() {
                 type="button"
                 className={styles.primaryButton}
                 onClick={handleBuildModel}
-                disabled={modelLoading || !analysisResult}
+                disabled={modelLoading || !analysisResult || !targetLocked}
               >
                 {modelLoading ? "Building model..." : "Build model / MC"}
               </button>
             </div>
 
-            {featureError && <div className={styles.error}>{featureError}</div>}
-            {featureSummary && <div className={styles.featureSummary}>{featureSummary}</div>}
-
-            {generatedFeatures.length > 0 && (
-              <details className={styles.advanced}>
-                <summary>Feature list (collapsed)</summary>
-                <div className={styles.featureList}>
-                  {generatedFeatures.map((f) => (
-                    <div key={f.name} className={styles.featureItem}>
-                      <div className={styles.featureName}>{f.name}</div>
-                      <div className={styles.featureFormula}>{f.formula}</div>
-                      <div className={styles.featureMeta}>{f.category}</div>
-                    </div>
-                  ))}
-                </div>
-              </details>
-            )}
+          <FeatureListPanel
+            features={generatedFeatures}
+            featureSummary={featureSummary}
+            featureError={featureError}
+            featureLeakageSummary={featureLeakageSummary}
+            featurePolicyMessage={featurePolicyMessage}
+          />
 
             <div className={styles.featureHeader}>
               <h4 className={styles.sectionTitle}>Results</h4>
               <p className={styles.hint}>Run analyze to view micro results, metrics, model, and MC.</p>
             </div>
 
-            {!analysisResult && <p className={styles.hint}>Run “Analyze” to populate results.</p>}
+            <ResultsSection
+              analysisResult={analysisResult}
+              microRows={microRows}
+              theoryMetrics={theoryMetrics}
+              modelResult={modelResult}
+              primarySignalDrivers={primarySignalDrivers}
+              gamesLink={gamesLink}
+              microCsvLoading={microCsvLoading}
+              csvLoading={csvLoading}
+              onDownloadMicroCsv={handleDownloadMicroCsv}
+              onDownloadCsv={handleDownloadCsv}
+              mcSummary={mcSummary}
+              theoryDraftEdits={theoryDraftEdits}
+              theoryDraftStatus={theoryDraftStatus}
+              setTheoryDraftEdits={setTheoryDraftEdits}
+              setTheoryDraftStatus={setTheoryDraftStatus}
+              downloadJson={downloadJson}
+            />
 
-            {analysisResult && (
-              <div className={styles.analysisBlock}>
-                <div className={styles.summaryRow}>
-                  <span>
-                    Sample size: <span className={styles.summaryValue}>{analysisResult.sample_size.toLocaleString()}</span>
-                  </span>
-                  <span>
-                    Baseline rate: <span className={styles.summaryValue}>{(analysisResult.baseline_rate * 100).toFixed(1)}%</span>
-                  </span>
-                  <div className={styles.previewActions}>
-                    <button type="button" className={styles.linkButton} onClick={handleDownloadMicroCsv} disabled={microCsvLoading}>
-                      {microCsvLoading ? "Preparing micro CSV..." : "Download micro-model (CSV)"}
-                    </button>
-                    <button type="button" className={styles.linkButton} onClick={handleDownloadCsv} disabled={csvLoading}>
-                      {csvLoading ? "Preparing feature CSV..." : "Download feature matrix (CSV)"}
-                    </button>
-                  </div>
-                </div>
-                <p className={styles.hint}>
-                  Micro rows = per-game rows matching filters. Baseline = overall hit rate for the selected target.{" "}
-                  <Link href={gamesLink} className={styles.linkButton} target="_blank">
-                    View sample in games table
-                  </Link>
-                </p>
-
-                {microRows && microRows.length > 0 ? (
-                  <div className={styles.sectionCard}>
-                    <h4 className={styles.sectionTitle}>Micro results (sample)</h4>
-                    <p className={styles.hint}>Showing first 10 of {microRows.length.toLocaleString()} rows.</p>
-                    <div className={styles.tableWrapper}>
-                      <table className={styles.table}>
-                        <thead>
-                          <tr>
-                            <th>Game</th>
-                            <th>Side</th>
-                            <th>Line</th>
-                            <th>Odds</th>
-                            <th>Outcome</th>
-                            <th>EV%</th>
-                            <th>Trigger</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {microRows.slice(0, 10).map((r) => (
-                            <tr key={r.game_id}>
-                              <td>{r.game_id}</td>
-                              <td>{r.side}</td>
-                              <td>{r.closing_line ?? "—"}</td>
-                              <td>{r.closing_odds ?? "—"}</td>
-                              <td>{r.outcome ?? "—"}</td>
-                              <td>{r.est_ev_pct != null ? `${r.est_ev_pct.toFixed(1)}%` : "—"}</td>
-                              <td>{r.trigger_flag ? "Yes" : "No"}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                ) : (
-                  <p className={styles.hint}>No micro rows yet for this filter set.</p>
-                )}
-
-                {theoryMetrics ? (
-                  <div className={styles.sectionCard}>
-                    <h4 className={styles.sectionTitle}>Metrics</h4>
-                    <div className={styles.metricsGrid}>
-                      <div>
-                        Sample: <span className={styles.summaryValue}>{theoryMetrics.sample_size.toLocaleString()}</span>
-                      </div>
-                      <div>
-                        Cover: <span className={styles.summaryValue}>{(theoryMetrics.cover_rate * 100).toFixed(1)}%</span>
-                      </div>
-                      {theoryMetrics.baseline_cover_rate != null && (
-                        <div>
-                          Baseline: <span className={styles.summaryValue}>{(theoryMetrics.baseline_cover_rate * 100).toFixed(1)}%</span>
-                        </div>
-                      )}
-                      {theoryMetrics.delta_cover != null && (
-                        <div>
-                          Delta: <span className={styles.summaryValue}>{(theoryMetrics.delta_cover * 100).toFixed(1)}%</span>
-                        </div>
-                      )}
-                      {theoryMetrics.ev_vs_implied != null && (
-                        <div>
-                          EV vs implied: <span className={styles.summaryValue}>{theoryMetrics.ev_vs_implied.toFixed(2)}%</span>
-                        </div>
-                      )}
-                      {theoryMetrics.sharpe_like != null && (
-                        <div>
-                          Sharpe-like: <span className={styles.summaryValue}>{theoryMetrics.sharpe_like.toFixed(2)}</span>
-                        </div>
-                      )}
-                      {theoryMetrics.max_drawdown != null && (
-                        <div>
-                          Max drawdown: <span className={styles.summaryValue}>{theoryMetrics.max_drawdown.toFixed(2)}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <p className={styles.hint}>Run analyze to populate metrics.</p>
-                )}
-              </div>
-            )}
-
-            {modelResult ? (
-              <div className={styles.analysisBlock}>
-                <div className={styles.modelBlock}>
-                  <h4 className={styles.sectionTitle}>Model summary</h4>
-                  <div className={styles.summaryRow}>
-                    <span>
-                      Accuracy: <span className={styles.summaryValue}>{(modelResult.model_summary.accuracy * 100).toFixed(1)}%</span>
-                    </span>
-                    <span>
-                      ROI: <span className={styles.summaryValue}>{(modelResult.model_summary.roi * 100).toFixed(1)}%</span>
-                    </span>
+            {modelResult && (
+              <>
+                <div className={styles.sectionCard}>
+                  <h4 className={styles.sectionTitle}>Promotion readiness</h4>
+                    {(() => {
+                      const blockers: string[] = [];
+                      const policy = modelResult.feature_policy;
+                      const anyAccepted = Object.values(theoryDraftStatus).some((s) => s === "accepted");
+                      const anyRedZone =
+                        (modelResult.performance_slices?.confidence ?? []).some((s: any) => s.red_zone) ||
+                        (modelResult.performance_slices?.spread_buckets ?? []).some((s: any) => s.red_zone) ||
+                        (modelResult.performance_slices?.favorite_vs_underdog ?? []).some((s: any) => s.red_zone);
+                      const mcMedian = modelResult.mc_summary?.p50_pnl;
+                      if (diagnosticMode) blockers.push("Diagnostic mode is ON (must be deployable).");
+                      if (policy?.dropped_post_game_count > 0 || featureLeakageSummary.hasPostGame) blockers.push("Leakage present (post-game features).");
+                      if (anyRedZone) blockers.push("Unstable across slices (red zones present).");
+                      if (mcMedian == null || Number(mcMedian) <= 0) blockers.push("MC median is not positive.");
+                      if (!anyAccepted) blockers.push("No human-approved theory framing (accept at least one candidate).");
+                      const ready = blockers.length === 0;
+                      return (
+                        <>
+                          <div className={styles.metricsGrid}>
+                            <div>
+                              Ready: <span className={styles.summaryValue}>{ready ? "Yes" : "No"}</span>
+                            </div>
+                            <div>
+                              Blockers: <span className={styles.summaryValue}>{blockers.length}</span>
+                            </div>
+                          </div>
+                          {blockers.length > 0 ? (
+                            <ul className={styles.insightsList}>
+                              {blockers.map((b, i) => (
+                                <li key={i}>{b}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className={styles.hint}>All checklist items satisfied for promotion readiness.</p>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                   <div className={styles.featureList}>
                     {Object.entries(modelResult.model_summary.feature_weights).map(([name, weight]) => (
@@ -927,6 +900,69 @@ export default function TheoryBetsEdaPage() {
                       ))}
                     </div>
                   )}
+                  <h4 className={styles.sectionTitle}>Suggested theories (candidates)</h4>
+                  {!modelResult.theory_candidates || modelResult.theory_candidates.length === 0 ? (
+                    <p className={styles.hint}>No candidates met thresholds (sample size + lift).</p>
+                  ) : (
+                    <div className={styles.theoryList}>
+                      {modelResult.theory_candidates.map((c: any, idx: number) => {
+                        const key = String(c.condition ?? idx);
+                        const draft = theoryDraftEdits[key] ?? String(c.framing_draft ?? "");
+                        const status = theoryDraftStatus[key] ?? "draft";
+                        return (
+                          <div key={key} className={styles.featureItem}>
+                            <div className={styles.featureName}>
+                              {status === "accepted" ? "ACCEPTED: " : status === "rejected" ? "REJECTED: " : ""}
+                              {String(c.condition ?? "—")}
+                            </div>
+                            <div className={styles.hint}>
+                              Sample: {Number(c.sample_size ?? 0).toLocaleString()} · Lift:{" "}
+                              {c.lift != null ? `${(Number(c.lift) * 100).toFixed(1)}%` : "—"} · Hit:{" "}
+                              {c.hit_rate != null ? `${(Number(c.hit_rate) * 100).toFixed(1)}%` : "—"} · Baseline:{" "}
+                              {c.baseline_rate != null ? `${(Number(c.baseline_rate) * 100).toFixed(1)}%` : "—"}
+                            </div>
+                            <textarea
+                              className={styles.textarea}
+                              value={draft}
+                              onChange={(e) => setTheoryDraftEdits((prev) => ({ ...prev, [key]: e.target.value }))}
+                              rows={3}
+                            />
+                            <div className={styles.previewActions}>
+                              <button
+                                type="button"
+                                className={styles.secondaryButton}
+                                onClick={() => setTheoryDraftStatus((prev) => ({ ...prev, [key]: "accepted" }))}
+                              >
+                                Accept
+                              </button>
+                              <button
+                                type="button"
+                                className={styles.secondaryButton}
+                                onClick={() => setTheoryDraftStatus((prev) => ({ ...prev, [key]: "rejected" }))}
+                              >
+                                Reject
+                              </button>
+                              <button
+                                type="button"
+                                className={styles.linkButton}
+                                onClick={() => {
+                                  setTheoryDraftEdits((prev) => {
+                                    const next = { ...prev };
+                                    delete next[key];
+                                    return next;
+                                  });
+                                  setTheoryDraftStatus((prev) => ({ ...prev, [key]: "draft" }));
+                                }}
+                              >
+                                Reset
+                              </button>
+                            </div>
+                            <p className={styles.hint}>Read-only for now (not persisted). User must confirm or reject.</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                   {mcSummary && (
                     <div className={styles.sectionCard}>
                       <h4 className={styles.sectionTitle}>Monte Carlo (historical)</h4>
@@ -937,6 +973,11 @@ export default function TheoryBetsEdaPage() {
                         <div>
                           P5: <span className={styles.summaryValue}>{mcSummary.p5_pnl.toFixed(2)}</span>
                         </div>
+                        {mcSummary.p50_pnl != null && (
+                          <div>
+                            Median: <span className={styles.summaryValue}>{mcSummary.p50_pnl.toFixed(2)}</span>
+                          </div>
+                        )}
                         <div>
                           P95: <span className={styles.summaryValue}>{mcSummary.p95_pnl.toFixed(2)}</span>
                         </div>
@@ -947,13 +988,45 @@ export default function TheoryBetsEdaPage() {
                           Luck score: <span className={styles.summaryValue}>{mcSummary.luck_score.toFixed(2)}</span>
                         </div>
                       </div>
+                      <p className={styles.hint}>
+                        Labeled as a distribution, not a promise. Assumes independence and uses a simplified win/loss unit model; treat it as decision-support, not
+                        deployable validation.
+                      </p>
                     </div>
                   )}
-                </div>
-              </div>
-            ) : (
-              analysisResult && <p className={styles.hint}>Build model to view model/MC outputs.</p>
+                  {modelResult.mc_assumptions && (
+                    <div className={styles.sectionCard}>
+                      <h4 className={styles.sectionTitle}>MC assumptions</h4>
+                      <div className={styles.metricsGrid}>
+                        <div>
+                          Bet sizing: <span className={styles.summaryValue}>{String(modelResult.mc_assumptions.bet_sizing ?? "—")}</span>
+                        </div>
+                        <div>
+                          Kelly: <span className={styles.summaryValue}>{String(modelResult.mc_assumptions.kelly ?? "—")}</span>
+                        </div>
+                        <div>
+                          Independence:{" "}
+                          <span className={styles.summaryValue}>{modelResult.mc_assumptions.independence_assumption ? "Yes" : "No"}</span>
+                        </div>
+                        <div>
+                          Odds assumption: <span className={styles.summaryValue}>{String(modelResult.mc_assumptions.odds_assumption ?? "—")}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {modelResult.mc_interpretation && modelResult.mc_interpretation.length > 0 && (
+                    <div className={styles.sectionCard}>
+                      <h4 className={styles.sectionTitle}>MC interpretation</h4>
+                      <ul className={styles.insightsList}>
+                        {modelResult.mc_interpretation.slice(0, 6).map((line: string, idx: number) => (
+                          <li key={idx}>{line}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+              </>
             )}
+            {!modelResult && analysisResult && <p className={styles.hint}>Build model to view model/MC outputs.</p>}
 
             <details className={styles.advanced}>
               <summary>Advanced diagnostics</summary>

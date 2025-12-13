@@ -8,6 +8,8 @@ simulations. They are **admin-only** and are not exposed to end users.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import hashlib
+import json
 import csv
 import io
 from typing import Any, Literal, Optional
@@ -32,12 +34,46 @@ from engine.common.feature_layers import build_combined_feature_builder
 
 from ..services.derived_metrics import compute_derived_metrics
 from ..services.feature_compute import compute_features_for_games
-from ..services.feature_engine import GeneratedFeature as GeneratedFeatureDTO, generate_features, summarize_features
-from ..services.model_builder import TrainedModel, train_logistic_regression
-from ..services.theory_generator import SuggestedTheory, generate_theories
+from ..services.feature_engine import generate_features, summarize_features
+from ..services.model_builder import predict_proba, train_logistic_regression
+from ..services.theory_generator import generate_theories
+from ..services.eda.targeting import resolve_target_definition, target_value
+from ..services.eda.feature_policy import feature_policy_report
+from ..services.eda.pruning import prune_feature_matrix
+from ..services.eda.exposure import apply_exposure_controls, build_bet_tape
+from ..services.eda.slicing import slice_metrics, build_performance_slices, build_failure_analysis
+from ..services.eda.mc_text import mc_assumptions_payload, mc_interpretation_lines
+from ..services.eda.theory_candidates import generate_theory_candidates
+import structlog
 from ..services.historical_mc import simulate_historical_mc
-from ..utils.odds import implied_probability_from_decimal
+from ..utils.odds import implied_probability_from_american, profit_for_american_odds
 from ..db_models import SportsPlayerBoxscore
+from ..services.feature_metadata import FeatureTiming, get_feature_metadata
+from .sports_eda_schemas import (
+    FeatureGenerationRequest,
+    GeneratedFeature,
+    FeatureGenerationResponse,
+    CleaningOptions,
+    CleaningSummary,
+    FeatureQualityStats,
+    FeaturePreviewSummary,
+    FeaturePreviewRequest,
+    AnalysisRequest,
+    CorrelationResult,
+    SegmentResult,
+    AnalysisResponse,
+    ModelBuildRequest,
+    MicroModelRow,
+    TheoryMetrics,
+    TrainedModelResponse,
+    SuggestedTheoryResponse,
+    ModelBuildResponse,
+    AnalysisWithMicroResponse,
+    ModelBuildWithMicroResponse,
+    TargetDefinition,
+    TriggerDefinition,
+    ExposureControls,
+)
 
 MAX_GAMES_LIMIT = 5000
 
@@ -47,249 +83,135 @@ router = APIRouter(prefix="/api/admin/sports/eda", tags=["sports-eda"])
 # ---------- Feature generation ----------
 
 
-class FeatureGenerationRequest(BaseModel):
-    league_code: str
-    raw_stats: list[str]
-    include_rest_days: bool = False
-    include_rolling: bool = False
-    rolling_window: int = 5
+def _resolve_target_definition(req_target: str | None, target_def: TargetDefinition | None) -> TargetDefinition:
+    if isinstance(target_def, TargetDefinition):
+        return target_def
+    td_dict = resolve_target_definition(req_target, target_def)
+    return TargetDefinition(**td_dict)
 
 
-class GeneratedFeature(BaseModel):
-    name: str
-    formula: str
-    category: str
-    requires: list[str]
+def _target_value(metrics: dict[str, Any], target_def: TargetDefinition) -> float | None:
+    return target_value(metrics, target_def.model_dump() if hasattr(target_def, "model_dump") else target_def)
 
 
-class FeatureGenerationResponse(BaseModel):
-    features: list[GeneratedFeature]
-    summary: str
+def _feature_policy_report(features: list[GeneratedFeature], context: str) -> tuple[list[GeneratedFeature], dict[str, Any]]:
+    return feature_policy_report(features, context)
 
 
-class CleaningOptions(BaseModel):
-    drop_if_all_null: bool = False
-    drop_if_any_null: bool = False
-    drop_if_non_numeric: bool = False
-    min_non_null_features: int | None = None
+def _prune_feature_matrix(
+    aligned_features: dict[str, list[float]],
+    feature_names: list[str],
+    *,
+    near_zero_weight_eps: float = 1e-6,
+    collinearity_threshold: float = 0.98,
+    max_features_for_collinearity: int = 600,
+) -> tuple[list[str], list[dict[str, Any]]]:
+    return prune_feature_matrix(
+        aligned_features,
+        feature_names,
+        near_zero_weight_eps=near_zero_weight_eps,
+        collinearity_threshold=collinearity_threshold,
+        max_features_for_collinearity=max_features_for_collinearity,
+    )
 
 
-class CleaningSummary(BaseModel):
-    raw_rows: int
-    rows_after_cleaning: int
-    dropped_null: int
-    dropped_non_numeric: int
+
+def _apply_exposure_controls(
+    micro_rows: list[MicroModelRow],
+    *,
+    controls: ExposureControls | None,
+    target_def: TargetDefinition,
+) -> tuple[list[MicroModelRow], dict[str, Any], list[dict[str, Any]]]:
+    return apply_exposure_controls(micro_rows, controls=controls, target_def=target_def)
 
 
-class FeatureQualityStats(BaseModel):
-    nulls: int
-    null_pct: float
-    non_numeric: int
-    distinct_count: int
-    count: int
-    min: float | None
-    max: float | None
-    mean: float | None
+def _build_bet_tape(selected: list[MicroModelRow]) -> list[dict[str, Any]]:
+    return build_bet_tape(selected)
 
 
-class FeaturePreviewSummary(BaseModel):
-    rows_inspected: int
-    feature_stats: dict[str, FeatureQualityStats]
+def _slice_metrics(rows: list[MicroModelRow]) -> dict[str, Any]:
+    return slice_metrics(rows)
 
 
-class FeaturePreviewRequest(BaseModel):
-    league_code: str
-    features: list[GeneratedFeature]
-    seasons: list[int] | None = None
-    start_date: datetime | None = None  # deprecated, use date_start/date_end
-    end_date: datetime | None = None    # deprecated, use date_start/date_end
-    date_start: datetime | None = None
-    date_end: datetime | None = None
-    phase: Optional[Literal["all", "out_conf", "conf", "postseason"]] = None  # NCAAB-only
-    recent_days: Optional[int] = None  # rolling window constraint
-    home_spread_min: float | None = None
-    home_spread_max: float | None = None
-    team: str | None = None
-    player: str | None = None
-    limit: int | None = None
-    offset: int | None = None
-    target: str | None = None  # optional target for CSV export
-    include_target: bool = False
-    format: str = "csv"  # "csv" | "json"
-    sort_by: str | None = None  # "null_pct" | "non_numeric" | "name"
-    sort_dir: str | None = None  # "asc" | "desc"
-    feature_filter: list[str] | None = None
-    feature_mode: str | None = None  # "admin" | "full"
-
-    @field_validator("home_spread_max")
-    @classmethod
-    def _validate_spread(cls, v, info):
-        min_v = info.data.get("home_spread_min")
-        if v is not None and min_v is not None and v < min_v:
-            raise ValueError("home_spread_max must be >= home_spread_min")
-        return v
+def _build_performance_slices(selected_bets: list[MicroModelRow], target_def: TargetDefinition) -> dict[str, Any]:
+    return build_performance_slices(selected_bets, target_def=target_def)
 
 
-class AnalysisRequest(BaseModel):
-    league_code: str
-    features: list[GeneratedFeature]
-    target: Literal["cover", "win", "over"]
-    seasons: list[int] | None = None
-    date_start: datetime | None = None
-    date_end: datetime | None = None
-    phase: Optional[Literal["all", "out_conf", "conf", "postseason"]] = None  # NCAAB-only
-    recent_days: Optional[int] = None
-    home_spread_min: float | None = None
-    home_spread_max: float | None = None
-    went_over_total: bool | None = None
-    pace_min: float | None = None
-    pace_max: float | None = None
-    team: str | None = None
-    player: str | None = None
-    minutes_trigger: Literal["actual_lt_rolling"] | None = None
-    games_limit: int | None = None
-    cleaning: CleaningOptions | None = None
-    feature_mode: str | None = None  # "admin" | "full"
-
-    @field_validator("home_spread_max")
-    @classmethod
-    def _validate_spread(cls, v, info):
-        min_v = info.data.get("home_spread_min")
-        if v is not None and min_v is not None and v < min_v:
-            raise ValueError("home_spread_max must be >= home_spread_min")
-        return v
-
-    @field_validator("pace_max")
-    @classmethod
-    def _validate_pace(cls, v, info):
-        min_v = info.data.get("pace_min")
-        if v is not None and min_v is not None and v < min_v:
-            raise ValueError("pace_max must be >= pace_min")
-        return v
+def _build_failure_analysis(selected_bets: list[MicroModelRow]) -> dict[str, Any]:
+    return build_failure_analysis(selected_bets)
 
 
-class CorrelationResult(BaseModel):
-    feature: str
-    correlation: float
-    p_value: float | None = None
-    is_significant: bool = False
+def _mc_assumptions_payload(target_def: TargetDefinition, exposure: dict[str, Any] | None) -> dict[str, Any]:
+    return mc_assumptions_payload(target_def.model_dump() if hasattr(target_def, "model_dump") else target_def, exposure)
 
 
-class SegmentResult(BaseModel):
-    condition: str
-    sample_size: int
-    hit_rate: float
-    baseline_rate: float
-    edge: float
+def _mc_interpretation_lines(mc_summary: dict[str, Any] | None, exposure: dict[str, Any] | None) -> list[str]:
+    return mc_interpretation_lines(mc_summary, exposure)
 
 
-class AnalysisResponse(BaseModel):
-    sample_size: int
-    baseline_rate: float
-    correlations: list[CorrelationResult]
-    best_segments: list[SegmentResult]
-    insights: list[str]
-    cleaning_summary: CleaningSummary | None = None
+def _generate_theory_candidates(
+    aligned_rows: list[dict[str, float]],
+    feature_names: list[str],
+    *,
+    baseline_rate: float,
+    target_def: TargetDefinition,
+    min_sample_size: int = 150,
+    min_lift: float = 0.02,
+) -> list[dict[str, Any]]:
+    td_dict = target_def.model_dump() if hasattr(target_def, "model_dump") else target_def
+    return generate_theory_candidates(
+        aligned_rows,
+        feature_names,
+        baseline_rate=baseline_rate,
+        target_def=td_dict,
+        min_sample_size=min_sample_size,
+        min_lift=min_lift,
+    )
 
 
-class ModelBuildRequest(BaseModel):
-    league_code: str
-    features: list[GeneratedFeature]
-    target: Literal["cover", "win", "over"]
-    seasons: list[int] | None = None
-    date_start: datetime | None = None
-    date_end: datetime | None = None
-    phase: Optional[Literal["all", "out_conf", "conf", "postseason"]] = None  # NCAAB-only
-    recent_days: Optional[int] = None
-    home_spread_min: float | None = None
-    home_spread_max: float | None = None
-    went_over_total: bool | None = None
-    pace_min: float | None = None
-    pace_max: float | None = None
-    team: str | None = None
-    player: str | None = None
-    minutes_trigger: Literal["actual_lt_rolling"] | None = None
-    games_limit: int | None = None
-    cleaning: CleaningOptions | None = None
-    feature_mode: str | None = None  # "admin" | "full"
-
-    @field_validator("home_spread_max")
-    @classmethod
-    def _validate_spread(cls, v, info):
-        min_v = info.data.get("home_spread_min")
-        if v is not None and min_v is not None and v < min_v:
-            raise ValueError("home_spread_max must be >= home_spread_min")
-        return v
-
-    @field_validator("pace_max")
-    @classmethod
-    def _validate_pace(cls, v, info):
-        min_v = info.data.get("pace_min")
-        if v is not None and min_v is not None and v < min_v:
-            raise ValueError("pace_max must be >= pace_min")
-        return v
+def _snapshot_hash(payload: dict[str, Any]) -> str:
+    raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()[:16]
 
 
-class MicroModelRow(BaseModel):
-    theory_id: str | None = None
-    game_id: int
-    market_type: str
-    side: str
-    closing_line: float | None = None
-    closing_odds: float | None = None
-    implied_prob: float | None = None
-    final_score_home: int | None = None
-    final_score_away: int | None = None
-    outcome: str | None = None  # win/loss/push
-    pnl_units: float | None = None
-    est_ev_pct: float | None = None
-    trigger_flag: bool = True
-    features: dict[str, Any] | None = None
-    meta: dict[str, Any] | None = None
-
-
-class TheoryMetrics(BaseModel):
-    sample_size: int
-    cover_rate: float
-    baseline_cover_rate: float | None = None
-    delta_cover: float | None = None
-    ev_vs_implied: float | None = None
-    sharpe_like: float | None = None
-    max_drawdown: float | None = None
-    time_stability: float | None = None
-
-
-class TrainedModelResponse(BaseModel):
-    model_type: str
-    features_used: list[str]
-    feature_weights: dict[str, float]
-    accuracy: float
-    roi: float
-
-
-class SuggestedTheoryResponse(BaseModel):
-    text: str
-    features_used: list[str]
-    historical_edge: float
-    confidence: str
-
-
-class ModelBuildResponse(BaseModel):
-    model_summary: TrainedModelResponse
-    suggested_theories: list[SuggestedTheoryResponse]
-    validation_stats: dict[str, float]
-    cleaning_summary: CleaningSummary | None = None
-
-
-class AnalysisWithMicroResponse(AnalysisResponse):
-    micro_model_results: list[MicroModelRow] | None = None
-    theory_metrics: TheoryMetrics | None = None
-
-
-class ModelBuildWithMicroResponse(ModelBuildResponse):
-    micro_model_results: list[MicroModelRow] | None = None
-    theory_metrics: TheoryMetrics | None = None
-    mc_summary: dict[str, Any] | None = None
+def _build_model_snapshot(
+    *,
+    req: ModelBuildRequest,
+    target_def: TargetDefinition,
+    policy: dict[str, Any],
+    dropped_features: list[dict[str, Any]] | None,
+    features_used: list[str],
+    trigger_def: TriggerDefinition | None,
+    exposure_controls: ExposureControls | None,
+) -> dict[str, Any]:
+    payload = {
+        "version": 1,
+        "created_at": datetime.utcnow().isoformat(),
+        "league_code": req.league_code,
+        "filters": {
+            "seasons": req.seasons,
+            "phase": req.phase,
+            "recent_days": req.recent_days,
+            "team": req.team,
+            "player": req.player,
+            "home_spread_min": req.home_spread_min,
+            "home_spread_max": req.home_spread_max,
+        },
+        "context": req.context,
+        "target_definition": target_def.model_dump() if hasattr(target_def, "model_dump") else target_def.dict(),
+        "trigger_definition": (trigger_def.model_dump() if (trigger_def and hasattr(trigger_def, "model_dump")) else (trigger_def.dict() if trigger_def else None)),
+        "exposure_controls": (
+            exposure_controls.model_dump()
+            if (exposure_controls and hasattr(exposure_controls, "model_dump"))
+            else (exposure_controls.dict() if exposure_controls else None)
+        ),
+        "cleaning": (req.cleaning.model_dump() if (req.cleaning and hasattr(req.cleaning, "model_dump")) else (req.cleaning.dict() if req.cleaning else None)),
+        "features_requested": [f.name for f in req.features],
+        "feature_policy": policy,
+        "features_used": features_used,
+        "features_dropped": dropped_features or [],
+    }
+    return {"hash": _snapshot_hash(payload), "payload": payload}
 
 
 async def _get_league(session: AsyncSession, code: str) -> db_models.SportsLeague:
@@ -336,12 +258,12 @@ def _apply_base_filters(stmt: Select, league: db_models.SportsLeague, req: Any) 
     if recent_days:
         cutoff = datetime.utcnow() - timedelta(days=recent_days)
         stmt = stmt.where(db_models.SportsGame.game_date >= cutoff)
-    # Spread filters (home)
+    # Spread filters (home) - accept any spread line (team-based sides in NCAAB)
     spread_min = getattr(req, "home_spread_min", None)
     spread_max = getattr(req, "home_spread_max", None)
     if spread_min is not None or spread_max is not None:
         stmt = stmt.join(db_models.SportsGameOdds, db_models.SportsGameOdds.game_id == db_models.SportsGame.id)
-        stmt = stmt.where(db_models.SportsGameOdds.market_type == "spread", db_models.SportsGameOdds.side == "home")
+        stmt = stmt.where(db_models.SportsGameOdds.market_type == "spread")
         if spread_min is not None:
             stmt = stmt.where(db_models.SportsGameOdds.line >= spread_min)
         if spread_max is not None:
@@ -354,22 +276,25 @@ def _apply_base_filters(stmt: Select, league: db_models.SportsLeague, req: Any) 
         stmt = stmt.join(db_models.SportsTeam, db_models.SportsGame.home_team_id == db_models.SportsTeam.id, isouter=True)
         stmt = stmt.join(away_team, db_models.SportsGame.away_team_id == away_team.id, isouter=True)
         stmt = stmt.where(
-            func.lower(db_models.SportsTeam.name).like(team_filter)
-            | func.lower(db_models.SportsTeam.short_name).like(team_filter)
-            | func.lower(db_models.SportsTeam.abbreviation).like(team_filter)
-            | func.lower(away_team.name).like(team_filter)
-            | func.lower(away_team.short_name).like(team_filter)
-            | func.lower(away_team.abbreviation).like(team_filter)
+            or_(
+                func.lower(db_models.SportsTeam.name).like(team_filter),
+                func.lower(db_models.SportsTeam.short_name).like(team_filter),
+                func.lower(db_models.SportsTeam.abbreviation).like(team_filter),
+                func.lower(away_team.name).like(team_filter),
+                func.lower(away_team.short_name).like(team_filter),
+                func.lower(away_team.abbreviation).like(team_filter),
+            )
         )
     return stmt
 
 
 def _build_phase_ranges(league_code: str | None, seasons: list[int] | None, phase: str | None):
     """
-    Build date ranges for NCAAB phases:
-    - out_conf: season start (Jul 1 prior year) to Jan 1 of next calendar year
-    - conf: Jan 1 to Mar 16
-    - postseason: Mar 16 to Jul 1
+    Build date ranges for NCAAB phases aligned to season timing:
+    - Season runs roughly Nov 1 (season year) through Apr 15 (next year).
+    - out_conf: Nov 1 -> Jan 1
+    - conf: Jan 1 -> Mar 16
+    - postseason: Mar 16 -> Apr 16
     """
     if not league_code or league_code.upper() != "NCAAB":
         return None
@@ -377,14 +302,13 @@ def _build_phase_ranges(league_code: str | None, seasons: list[int] | None, phas
         return None
     ranges: list[tuple[datetime, datetime]] = []
     for s in seasons:
-        # Season s spans roughly Jul (prior) through July (next)
-        season_start = datetime(s, 7, 1)
-        conf_year = s + 1  # Jan/Mar fall in next calendar year
+        season_start = datetime(s, 11, 1)
+        conf_year = s + 1  # Jan/Mar/Apr fall in next calendar year
         out_end = datetime(conf_year, 1, 1)
         conf_start = out_end
         conf_end = datetime(conf_year, 3, 16)
         post_start = conf_end
-        post_end = datetime(conf_year, 7, 1)
+        post_end = datetime(conf_year, 4, 16)
         if phase == "out_conf":
             ranges.append((season_start, out_end))
         elif phase == "conf":
@@ -455,8 +379,6 @@ async def get_available_stat_keys(
         team_stat_keys=team_stat_keys,
         player_stat_keys=player_stat_keys,
     )
-
-
 @router.post("/generate-features", response_model=FeatureGenerationResponse)
 async def generate_feature_catalog(req: FeatureGenerationRequest) -> FeatureGenerationResponse:
     """Generate feature descriptors based on selected raw stats and context flags."""
@@ -472,6 +394,9 @@ async def generate_feature_catalog(req: FeatureGenerationRequest) -> FeatureGene
             formula=f.formula,
             category=f.category,
             requires=f.requires,
+            timing=getattr(f, "timing", None).value if getattr(f, "timing", None) is not None else None,
+            source=getattr(f, "source", None).value if getattr(f, "source", None) is not None else None,
+            group=getattr(f, "group", None),
         )
         for f in generated
     ]
@@ -479,19 +404,10 @@ async def generate_feature_catalog(req: FeatureGenerationRequest) -> FeatureGene
         features=features,
         summary=summarize_features(generated, req.raw_stats, req.include_rest_days),
     )
-
-
-def _target_value(metrics: dict[str, Any], target: str) -> float | None:
-    if target == "cover":
-        val = metrics.get("did_home_cover")
-        return 1.0 if val else 0.0 if val is not None else None
-    if target == "win":
-        val = metrics.get("winner")
-        return 1.0 if val == "home" else 0.0 if val == "away" else None
-    if target == "over":
-        val = metrics.get("total_result")
-        return 1.0 if val == "over" else 0.0 if val == "under" else None
-    return None
+def _target_value_legacy(metrics: dict[str, Any], target: str | None) -> float | None:
+    """Back-compat shim for older callers passing target as a string."""
+    td = _resolve_target_definition(target, None)
+    return _target_value(metrics, td)
 
 
 def _pearson_correlation(x: list[float], y: list[float]) -> float | None:
@@ -633,43 +549,97 @@ def _build_micro_rows(
     kept_ids: list[int],
     target_map: dict[int, float],
     trigger_flag: bool = True,
+    target_def: TargetDefinition | None = None,
+    model_prob_by_game_id: dict[int, float] | None = None,
+    trigger_def: TriggerDefinition | None = None,
 ) -> list[MicroModelRow]:
     """Construct micro_model_results rows aligned to kept_ids."""
     game_lookup = {g.id: g for g in games}
     rows: list[MicroModelRow] = []
+    td = target_def or TargetDefinition(market_type="spread", side="home", odds_assumption="use_closing")
+    trig = trigger_def or TriggerDefinition()
     for row in feature_data:
         gid = row.get("game_id")
         if gid not in kept_ids:
             continue
         game = game_lookup.get(gid)
         metrics = compute_derived_metrics(game, game.odds or []) if game else {}
-        closing_line = metrics.get("closing_spread_home")
-        closing_odds = metrics.get("closing_spread_home_price")
-        implied_prob = implied_probability_from_decimal(row.get("market_decimal_odds")) if row.get("market_decimal_odds") else None
+        closing_line: float | None = None
+        closing_odds: float | None = None
+        if td.market_type == "spread":
+            closing_line = metrics.get("closing_spread_home") if td.side == "home" else metrics.get("closing_spread_away")
+            closing_odds = metrics.get("closing_spread_home_price") if td.side == "home" else metrics.get("closing_spread_away_price")
+        elif td.market_type == "total":
+            closing_line = metrics.get("closing_total")
+            closing_odds = metrics.get("closing_total_price")
+        elif td.market_type == "moneyline":
+            closing_odds = metrics.get("closing_ml_home") if td.side == "home" else metrics.get("closing_ml_away")
+
+        odds_for_math = closing_odds
+        if td.odds_assumption == "flat_-110":
+            odds_for_math = -110.0
+        implied_prob = implied_probability_from_american(float(odds_for_math)) if odds_for_math is not None else None
         tgt = target_map.get(gid)
         outcome = "win" if tgt == 1 else "loss" if tgt == 0 else "push"
-        pnl = 1.0 if outcome == "win" else -1.0 if outcome == "loss" else 0.0
-        ev_pct = ((tgt - implied_prob) * 100) if (tgt is not None and implied_prob is not None) else None
+        if outcome == "win":
+            pnl = profit_for_american_odds(float(odds_for_math or -110.0), risk_units=1.0)
+        elif outcome == "loss":
+            pnl = -1.0
+        else:
+            pnl = 0.0
+        model_prob = (model_prob_by_game_id or {}).get(gid)
+        edge_vs_implied = (model_prob - implied_prob) if (model_prob is not None and implied_prob is not None) else None
+
+        # Stage 2.1 trigger evaluation (truthful: if missing model_prob/implied_prob, we can't trigger)
+        reasons: list[str] = []
+        did_trigger = bool(trigger_flag)
+        if model_prob is None:
+            did_trigger = False
+            reasons.append("missing model probability")
+        if implied_prob is None:
+            did_trigger = False
+            reasons.append("missing implied probability (odds)")
+        if model_prob is not None:
+            if model_prob < trig.prob_threshold:
+                did_trigger = False
+                reasons.append(f"model_prob {model_prob:.3f} < threshold {trig.prob_threshold:.3f}")
+            if trig.confidence_band is not None and abs(model_prob - 0.5) < trig.confidence_band:
+                did_trigger = False
+                reasons.append(f"confidence |p-0.5| {abs(model_prob-0.5):.3f} < band {trig.confidence_band:.3f}")
+        if edge_vs_implied is not None and trig.min_edge_vs_implied is not None and edge_vs_implied < trig.min_edge_vs_implied:
+            did_trigger = False
+            reasons.append(f"edge {edge_vs_implied:.3f} < min_edge {trig.min_edge_vs_implied:.3f}")
+
+        # If it triggers, provide a positive justification line too
+        if did_trigger and model_prob is not None:
+            reasons.insert(0, f"model_prob {model_prob:.3f} passes trigger")
+
+        ev_pct = None
         rows.append(
             MicroModelRow(
                 theory_id=None,
                 game_id=gid,
-                market_type="spread",
-                side="home",
+                market_type=td.market_type,
+                side=td.side,
                 closing_line=closing_line,
                 closing_odds=closing_odds,
                 implied_prob=implied_prob,
+                model_prob=model_prob,
+                edge_vs_implied=edge_vs_implied,
                 final_score_home=getattr(game, "home_score", None) if game else None,
                 final_score_away=getattr(game, "away_score", None) if game else None,
                 outcome=outcome,
                 pnl_units=pnl,
                 est_ev_pct=ev_pct,
-                trigger_flag=trigger_flag,
+                trigger_flag=did_trigger,
                 features={k: v for k, v in row.items() if k != "game_id"},
                 meta={
                     "season": getattr(game, "season", None) if game else None,
                     "game_date": getattr(game, "game_date", None).isoformat() if (game and game.game_date) else None,
                     "conference": getattr(game, "is_conference_game", None) if game else None,
+                    "target_definition": td.model_dump() if hasattr(td, "model_dump") else td.dict(),
+                    "trigger_definition": trig.model_dump() if hasattr(trig, "model_dump") else trig.dict(),
+                    "trigger_reasons": reasons,
                 },
             )
         )
@@ -684,8 +654,8 @@ def _compute_theory_metrics(rows: list[MicroModelRow], baseline_rows: list[Micro
         b = len(baseline_rows)
         base_rate = sum(1 for r in baseline_rows if r.outcome == "win") / b if b else None
     delta = (cover_rate - base_rate) if base_rate is not None else None
-    evs = [r.est_ev_pct for r in rows if r.est_ev_pct is not None]
-    ev_vs_implied = float(np.mean(evs)) if evs else None
+    implied = [r.implied_prob for r in rows if r.implied_prob is not None]
+    ev_vs_implied = ((cover_rate - float(np.mean(implied))) * 100.0) if implied else None
     pnl_curve: list[float] = []
     acc = 0.0
     for r in rows:
@@ -767,6 +737,7 @@ async def preview_features(req: FeaturePreviewRequest, session: AsyncSession = D
     """Preview feature matrix before running analysis. Supports CSV or JSON quality summary."""
     league = await _get_league(session, req.league_code)
     layer_builder = _resolve_layer_builder(req.feature_mode)
+    filtered_features, _policy = _feature_policy_report(req.features, req.context)
 
     stmt: Select = select(db_models.SportsGame.id)
     stmt = _apply_base_filters(stmt, league, req)
@@ -783,28 +754,15 @@ async def preview_features(req: FeaturePreviewRequest, session: AsyncSession = D
             return FeaturePreviewSummary(rows_inspected=0, feature_stats={})
         buffer = io.StringIO()
         writer = csv.writer(buffer)
-        writer.writerow(["game_id", *[f.name for f in req.features]])
+        writer.writerow(["game_id", *[f.name for f in filtered_features]])
         return StreamingResponse(iter([buffer.getvalue()]), media_type="text/csv")
 
     feature_data = await compute_features_for_games(
-        session, league.id, all_game_ids, req.features, layer_builder=layer_builder
+        session, league.id, all_game_ids, filtered_features, layer_builder=layer_builder, context=req.context
     )
     minutes_map = await _player_minutes_map(session, all_game_ids, getattr(req, "player", None))
     _attach_player_minutes(feature_data, minutes_map)
-    minutes_map = await _player_minutes_map(session, all_game_ids, getattr(req, "player", None))
-    _attach_player_minutes(feature_data, minutes_map)
-    minutes_map = await _player_minutes_map(session, all_game_ids, getattr(req, "player", None))
-    _attach_player_minutes(feature_data, minutes_map)
-    minutes_map = await _player_minutes_map(session, all_game_ids, getattr(req, "player", None))
-    _attach_player_minutes(feature_data, minutes_map)
-    feature_names = [f.name for f in req.features if (not req.feature_filter or f.name in req.feature_filter)]
-    if layer_builder and feature_data:
-        layered_names = [
-            k
-            for k in feature_data[0].keys()
-            if k not in {"game_id"} and (not req.feature_filter or k in req.feature_filter)
-        ]
-        feature_names = feature_names + [name for name in layered_names if name not in feature_names]
+    feature_names = [f.name for f in filtered_features if (not req.feature_filter or f.name in req.feature_filter)]
 
     fmt = req.format.lower()
     if fmt == "json":
@@ -829,6 +787,7 @@ async def preview_features(req: FeaturePreviewRequest, session: AsyncSession = D
     include_target = bool(req.include_target or req.target)
     game_to_targets: dict[int, float] = {}
     if include_target:
+        td = _resolve_target_definition(req.target, req.target_definition)
         stmt_games = select(db_models.SportsGame).where(db_models.SportsGame.id.in_(all_game_ids)).options(
             selectinload(db_models.SportsGame.odds),
             selectinload(db_models.SportsGame.home_team),
@@ -837,7 +796,7 @@ async def preview_features(req: FeaturePreviewRequest, session: AsyncSession = D
         games_res = await session.execute(stmt_games)
         for game in games_res.scalars().all():
             metrics = compute_derived_metrics(game, game.odds)
-            tgt_val = _target_value(metrics, req.target or "")
+            tgt_val = _target_value(metrics, td)
             if tgt_val is not None:
                 game_to_targets[game.id] = tgt_val
 
@@ -873,6 +832,26 @@ async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get
     """Run correlation analysis for generated features against a target."""
     league = await _get_league(session, req.league_code)
     layer_builder = _resolve_layer_builder(req.feature_mode)
+    target_def = _resolve_target_definition(req.target, req.target_definition)
+    filtered_features, policy = _feature_policy_report(req.features, req.context)
+
+    # Debug: log incoming filters
+    try:
+        logger = structlog.get_logger("eda_analyze")
+        logger.info(
+            "analyze_request",
+            league=req.league_code,
+            seasons=req.seasons,
+            phase=req.phase,
+            recent_days=req.recent_days,
+            home_spread_min=req.home_spread_min,
+            home_spread_max=req.home_spread_max,
+            market=req.feature_mode,
+            team=req.team,
+            player=req.player,
+        )
+    except Exception:
+        pass
 
     # Fetch game ids filtered by seasons if provided
     stmt: Select = select(db_models.SportsGame)
@@ -885,6 +864,16 @@ async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get
     all_game_ids = await _filter_games_by_player(session, all_game_ids, getattr(req, "player", None))
     games = [g for g in games if g.id in all_game_ids]
 
+    # Debug: log game counts and ids (truncated)
+    try:
+        logger.info(
+            "analyze_games_filtered",
+            game_count=len(all_game_ids),
+            sample_ids=all_game_ids[:20],
+        )
+    except Exception:
+        pass
+
     if not all_game_ids:
         return AnalysisResponse(
             sample_size=0,
@@ -892,11 +881,12 @@ async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get
             correlations=[],
             best_segments=[],
             insights=["No games found for the selected filters."],
+            feature_policy=policy,
         )
 
     # Compute feature values
     feature_data = await compute_features_for_games(
-        session, league.id, all_game_ids, req.features, layer_builder=layer_builder
+        session, league.id, all_game_ids, filtered_features, layer_builder=layer_builder, context=req.context
     )
 
     # Fetch derived targets
@@ -913,20 +903,25 @@ async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get
     games_res = await session.execute(stmt_games)
     for game in games_res.scalars().all():
         metrics = compute_derived_metrics(game, game.odds)
-        tgt_val = _target_value(metrics, req.target)
+        tgt_val = _target_value(metrics, target_def)
         if tgt_val is not None:
             game_to_targets[game.id] = tgt_val
 
     # Assemble aligned data
-    feature_names = [f.name for f in req.features]
-    if layer_builder and feature_data:
-        layered_names = [k for k in feature_data[0].keys() if k not in {"game_id"}]
-        feature_names = feature_names + [name for name in layered_names if name not in feature_names]
+    feature_names = [f.name for f in filtered_features]
     aligned_features, aligned_target, kept_ids, cleaning_summary = _prepare_dataset(
         feature_data, feature_names, game_to_targets, req.cleaning
     )
     sample_size = len(aligned_target)
     if sample_size == 0:
+        try:
+            structlog.get_logger("eda_analyze").info(
+                "analyze_no_targets",
+                games=len(all_game_ids),
+                target=f"{target_def.market_type}:{target_def.side}",
+            )
+        except Exception:
+            pass
         return AnalysisResponse(
             sample_size=0,
             baseline_rate=0.0,
@@ -934,6 +929,7 @@ async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get
             best_segments=[],
             insights=["No target values available for selected games."],
             cleaning_summary=cleaning_summary,
+            feature_policy=policy,
         )
 
     baseline_rate = float(np.mean(aligned_target))
@@ -975,11 +971,20 @@ async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get
         correlations.append(CorrelationResult(feature=name, correlation=corr, p_value=None, is_significant=is_sig))
         if is_sig:
             direction = "more" if corr > 0 else "less"
-            insights.append(f"{name} correlates with {req.target}: {direction} {req.target} when this increases.")
+            label = f"{target_def.market_type}:{target_def.side}"
+            insights.append(f"{name} correlates with {label}: {direction} {label} when this increases.")
 
     correlations = sorted(correlations, key=lambda c: abs(c.correlation), reverse=True)[:10]
 
-    micro_rows = _build_micro_rows(games, feature_data, kept_ids, game_to_targets, trigger_flag=True)
+    insights_out = insights[:5]
+    if not insights_out:
+        insights_out = ["No strong correlations detected."]
+        if dropped_dupe or dropped_low_var:
+            insights_out.append(
+                f"Dropped {dropped_dupe} duplicate feature vectors and {dropped_low_var} low-variance features."
+            )
+
+    micro_rows = _build_micro_rows(games, feature_data, kept_ids, game_to_targets, trigger_flag=True, target_def=target_def)
     theory_metrics = _compute_theory_metrics(micro_rows, None)
 
     return AnalysisWithMicroResponse(
@@ -987,26 +992,23 @@ async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get
         baseline_rate=baseline_rate,
         correlations=correlations,
         best_segments=[],
-        insights=(
-            insights[:5]
-            or [
-                "No strong correlations detected.",
-                f"Dropped {dropped_dupe} duplicate feature vectors and {dropped_low_var} low-variance features."
-                if (dropped_dupe or dropped_low_var)
-                else "",
-            ]
-        ),
+        insights=insights_out,
         cleaning_summary=cleaning_summary,
         micro_model_results=micro_rows,
         theory_metrics=theory_metrics,
+        feature_policy=policy,
     )
+# End of file
+# EOF
 
-
+# EOF
 @router.post("/analyze/export")
 async def export_analysis_csv(req: AnalysisRequest, session: AsyncSession = Depends(get_db)) -> StreamingResponse:
     """Export the feature matrix with targets as CSV, for the same filters/features/target used in analysis."""
     league = await _get_league(session, req.league_code)
     layer_builder = _resolve_layer_builder(req.feature_mode)
+    filtered_features, _policy = _feature_policy_report(req.features, req.context)
+    target_def = _resolve_target_definition(req.target, req.target_definition)
 
     stmt: Select = select(db_models.SportsGame)
     stmt = _apply_base_filters(stmt, league, req)
@@ -1021,11 +1023,11 @@ async def export_analysis_csv(req: AnalysisRequest, session: AsyncSession = Depe
     if not all_game_ids:
         buffer = io.StringIO()
         writer = csv.writer(buffer)
-        writer.writerow(["game_id", "target", *[f.name for f in req.features]])
+        writer.writerow(["game_id", "target", *[f.name for f in filtered_features]])
         return StreamingResponse(iter([buffer.getvalue()]), media_type="text/csv")
 
     feature_data = await compute_features_for_games(
-        session, league.id, all_game_ids, req.features, layer_builder=layer_builder
+        session, league.id, all_game_ids, filtered_features, layer_builder=layer_builder, context=req.context
     )
 
     # Fetch derived targets
@@ -1038,14 +1040,11 @@ async def export_analysis_csv(req: AnalysisRequest, session: AsyncSession = Depe
     games_res = await session.execute(stmt_games)
     for game in games_res.scalars().all():
         metrics = compute_derived_metrics(game, game.odds)
-        tgt_val = _target_value(metrics, req.target)
+        tgt_val = _target_value(metrics, target_def)
         if tgt_val is not None:
             game_to_targets[game.id] = tgt_val
 
-    feature_names = [f.name for f in req.features]
-    if layer_builder and feature_data:
-        layered_names = [k for k in feature_data[0].keys() if k not in {"game_id"}]
-        feature_names = feature_names + [name for name in layered_names if name not in feature_names]
+    feature_names = [f.name for f in filtered_features]
     aligned_features, aligned_target, kept_ids, _summary = _prepare_dataset(
         feature_data, feature_names, game_to_targets, req.cleaning
     )
@@ -1078,6 +1077,8 @@ async def export_micro_model(req: AnalysisRequest, session: AsyncSession = Depen
     """Export per-game micro_model_results CSV for given filters/features/target."""
     league = await _get_league(session, req.league_code)
     layer_builder = _resolve_layer_builder(req.feature_mode)
+    filtered_features, _policy = _feature_policy_report(req.features, req.context)
+    target_def = _resolve_target_definition(req.target, req.target_definition)
 
     stmt: Select = select(db_models.SportsGame)
     stmt = _apply_base_filters(stmt, league, req)
@@ -1088,25 +1089,22 @@ async def export_micro_model(req: AnalysisRequest, session: AsyncSession = Depen
     all_game_ids = [g.id for g in games]
 
     feature_data = await compute_features_for_games(
-        session, league.id, all_game_ids, req.features, layer_builder=layer_builder
+        session, league.id, all_game_ids, filtered_features, layer_builder=layer_builder, context=req.context
     )
 
     # targets
     game_to_targets: dict[int, float] = {}
     for game in games:
         metrics = compute_derived_metrics(game, game.odds)
-        tgt_val = _target_value(metrics, req.target)
+        tgt_val = _target_value(metrics, target_def)
         if tgt_val is not None:
             game_to_targets[game.id] = tgt_val
 
-    feature_names = [f.name for f in req.features]
-    if layer_builder and feature_data:
-        layered_names = [k for k in feature_data[0].keys() if k not in {"game_id"}]
-        feature_names = feature_names + [name for name in layered_names if name not in feature_names]
+    feature_names = [f.name for f in filtered_features]
     aligned_features, aligned_target, kept_ids, _summary = _prepare_dataset(
         feature_data, feature_names, game_to_targets, req.cleaning
     )
-    micro_rows = _build_micro_rows(games, feature_data, kept_ids, game_to_targets, trigger_flag=True)
+    micro_rows = _build_micro_rows(games, feature_data, kept_ids, game_to_targets, trigger_flag=True, target_def=target_def)
 
     def csv_iter():
         buffer = io.StringIO()
@@ -1166,6 +1164,8 @@ async def build_model(req: ModelBuildRequest, session: AsyncSession = Depends(ge
     """Train a lightweight model on the computed features and return suggested theories."""
     league = await _get_league(session, req.league_code)
     layer_builder = _resolve_layer_builder(req.feature_mode)
+    target_def = _resolve_target_definition(req.target, req.target_definition)
+    filtered_features, policy = _feature_policy_report(req.features, req.context)
 
     stmt: Select = select(db_models.SportsGame)
     stmt = _apply_base_filters(stmt, league, req)
@@ -1184,10 +1184,11 @@ async def build_model(req: ModelBuildRequest, session: AsyncSession = Depends(ge
             ),
             suggested_theories=[],
             validation_stats={},
+            feature_policy=policy,
         )
 
     feature_data = await compute_features_for_games(
-        session, league.id, all_game_ids, req.features, layer_builder=layer_builder
+        session, league.id, all_game_ids, filtered_features, layer_builder=layer_builder, context=req.context
     )
 
     # target values
@@ -1204,35 +1205,87 @@ async def build_model(req: ModelBuildRequest, session: AsyncSession = Depends(ge
     game_to_target: dict[int, float] = {}
     for game in games_res.scalars().all():
         metrics = compute_derived_metrics(game, game.odds)
-        tgt_val = _target_value(metrics, req.target)
+        tgt_val = _target_value(metrics, target_def)
         if tgt_val is not None:
             game_to_target[game.id] = tgt_val
 
-    feature_names = [f.name for f in req.features]
-    if layer_builder and feature_data:
-        layered_names = [k for k in feature_data[0].keys() if k not in {"game_id"}]
-        feature_names = feature_names + [name for name in layered_names if name not in feature_names]
+    feature_names = [f.name for f in filtered_features]
     aligned_features, aligned_target, kept_ids, cleaning_summary = _prepare_dataset(
         feature_data, feature_names, game_to_target, req.cleaning
     )
 
+    # Stage 1.3: redundancy pruning before training
+    pruned_features, dropped_log = _prune_feature_matrix(aligned_features, feature_names)
+
     aligned_rows: list[dict[str, float]] = []
     for idx in range(len(aligned_target)):
         entry: dict[str, float] = {"__target__": aligned_target[idx]}
-        for fname in feature_names:
+        for fname in pruned_features:
             val = aligned_features[fname][idx]
             entry[fname] = 0.0 if (val is None or np.isnan(val)) else float(val)
         aligned_rows.append(entry)
 
-    trained = train_logistic_regression(aligned_rows, feature_names, "__target__")
+    trained = train_logistic_regression(aligned_rows, pruned_features, "__target__")
+
+    # Stage 1.3: drop near-zero weight features (post-training)
+    zero_weight = [f for f, w in trained.feature_weights.items() if abs(float(w)) <= 1e-6]
+    for f in zero_weight:
+        dropped_log.append({"feature": f, "reason": "near_zero_weight", "abs_weight": abs(float(trained.feature_weights[f]))})
+    if zero_weight:
+        kept_after_weights = [f for f in trained.features_used if f not in set(zero_weight)]
+        trained.feature_weights = {k: v for k, v in trained.feature_weights.items() if k in set(kept_after_weights)}
+        trained.features_used = kept_after_weights
+
+    # Stage 2.1: compute model probabilities per game id for trigger evaluation
+    model_prob_by_game_id: dict[int, float] = {}
+    for idx, gid in enumerate(kept_ids):
+        # aligned_rows order matches kept_ids
+        if idx >= len(aligned_rows):
+            break
+        model_prob_by_game_id[gid] = float(predict_proba(trained, aligned_rows[idx]))
 
     # Use previous analysis correlations if available; otherwise empty
     correlations: list[CorrelationResult] = []
     suggested = generate_theories(trained, correlations, [])
 
-    micro_rows = _build_micro_rows(games, feature_data, kept_ids, game_to_target, trigger_flag=True)
+    micro_rows = _build_micro_rows(
+        games,
+        feature_data,
+        kept_ids,
+        game_to_target,
+        trigger_flag=True,
+        target_def=target_def,
+        model_prob_by_game_id=model_prob_by_game_id,
+        trigger_def=req.trigger_definition,
+    )
     theory_metrics = _compute_theory_metrics(micro_rows, None)
     mc_summary = simulate_historical_mc(micro_rows)
+    selected_bets, exposure_summary, dropped_bets_log = _apply_exposure_controls(
+        micro_rows, controls=req.exposure_controls, target_def=target_def
+    )
+    bet_tape = _build_bet_tape(selected_bets)
+    performance_slices = _build_performance_slices(selected_bets, target_def=target_def)
+    failure_analysis = _build_failure_analysis(selected_bets)
+    mc_assumptions = _mc_assumptions_payload(target_def, exposure_summary)
+    mc_interpretation = _mc_interpretation_lines(mc_summary, exposure_summary)
+
+    # Stage 5: theory candidates (read-only; user approves in UI)
+    baseline_rate = float(np.mean(aligned_target)) if aligned_target else 0.0
+    theory_candidates = _generate_theory_candidates(
+        aligned_rows,
+        trained.features_used,
+        baseline_rate=baseline_rate,
+        target_def=target_def,
+    )
+    model_snapshot = _build_model_snapshot(
+        req=req,
+        target_def=target_def,
+        policy=policy,
+        dropped_features=dropped_log,
+        features_used=trained.features_used,
+        trigger_def=req.trigger_definition,
+        exposure_controls=req.exposure_controls,
+    )
 
     return ModelBuildWithMicroResponse(
         model_summary=TrainedModelResponse(
@@ -1243,19 +1296,28 @@ async def build_model(req: ModelBuildRequest, session: AsyncSession = Depends(ge
             roi=trained.roi,
         ),
         suggested_theories=[
-          SuggestedTheoryResponse(
-              text=t.text,
-              features_used=t.features_used,
-              historical_edge=t.historical_edge,
-              confidence=t.confidence,
-          )
-          for t in suggested
+            SuggestedTheoryResponse(
+                text=t.text,
+                features_used=t.features_used,
+                historical_edge=t.historical_edge,
+                confidence=t.confidence,
+            )
+            for t in suggested
         ],
         validation_stats={"accuracy": trained.accuracy, "roi": trained.roi},
         cleaning_summary=cleaning_summary,
         micro_model_results=micro_rows,
         theory_metrics=theory_metrics,
         mc_summary=mc_summary,
+        feature_policy=policy,
+        features_dropped=dropped_log,
+        exposure_summary={**exposure_summary, "dropped_bets_log": dropped_bets_log[:200]},
+        bet_tape=bet_tape,
+        performance_slices=performance_slices,
+        failure_analysis=failure_analysis,
+        mc_assumptions=mc_assumptions,
+        mc_interpretation=mc_interpretation,
+        theory_candidates=theory_candidates,
+        model_snapshot=model_snapshot,
     )
-
-
+# End of file
