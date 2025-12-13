@@ -34,7 +34,17 @@ def slice_metrics(rows: List[Any]) -> dict[str, Any]:
     }
 
 
-def build_performance_slices(selected_bets: List[Any], target_def: dict[str, Any]) -> dict[str, Any]:
+def build_performance_slices(selected_bets: List[Any], target_def: Any) -> dict[str, Any]:
+    # Convert Pydantic model to dict if needed
+    if target_def is None:
+        tdef = {}
+    elif hasattr(target_def, "model_dump"):
+        tdef = target_def.model_dump()
+    elif hasattr(target_def, "dict"):
+        tdef = target_def.dict()
+    else:
+        tdef = target_def
+
     base = slice_metrics(selected_bets)
 
     def red_zone(m: dict[str, Any]) -> bool:
@@ -58,7 +68,7 @@ def build_performance_slices(selected_bets: List[Any], target_def: dict[str, Any
 
     spread_buckets = []
     fav_ud = []
-    if target_def.get("market_type") == "spread":
+    if tdef.get("market_type") == "spread":
         spread_defs = [
             ("abs_line<3", lambda a: a < 3),
             ("3<=abs_line<6", lambda a: 3 <= a < 6),

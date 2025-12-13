@@ -10,10 +10,20 @@ def generate_theory_candidates(
     feature_names: List[str],
     *,
     baseline_rate: float,
-    target_def: dict[str, Any],
+    target_def: Any,
     min_sample_size: int = 150,
     min_lift: float = 0.02,
 ) -> List[dict[str, Any]]:
+    # Convert Pydantic model to dict if needed
+    if target_def is None:
+        tdef = {}
+    elif hasattr(target_def, "model_dump"):
+        tdef = target_def.model_dump()
+    elif hasattr(target_def, "dict"):
+        tdef = target_def.dict()
+    else:
+        tdef = target_def
+
     if not aligned_rows or not feature_names:
         return []
     y = np.array([float(r.get("__target__", 0.0)) for r in aligned_rows], dtype=float)
@@ -43,7 +53,7 @@ def generate_theory_candidates(
         if abs(lift) < min_lift:
             continue
         framing = (
-            f"When {condition}, {target_def.get('market_type')}:{target_def.get('side')} outperforms baseline by {(lift*100):.1f}% "
+            f"When {condition}, {tdef.get('market_type')}:{tdef.get('side')} outperforms baseline by {(lift*100):.1f}% "
             f"over {sample} bets."
         )
         candidates.append(

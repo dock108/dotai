@@ -3,11 +3,20 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 
-def mc_assumptions_payload(target_def: Dict[str, Any], exposure: Dict[str, Any] | None) -> Dict[str, Any]:
+def mc_assumptions_payload(target_def: Any, exposure: Dict[str, Any] | None) -> Dict[str, Any]:
+    # Convert Pydantic model to dict if needed
+    if target_def is None:
+        tdef = {}
+    elif hasattr(target_def, "model_dump"):
+        tdef = target_def.model_dump()
+    elif hasattr(target_def, "dict"):
+        tdef = target_def.dict()
+    else:
+        tdef = target_def
     return {
         "bet_sizing": "1 unit flat risk (historical simulation artifact)",
         "kelly": "not used",
-        "odds_assumption": target_def.get("odds_assumption"),
+        "odds_assumption": tdef.get("odds_assumption"),
         "independence_assumption": True,
         "selection_policy": (exposure or {}).get("notes", []),
     }

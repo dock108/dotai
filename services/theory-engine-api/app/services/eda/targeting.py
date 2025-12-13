@@ -18,8 +18,17 @@ def resolve_target_definition(req_target: str | None, target_def: Any) -> Any:
 
 def target_value(metrics: dict[str, Any], target_def: Any) -> float | None:
     """Compute target label per TargetDefinition."""
-    mt = target_def.get("market_type")
-    side = target_def.get("side")
+    # Convert Pydantic model to dict if needed
+    if target_def is None:
+        tdef = {}
+    elif hasattr(target_def, "model_dump"):
+        tdef = target_def.model_dump()
+    elif hasattr(target_def, "dict"):
+        tdef = target_def.dict()
+    else:
+        tdef = target_def
+    mt = tdef.get("market_type")
+    side = tdef.get("side")
     if mt == "spread":
         if side == "home":
             val = metrics.get("did_home_cover")

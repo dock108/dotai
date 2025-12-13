@@ -7,9 +7,28 @@ def apply_exposure_controls(
     micro_rows: List[Any],
     *,
     controls: Any,
-    target_def: Dict[str, Any],
+    target_def: Any,
 ) -> Tuple[List[Any], Dict[str, Any], List[dict[str, Any]]]:
-    ctl = controls or {}
+    # Convert Pydantic model to dict if needed
+    if controls is None:
+        ctl = {}
+    elif hasattr(controls, "model_dump"):
+        ctl = controls.model_dump()
+    elif hasattr(controls, "dict"):
+        ctl = controls.dict()
+    else:
+        ctl = controls
+
+    # Convert target_def if it's a Pydantic model
+    if target_def is None:
+        tdef = {}
+    elif hasattr(target_def, "model_dump"):
+        tdef = target_def.model_dump()
+    elif hasattr(target_def, "dict"):
+        tdef = target_def.dict()
+    else:
+        tdef = target_def
+
     max_bets_per_day = ctl.get("max_bets_per_day", 5)
     max_per_side = ctl.get("max_bets_per_side_per_day")
     spread_abs_min = ctl.get("spread_abs_min")
@@ -18,7 +37,7 @@ def apply_exposure_controls(
     candidates: List[Any] = [r for r in micro_rows if bool(getattr(r, "trigger_flag", False))]
     dropped: List[dict[str, Any]] = []
 
-    if target_def.get("market_type") == "spread" and (spread_abs_min is not None or spread_abs_max is not None):
+    if tdef.get("market_type") == "spread" and (spread_abs_min is not None or spread_abs_max is not None):
         kept: List[Any] = []
         for r in candidates:
             line = getattr(r, "closing_line", None)
@@ -151,5 +170,3 @@ def build_bet_tape(selected: List[Any]) -> List[dict[str, Any]]:
             }
         )
     return tape[:10]
-
-
