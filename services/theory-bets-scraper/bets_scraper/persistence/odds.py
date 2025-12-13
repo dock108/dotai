@@ -359,7 +359,7 @@ def upsert_odds(session: Session, snapshot: NormalizedOddsSnapshot) -> bool:
         if game_id is None:
             return False
         # Skip noisy diagnostics when cached; proceed to insert/update odds.
-        side_value = snapshot.side[:20] if snapshot.side else None
+        side_value = snapshot.side if snapshot.side else None
         stmt = (
             insert(db_models.SportsGameOdds)
             .values(
@@ -375,7 +375,7 @@ def upsert_odds(session: Session, snapshot: NormalizedOddsSnapshot) -> bool:
                 raw_payload=snapshot.raw_payload,
             )
             .on_conflict_do_update(
-                index_elements=["game_id", "book", "market_type", "is_closing_line"],
+                index_elements=["game_id", "book", "market_type", "side", "is_closing_line"],
                 set_={
                     "line": snapshot.line,
                     "price": snapshot.price,
@@ -567,7 +567,7 @@ def upsert_odds(session: Session, snapshot: NormalizedOddsSnapshot) -> bool:
         _cache_set(cache_key, None)
         return False
 
-    side_value = snapshot.side[:20] if snapshot.side else None
+    side_value = snapshot.side if snapshot.side else None
 
     stmt = (
         insert(db_models.SportsGameOdds)
@@ -584,7 +584,7 @@ def upsert_odds(session: Session, snapshot: NormalizedOddsSnapshot) -> bool:
             raw_payload=snapshot.raw_payload,
         )
         .on_conflict_do_update(
-            index_elements=["game_id", "book", "market_type", "is_closing_line"],
+            index_elements=["game_id", "book", "market_type", "side", "is_closing_line"],
             set_={
                 "line": snapshot.line,
                 "price": snapshot.price,

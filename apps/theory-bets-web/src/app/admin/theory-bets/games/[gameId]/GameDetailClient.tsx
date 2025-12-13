@@ -15,6 +15,7 @@ export default function GameDetailClient() {
   const [error, setError] = useState<string | null>(null);
   const [actionStatus, setActionStatus] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<"rescrape" | "odds" | null>(null);
+  const [selectedBook, setSelectedBook] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -43,6 +44,39 @@ export default function GameDetailClient() {
       { label: "Player stats", ok: game.game.has_player_stats },
       { label: "Odds", ok: game.game.has_odds },
     ];
+  }, [game]);
+
+  // Book selection defaults to FanDuel if available, otherwise first book
+  const bookOptions = useMemo(() => {
+    if (!game) return [];
+    return Array.from(new Set(game.odds.map((o) => o.book)));
+  }, [game]);
+
+  useEffect(() => {
+    if (!game) return;
+    const preferred = bookOptions.find((b) => b === "FanDuel") ?? bookOptions[0] ?? null;
+    setSelectedBook(preferred ?? null);
+  }, [bookOptions, game]);
+
+  const filteredOdds = useMemo(() => {
+    if (!game || !selectedBook) return [];
+    return game.odds.filter((o) => o.book === selectedBook);
+  }, [game, selectedBook]);
+
+  const oddsByMarket = useMemo(() => {
+    const spread = filteredOdds.filter((o) => o.market_type === "spread");
+    const total = filteredOdds.filter((o) => o.market_type === "total");
+    const moneyline = filteredOdds.filter((o) => o.market_type === "moneyline");
+    return { spread, total, moneyline };
+  }, [filteredOdds]);
+
+  const playerStatsByTeam = useMemo(() => {
+    if (!game) return {};
+    return game.player_stats.reduce<Record<string, typeof game.player_stats>>((acc, p) => {
+      acc[p.team] = acc[p.team] || [];
+      acc[p.team].push(p);
+      return acc;
+    }, {});
   }, [game]);
 
   const handleRescrape = async () => {
@@ -151,34 +185,177 @@ export default function GameDetailClient() {
       </div>
 
       <div className={styles.card}>
+        <h2>Team Stats</h2>
+        {game.team_stats.length === 0 ? (
+          <div style={{ color: "#475569" }}>No team stats found.</div>
+        ) : (
+          <div className={styles.teamStatsGrid}>
+            {game.team_stats.map((t) => (
+              <div key={t.team} className={styles.teamStatsCard}>
+                <div className={styles.teamStatsHeader}>
+                  <h3>{t.team}</h3>
+                  <span className={styles.badge}>{t.is_home ? "Home" : "Away"}</span>
+                </div>
+                <table className={styles.table}>
+                  <tbody>
+                    {Object.entries(t.stats || {}).map(([k, v]) => (
+                      <tr key={k}>
+                        <td>{k}</td>
+                        <td>{String(v ?? "—")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className={styles.card}>
+        <h2>Player Stats</h2>
+        {Object.keys(playerStatsByTeam).length === 0 ? (
+          <div style={{ color: "#475569" }}>No player stats found.</div>
+        ) : (
+          <div className={styles.playerStatsGrid}>
+            {Object.entries(playerStatsByTeam).map(([team, rows]) => (
+              <div key={team} className={styles.teamStatsCard}>
+                <div className={styles.teamStatsHeader}>
+                  <h3>{team}</h3>
+                </div>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Player</th>
+                      <th>Minutes</th>
+                      <th>Points</th>
+                      <th>Reb</th>
+                      <th>Ast</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((p) => (
+                      <tr key={`${team}-${p.player_name}`}>
+                        <td>{p.player_name}</td>
+                        <td>{p.minutes ?? "—"}</td>
+                        <td>{p.points ?? "—"}</td>
+                        <td>{p.rebounds ?? "—"}</td>
+                        <td>{p.assists ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className={styles.card}>
         <h2>Odds</h2>
         {game.odds.length === 0 ? (
           <div style={{ color: "#475569" }}>No odds found.</div>
         ) : (
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Book</th>
-                <th>Market</th>
-                <th>Side</th>
-                <th>Line</th>
-                <th>Price</th>
-                <th>Observed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {game.odds.map((o, idx) => (
-                <tr key={`${o.book}-${o.market_type}-${o.side}-${idx}`}>
-                  <td>{o.book}</td>
-                  <td>{o.market_type}</td>
-                  <td>{o.side ?? "—"}</td>
-                  <td>{o.line ?? "—"}</td>
-                  <td>{o.price ?? "—"}</td>
-                  <td>{o.observed_at ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            <div className={styles.oddsHeader}>
+              <label>
+                Book:
+                <select
+                  className={styles.oddsBookSelect}
+                  value={selectedBook ?? ""}
+                  onChange={(e) => setSelectedBook(e.target.value)}
+                >
+                  {bookOptions.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className={styles.oddsGroup}>
+              <h3>Spread</h3>
+              {oddsByMarket.spread.length === 0 ? (
+                <div className={styles.subtle}>No spread odds for {selectedBook}</div>
+              ) : (
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Side</th>
+                      <th>Line</th>
+                      <th>Price</th>
+                      <th>Observed</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {oddsByMarket.spread.map((o, idx) => (
+                      <tr key={`${o.side}-${idx}`}>
+                        <td>{o.side ?? "—"}</td>
+                        <td>{o.line ?? "—"}</td>
+                        <td>{o.price ?? "—"}</td>
+                        <td>{o.observed_at ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div className={styles.oddsGroup}>
+              <h3>Total</h3>
+              {oddsByMarket.total.length === 0 ? (
+                <div className={styles.subtle}>No total odds for {selectedBook}</div>
+              ) : (
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Side</th>
+                      <th>Line</th>
+                      <th>Price</th>
+                      <th>Observed</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {oddsByMarket.total.map((o, idx) => (
+                      <tr key={`${o.side}-${idx}`}>
+                        <td>{o.side ?? "—"}</td>
+                        <td>{o.line ?? "—"}</td>
+                        <td>{o.price ?? "—"}</td>
+                        <td>{o.observed_at ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div className={styles.oddsGroup}>
+              <h3>Moneyline</h3>
+              {oddsByMarket.moneyline.length === 0 ? (
+                <div className={styles.subtle}>No moneyline odds for {selectedBook}</div>
+              ) : (
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Side</th>
+                      <th>Price</th>
+                      <th>Observed</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {oddsByMarket.moneyline.map((o, idx) => (
+                      <tr key={`${o.side}-${idx}`}>
+                        <td>{o.side ?? "—"}</td>
+                        <td>{o.price ?? "—"}</td>
+                        <td>{o.observed_at ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </>
         )}
       </div>
 

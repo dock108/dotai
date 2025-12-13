@@ -436,7 +436,7 @@ class SportsGameOdds(Base):
     game_id: Mapped[int] = mapped_column(Integer, ForeignKey("sports_games.id", ondelete="CASCADE"), nullable=False, index=True)
     book: Mapped[str] = mapped_column(String(50), nullable=False)  # "draftkings", "fanduel", "pinnacle"
     market_type: Mapped[str] = mapped_column(String(20), nullable=False)  # "spread", "total", "moneyline"
-    side: Mapped[str | None] = mapped_column(String(20), nullable=True)  # "home", "away", "over", "under"
+    side: Mapped[str | None] = mapped_column(String(50), nullable=True)  # "home", "away", "over", "under", team name
     line: Mapped[float | None] = mapped_column(nullable=True)  # Spread points / total points
     price: Mapped[float | None] = mapped_column(nullable=True)  # American odds stored as float
     is_closing_line: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -460,6 +460,7 @@ class SportsGameOdds(Base):
             "game_id",
             "book",
             "market_type",
+            "side",
             "is_closing_line",
             unique=True,
         ),
