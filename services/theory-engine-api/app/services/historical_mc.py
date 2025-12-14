@@ -18,6 +18,7 @@ def simulate_historical_mc(rows: Sequence[Any]) -> dict[str, Any]:
 
     sims = 200
     pnl_samples: list[float] = []
+    drawdowns: list[float] = []
     win_probs = []
     for r in rows:
         implied = getattr(r, "implied_prob", None)
@@ -30,11 +31,16 @@ def simulate_historical_mc(rows: Sequence[Any]) -> dict[str, Any]:
 
     for _ in range(sims):
         acc = 0.0
+        peak = 0.0
+        max_dd = 0.0
         for _r in rows:
             implied = getattr(_r, "implied_prob", None)
             p = implied if implied is not None else base_prob
             acc += 1.0 if random.random() < p else -1.0
+            peak = max(peak, acc)
+            max_dd = max(max_dd, peak - acc)
         pnl_samples.append(acc)
+        drawdowns.append(max_dd)
 
     pnl_samples.sort()
     actual = sum(getattr(r, "pnl_units", 0.0) or 0.0 for r in rows)
@@ -44,6 +50,14 @@ def simulate_historical_mc(rows: Sequence[Any]) -> dict[str, Any]:
     p95 = pnl_samples[int(0.95 * len(pnl_samples)) - 1] if pnl_samples else 0.0
     luck_score = actual - mean_pnl
 
+    actual_curve = 0.0
+    actual_peak = 0.0
+    actual_max_dd = 0.0
+    for r in rows:
+        actual_curve += (getattr(r, "pnl_units", 0.0) or 0.0)
+        actual_peak = max(actual_peak, actual_curve)
+        actual_max_dd = max(actual_max_dd, actual_peak - actual_curve)
+
     return {
         "runs": sims,
         "mean_pnl": mean_pnl,
@@ -52,5 +66,7 @@ def simulate_historical_mc(rows: Sequence[Any]) -> dict[str, Any]:
         "p95_pnl": p95,
         "actual_pnl": actual,
         "luck_score": luck_score,
+        "mean_max_drawdown": statistics.mean(drawdowns) if drawdowns else 0.0,
+        "actual_max_drawdown": actual_max_dd,
     }
 

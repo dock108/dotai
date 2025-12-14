@@ -24,6 +24,12 @@ def generate_theory_candidates(
     else:
         tdef = target_def
 
+    # Only generate candidates for binary/market targets; stat/numeric targets are observational
+    tclass = tdef.get("target_class")
+    mtype = tdef.get("metric_type")
+    if tclass == "stat" or mtype == "numeric":
+        return []
+
     if not aligned_rows or not feature_names:
         return []
     y = np.array([float(r.get("__target__", 0.0)) for r in aligned_rows], dtype=float)

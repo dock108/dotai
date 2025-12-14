@@ -32,3 +32,7 @@ def load_run(run_id: str) -> Optional[Dict[str, Any]]:
     data = _load_store()
     return data.get(run_id)
 
+
+def list_runs() -> Dict[str, Any]:
+    return _load_store()
+

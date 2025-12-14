@@ -319,6 +319,7 @@ def generate_features(
     include_rest_days: bool,
     include_rolling: bool,
     rolling_window: int = 5,
+    include_builtins: bool = False,
 ) -> list[GeneratedFeature]:
     """Generate feature descriptors from selected raw stats and context flags."""
     # Deduplicate and preserve input order
@@ -330,7 +331,8 @@ def generate_features(
             deduped_stats.append(stat)
 
     features: list[GeneratedFeature] = []
-    features.extend(_builtin_features())
+    if include_builtins:
+        features.extend(_builtin_features())
     features.extend(_raw_features(deduped_stats))
     features.extend(_differential_features(deduped_stats))
     features.extend(_combined_features(deduped_stats))

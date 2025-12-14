@@ -15,6 +15,7 @@ class FeatureGenerationRequest(BaseModel):
     include_rest_days: bool = False
     include_rolling: bool = False
     rolling_window: int = 5
+    include_builtins: bool = False  # pace, conference, player_minutes, etc.
 
 
 class GeneratedFeature(BaseModel):
@@ -187,7 +188,7 @@ class CleaningSummaryResponse(BaseModel):
 
 class AnalysisResponse(BaseModel):
     sample_size: int
-    baseline_rate: float
+    baseline_value: float
     correlations: list[CorrelationResult]
     best_segments: list[SegmentResult]
     insights: list[str]
@@ -277,9 +278,17 @@ class TheoryEvaluation(BaseModel):
     cohort_value: float | None = None
     baseline_value: float | None = None
     delta_value: float | None = None
+    cohort_std: float | None = None
+    cohort_min: float | None = None
+    cohort_max: float | None = None
+    p25: float | None = None
+    p75: float | None = None
+    implied_rate: float | None = None  # market-only
+    roi_units: float | None = None  # market-only, mean pnl per bet
     formatting: Literal["numeric", "percent"] = "numeric"
     notes: list[str] | None = None
     stability_by_season: dict[str, float] | None = None
+    stability_by_month: dict[str, float] | None = None
     verdict: str | None = None
 
 
@@ -299,7 +308,80 @@ class CohortInfo(BaseModel):
     sample_size: int
     time_span: dict[str, Any] | None = None
     baseline_definition: dict[str, Any] | None = None
+    odds_coverage_pct: float | None = None
 
+
+class WalkforwardWindow(BaseModel):
+    train_days: int = 180
+    test_days: int = 14
+    step_days: int = 7
+
+
+class WalkforwardSlice(BaseModel):
+    start_date: datetime | None = None
+    end_date: datetime | None = None
+    sample_size: int
+    hit_rate: float | None = None
+    roi_units: float | None = None
+    edge_avg: float | None = None
+    odds_coverage_pct: float | None = None
+
+
+class WalkforwardRequest(BaseModel):
+    league_code: str
+    features: list[GeneratedFeature]
+    target_definition: TargetDefinition
+    seasons: list[int] | None = None
+    date_start: datetime | None = None
+    date_end: datetime | None = None
+    phase: Optional[Literal["all", "out_conf", "conf", "postseason"]] = None
+    recent_days: Optional[int] = None
+    home_spread_min: float | None = None
+    home_spread_max: float | None = None
+    team: str | None = None
+    player: str | None = None
+    games_limit: int | None = None
+    cleaning: CleaningOptions | None = None
+    feature_mode: str | None = None
+    context: Literal["deployable", "diagnostic"] = "deployable"
+    window: WalkforwardWindow = WalkforwardWindow()
+
+
+class WalkforwardResponse(BaseModel):
+    run_id: str
+    slices: list[WalkforwardSlice]
+    edge_half_life_days: float | None = None
+    predictions_ref: str | None = None
+    notes: list[str] | None = None
+
+
+class AnalysisRunSummary(BaseModel):
+    run_id: str
+    created_at: datetime | None = None
+    target_name: str | None = None
+    target_class: str | None = None
+    run_type: str | None = None
+    micro_rows_ref: str | None = None
+    cohort_size: int | None = None
+    snapshot_hash: str | None = None
+
+
+class AnalysisRunDetail(BaseModel):
+    run_id: str
+    created_at: datetime | None = None
+    request: dict[str, Any] | None = None
+    target: dict[str, Any] | None = None
+    evaluation: dict[str, Any] | None = None
+    modeling: dict[str, Any] | None = None
+    monte_carlo: dict[str, Any] | None = None
+    mc_summary: dict[str, Any] | None = None
+    model_snapshot: dict[str, Any] | None = None
+    micro_rows_ref: str | None = None
+    micro_rows_sample: list[dict[str, Any]] | None = None
+    run_type: str | None = None
+    cohort_size: int | None = None
+    snapshot_hash: str | None = None
+# End of file
 
 class ModelingStatus(BaseModel):
     available: bool
@@ -356,9 +438,9 @@ class ModelBuildResponse(BaseModel):
 
 
 class AnalysisWithMicroResponse(AnalysisResponse):
-    micro_model_results: list[MicroModelRow] | None = None
+    micro_rows: list[MicroModelRow] | None = None
     theory_metrics: TheoryMetrics | None = None
-    theory_evaluation: TheoryEvaluation | None = None
+    evaluation: TheoryEvaluation | None = None
     meta: MetaInfo | None = None
     theory: TheoryDescriptor | None = None
     cohort: CohortInfo | None = None
@@ -368,10 +450,10 @@ class AnalysisWithMicroResponse(AnalysisResponse):
 
 
 class ModelBuildWithMicroResponse(ModelBuildResponse):
-    micro_model_results: list[MicroModelRow] | None = None
+    micro_rows: list[MicroModelRow] | None = None
     theory_metrics: TheoryMetrics | None = None
     mc_summary: dict[str, Any] | None = None
-    theory_evaluation: TheoryEvaluation | None = None
+    evaluation: TheoryEvaluation | None = None
     meta: MetaInfo | None = None
     theory: TheoryDescriptor | None = None
     cohort: CohortInfo | None = None

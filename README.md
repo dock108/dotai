@@ -82,12 +82,11 @@ Users submit betting theories → LLM grades prompt and infers config → histor
 **Admin flow:** `/admin/theory-bets/runs` → browse/filter runs → click through to results
 
 ### EDA / Modeling Lab (admin)
-- Generate features from selected stats and context (rest/rolling), run correlation analysis, and evaluate theories without requiring a model. Modeling and Monte Carlo are optional follow-ups.
-- Stat targets (observational) return evaluation immediately (cohort mean, baseline, delta, stability); market targets can also train a lightweight model and MC when odds are present.
-- Preview the full feature matrix (CSV, new tab) and view a filterable data-quality report (null %, non-numeric, distinct, min/max/mean) before analysis.
-- Results card links to the exact game sample in `/admin/theory-bets/games` and provides a CSV export of the feature matrix (opens in a new tab).
-- Cleaning toggles for analysis/model: drop rows with missing/non-numeric features or enforce a minimum number of non-null features.
-- Endpoints: `POST /api/admin/sports/eda/generate-features`, `POST /api/admin/sports/eda/preview` (CSV/JSON with filters/sorting), `POST /api/admin/sports/eda/analyze` (stat/market evaluation; modeling optional), `POST /api/admin/sports/eda/build-model` (optional), `POST /api/admin/sports/eda/analyze/export` (CSV, respects cleaning).
+- Pipeline UI: Theory Definition → Cohort & Micro → Evaluation → Market Mapping → Modeling → Robustness MC → Walk-forward → Live Matches (stubs). Tabs make stage/state explicit.
+- Stat targets: observational and **complete at Evaluation** (cohort mean/baseline/delta, stability, verdict). Modeling/MC are optional and disabled for stat targets.
+- Market targets: can optionally run modeling + MC when odds exist; odds coverage reported; run viewer persists snapshots/micro CSV pointers.
+- Data exports: preview feature matrix (CSV or data-quality JSON), analyze/export (features+target CSV), micro-model CSV, run history (`analysis-runs` endpoints).
+- Cleaning toggles (drop null/non-numeric/min non-null); target-leakage guard drops aliases for combined_score.
 
 ### Sports Data Ingestion
 Celery workers scrape boxscores and odds for NBA, NFL, MLB, NHL, NCAAB, NCAAF. Admin UI at `/admin/theory-bets/ingestion` to trigger and monitor runs.
@@ -110,6 +109,9 @@ Natural language requests → AI parsing → YouTube search with channel reputat
 | `POST /api/admin/sports/eda/analyze` | Run correlation analysis for selected features/target |
 | `POST /api/admin/sports/eda/build-model` | Train lightweight model on feature matrix |
 | `POST /api/admin/sports/eda/analyze/export` | Export feature matrix + targets as CSV |
+| `GET /api/admin/sports/eda/analysis-runs` | List persisted EDA runs (summary) |
+| `GET /api/admin/sports/eda/analysis-runs/{id}` | Load persisted run detail + micro sample |
+| `POST /api/admin/sports/eda/walkforward` | Rolling train/test replay (market targets) |
 
 Full API docs at `http://localhost:8000/docs` when backend is running.
 
