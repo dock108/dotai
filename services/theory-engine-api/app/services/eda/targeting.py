@@ -5,10 +5,29 @@ from typing import Any
 from ..feature_metadata import FeatureTiming, get_feature_metadata  # re-export convenience if needed
 
 
-def resolve_target_definition(req_target: str | None, target_def: Any) -> Any:
-    """Target definition must be provided explicitly."""
+def resolve_target_definition(target_def: Any | None = None, req_target: str | None = None) -> Any:
+    """Normalize TargetDefinition input, accepting Pydantic models, dicts, or legacy strings."""
     if target_def is not None:
+        if hasattr(target_def, "model_dump"):
+            return target_def.model_dump()
+        if hasattr(target_def, "dict"):
+            return target_def.dict()
+        # If caller passed a bare string, treat it as a legacy target_name
+        if isinstance(target_def, str):
+            return {
+                "target_class": "market",
+                "target_name": target_def,
+                "metric_type": "binary",
+            }
         return target_def
+
+    if req_target is not None:
+        return {
+            "target_class": "market",
+            "target_name": req_target,
+            "metric_type": "binary",
+        }
+
     raise ValueError("target_definition is required")
 
 

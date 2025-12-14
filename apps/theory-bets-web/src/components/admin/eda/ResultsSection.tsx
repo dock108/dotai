@@ -7,6 +7,8 @@ import {
   type TheoryMetrics,
   type ModelBuildResponse,
   type McSummary,
+  type ModelingStatus,
+  type MonteCarloStatus,
 } from "@/lib/api/sportsAdmin";
 
 type Props = {
@@ -48,6 +50,209 @@ export function ResultsSection({
 }: Props) {
   if (!analysisResult && !modelResult) {
     return <p className={styles.hint}>Run “Analyze” to populate results.</p>;
+  }
+
+  const evaluation = modelResult?.theory_evaluation ?? analysisResult?.theory_evaluation ?? null;
+  const modeling: ModelingStatus | null = modelResult?.modeling ?? (analysisResult as any)?.modeling ?? null;
+  const monteCarlo: MonteCarloStatus | null = modelResult?.monte_carlo ?? (analysisResult as any)?.monte_carlo ?? null;
+  const notes: string[] | null = modelResult?.notes ?? (analysisResult as any)?.notes ?? null;
+  const isStat = evaluation?.target_class === "stat" || !(microRows?.some((r) => r.market_type));
+
+  const formatValue = (val: number | null | undefined, formatting: "numeric" | "percent" = "numeric") => {
+    if (val == null || Number.isNaN(val)) return "—";
+    return formatting === "percent" ? `${(val * 100).toFixed(1)}%` : val.toFixed(1);
+  };
+
+  const renderModelingStatus = () => {
+    if (!modeling) return null;
+    return (
+      <div className={styles.sectionCard}>
+        <h4 className={styles.sectionTitle}>Modeling</h4>
+        {!modeling.available && (
+          <p className={styles.hint}>Not available: {modeling.reason_not_available ?? "unknown"}</p>
+        )}
+        {modeling.available && !modeling.has_run && (
+          <p className={styles.hint}>
+            Not run: {modeling.reason_not_run ?? "user_has_not_requested"}. Eligible:{" "}
+            {JSON.stringify(modeling.eligibility ?? {})}
+          </p>
+        )}
+        {modeling.available && modeling.has_run && (
+          <>
+            <div className={styles.metricsGrid}>
+              <div>
+                Accuracy:{" "}
+                <span className={styles.summaryValue}>
+                  {modeling.metrics?.accuracy != null ? (modeling.metrics.accuracy * 100).toFixed(1) + "%" : "—"}
+                </span>
+              </div>
+              <div>
+                ROI:{" "}
+                <span className={styles.summaryValue}>
+                  {modeling.metrics?.roi != null ? (modeling.metrics.roi * 100).toFixed(1) + "%" : "—"}
+                </span>
+              </div>
+            </div>
+            {modeling.feature_importance && modeling.feature_importance.length > 0 && (
+              <p className={styles.hint}>Feature importance available (model trained).</p>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const renderMcStatus = () => {
+    if (!monteCarlo) return null;
+    return (
+      <div className={styles.sectionCard}>
+        <h4 className={styles.sectionTitle}>Monte Carlo</h4>
+        {!monteCarlo.available && (
+          <p className={styles.hint}>Not available: {monteCarlo.reason_not_available ?? "unknown"}</p>
+        )}
+        {monteCarlo.available && !monteCarlo.has_run && (
+          <p className={styles.hint}>
+            Not run: {monteCarlo.reason_not_run ?? "user_has_not_requested"}. Eligible:{" "}
+            {JSON.stringify(monteCarlo.eligibility ?? {})}
+          </p>
+        )}
+        {monteCarlo.available && monteCarlo.has_run && (
+          <>
+            <div className={styles.metricsGrid}>
+              <div>
+                P50 units: <span className={styles.summaryValue}>{monteCarlo.results?.p50_pnl ?? monteCarlo.results?.p50_units ?? "—"}</span>
+              </div>
+              <div>
+                P5 units: <span className={styles.summaryValue}>{monteCarlo.results?.p5_pnl ?? monteCarlo.results?.p5_units ?? "—"}</span>
+              </div>
+              <div>
+                P95 units: <span className={styles.summaryValue}>{monteCarlo.results?.p95_pnl ?? monteCarlo.results?.p95_units ?? "—"}</span>
+              </div>
+            </div>
+            {monteCarlo.results?.assumptions && (
+              <p className={styles.hint}>
+                Assumptions: bet sizing {monteCarlo.results.assumptions.bet_sizing}, ordering {monteCarlo.results.assumptions.ordering}, independence{" "}
+                {String(monteCarlo.results.assumptions.independence)}. Monte Carlo is an optional robustness check.
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
+
+  // Stat-only rendering: observational flow, no model/MC/triggers.
+  if (isStat) {
+    const sampleSize = analysisResult?.sample_size ?? modelResult?.micro_model_results?.length ?? 0;
+    const baselineDisplay =
+      evaluation?.baseline_value != null
+        ? formatValue(evaluation.baseline_value, evaluation.formatting)
+        : analysisResult?.baseline_rate != null
+          ? analysisResult.baseline_rate.toFixed(1)
+          : "—";
+
+    return (
+      <>
+        <div className={styles.analysisBlock}>
+          <div className={styles.summaryRow}>
+            <span>
+              Sample size: <span className={styles.summaryValue}>{sampleSize.toLocaleString()}</span>
+            </span>
+            <span>
+              Baseline: <span className={styles.summaryValue}>{baselineDisplay}</span>
+            </span>
+            <div className={styles.previewActions}>
+              <button type="button" className={styles.linkButton} onClick={onDownloadMicroCsv} disabled={microCsvLoading}>
+                {microCsvLoading ? "Preparing micro CSV..." : "Download micro-model (CSV)"}
+              </button>
+              <button type="button" className={styles.linkButton} onClick={onDownloadCsv} disabled={csvLoading}>
+                {csvLoading ? "Preparing feature CSV..." : "Download feature matrix (CSV)"}
+              </button>
+            </div>
+          </div>
+          <p className={styles.hint}>
+            Observational theory — no betting simulation. Micro rows = per-game rows matching filters.
+            <Link href={gamesLink} className={styles.linkButton} target="_blank">
+              View sample in games table
+            </Link>
+          </p>
+
+          {evaluation && (
+            <div className={styles.sectionCard}>
+              <h4 className={styles.sectionTitle}>Theory evaluation (stat)</h4>
+              <div className={styles.metricsGrid}>
+                <div>
+                  Cohort mean: <span className={styles.summaryValue}>{formatValue(evaluation.cohort_value, evaluation.formatting)}</span>
+                </div>
+                <div>
+                  Baseline mean: <span className={styles.summaryValue}>{formatValue(evaluation.baseline_value, evaluation.formatting)}</span>
+                </div>
+                <div>
+                  Delta vs baseline: <span className={styles.summaryValue}>{formatValue(evaluation.delta_value, evaluation.formatting)}</span>
+                </div>
+              </div>
+              {evaluation.stability_by_season && (
+                <p className={styles.hint}>
+                  Stability by season:{" "}
+                  {Object.entries(evaluation.stability_by_season)
+                    .map(([season, val]) => `${season}: ${formatValue(val, evaluation.formatting)}`)
+                    .join(" · ")}
+                </p>
+              )}
+              {evaluation.notes && <p className={styles.hint}>{evaluation.notes.join(" ")}</p>}
+            </div>
+          )}
+
+          {microRows && microRows.length > 0 ? (
+            <div className={styles.sectionCard}>
+              <h4 className={styles.sectionTitle}>Micro results (sample)</h4>
+              <p className={styles.hint}>Showing first 10 of {microRows.length.toLocaleString()} rows.</p>
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Game</th>
+                      <th>Target</th>
+                      <th>Value</th>
+                      <th>Outcome</th>
+                      <th>Trigger</th>
+                      <th>Why</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {microRows.slice(0, 10).map((r) => (
+                      <tr key={`${r.game_id}-${r.target_name}`}>
+                        <td>{r.game_id}</td>
+                        <td>{r.target_name}</td>
+                        <td>{r.target_value ?? "—"}</td>
+                        <td>{r.outcome ?? "—"}</td>
+                        <td>—</td>
+                        <td>{Array.isArray(r.meta?.trigger_reasons) ? r.meta?.trigger_reasons?.[0] ?? "—" : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <p className={styles.hint}>No micro rows yet for this filter set.</p>
+          )}
+
+          {renderModelingStatus()}
+          {renderMcStatus()}
+          {notes && notes.length > 0 && (
+            <div className={styles.sectionCard}>
+              <h4 className={styles.sectionTitle}>Notes</h4>
+              <ul className={styles.bulletList}>
+                {notes.map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </>
+    );
   }
 
   return (
@@ -178,6 +383,19 @@ export function ResultsSection({
             </div>
           ) : (
             <p className={styles.hint}>Run analyze to populate metrics.</p>
+          )}
+
+          {renderModelingStatus()}
+          {renderMcStatus()}
+          {notes && notes.length > 0 && (
+            <div className={styles.sectionCard}>
+              <h4 className={styles.sectionTitle}>Notes</h4>
+              <ul className={styles.bulletList}>
+                {notes.map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
       )}

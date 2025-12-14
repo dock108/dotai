@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Copy workspace configuration and package manifests
 # This enables pnpm workspace resolution for shared packages
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./ 
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY tsconfig.json ./tsconfig.json
 COPY apps/dock108-web/package.json ./apps/dock108-web/
 COPY packages/ui/package.json ./packages/ui/

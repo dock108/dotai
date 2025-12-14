@@ -271,6 +271,56 @@ class TheoryMetrics(BaseModel):
     time_stability: float | None = None
 
 
+class TheoryEvaluation(BaseModel):
+    target_class: Literal["stat", "market"]
+    sample_size: int
+    cohort_value: float | None = None
+    baseline_value: float | None = None
+    delta_value: float | None = None
+    formatting: Literal["numeric", "percent"] = "numeric"
+    notes: list[str] | None = None
+    stability_by_season: dict[str, float] | None = None
+    verdict: str | None = None
+
+
+class MetaInfo(BaseModel):
+    run_id: str
+    snapshot_hash: str | None = None
+    created_at: datetime | None = None
+    engine_version: str | None = None
+
+
+class TheoryDescriptor(BaseModel):
+    target: dict[str, Any]
+    filters: dict[str, Any]
+
+
+class CohortInfo(BaseModel):
+    sample_size: int
+    time_span: dict[str, Any] | None = None
+    baseline_definition: dict[str, Any] | None = None
+
+
+class ModelingStatus(BaseModel):
+    available: bool
+    has_run: bool
+    reason_not_run: str | None = None
+    reason_not_available: str | None = None
+    eligibility: dict[str, Any] | None = None
+    model_type: str | None = None
+    metrics: dict[str, Any] | None = None
+    feature_importance: list[dict[str, Any]] | None = None
+
+
+class MonteCarloStatus(BaseModel):
+    available: bool
+    has_run: bool
+    reason_not_run: str | None = None
+    reason_not_available: str | None = None
+    eligibility: dict[str, Any] | None = None
+    results: dict[str, Any] | None = None
+
+
 class TrainedModelResponse(BaseModel):
     model_type: str
     features_used: list[str]
@@ -308,12 +358,26 @@ class ModelBuildResponse(BaseModel):
 class AnalysisWithMicroResponse(AnalysisResponse):
     micro_model_results: list[MicroModelRow] | None = None
     theory_metrics: TheoryMetrics | None = None
+    theory_evaluation: TheoryEvaluation | None = None
+    meta: MetaInfo | None = None
+    theory: TheoryDescriptor | None = None
+    cohort: CohortInfo | None = None
+    modeling: ModelingStatus | None = None
+    monte_carlo: MonteCarloStatus | None = None
+    notes: list[str] | None = None
 
 
 class ModelBuildWithMicroResponse(ModelBuildResponse):
     micro_model_results: list[MicroModelRow] | None = None
     theory_metrics: TheoryMetrics | None = None
     mc_summary: dict[str, Any] | None = None
+    theory_evaluation: TheoryEvaluation | None = None
+    meta: MetaInfo | None = None
+    theory: TheoryDescriptor | None = None
+    cohort: CohortInfo | None = None
+    modeling: ModelingStatus | None = None
+    monte_carlo: MonteCarloStatus | None = None
+    notes: list[str] | None = None
 
 
 class TriggerDefinition(BaseModel):

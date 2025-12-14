@@ -12,6 +12,7 @@ import hashlib
 import json
 import csv
 import io
+import os
 from typing import Any
 import statistics
 
@@ -44,7 +45,7 @@ import structlog
 from ..services.historical_mc import simulate_historical_mc
 from ..utils.odds import implied_probability_from_american, profit_for_american_odds
 from ..db_models import SportsPlayerBoxscore
-from ..services.feature_metadata import FeatureTiming, get_feature_metadata  # noqa: F401
+from ..services.feature_metadata import FeatureTiming, FeatureSource, get_feature_metadata  # noqa: F401
 from .sports_eda_schemas import (
     FeatureGenerationRequest,
     GeneratedFeature,
@@ -60,6 +61,12 @@ from .sports_eda_schemas import (
     ModelBuildRequest,
     MicroModelRow,
     TheoryMetrics,
+    TheoryEvaluation,
+    MetaInfo,
+    TheoryDescriptor,
+    CohortInfo,
+    ModelingStatus,
+    MonteCarloStatus,
     TrainedModelResponse,
     SuggestedTheoryResponse,
     AnalysisWithMicroResponse,
@@ -70,14 +77,16 @@ from .sports_eda_schemas import (
 )
 
 MAX_GAMES_LIMIT = 5000
+MC_MIN_ODDS_EVENTS = int(os.getenv("MC_MIN_ODDS_EVENTS", "1"))
 
 router = APIRouter(prefix="/api/admin/sports/eda", tags=["sports-eda"])
+logger = structlog.get_logger("sports-eda")
 # ---------- Feature generation ----------
 
 def _resolve_target_definition(target_def: TargetDefinition | None) -> TargetDefinition:
     if isinstance(target_def, TargetDefinition):
         return target_def
-    td_dict = resolve_target_definition(None, target_def)
+    td_dict = resolve_target_definition(target_def)
     return TargetDefinition(**td_dict)
 
 
@@ -395,7 +404,7 @@ async def generate_feature_catalog(req: FeatureGenerationRequest) -> FeatureGene
     )
 def _target_value_legacy(metrics: dict[str, Any], target: str | None) -> float | None:
     """Back-compat shim for older callers passing target as a string."""
-    td = _resolve_target_definition(target, None)
+    td = _resolve_target_definition(target)
     return _target_value(metrics, td)
 
 
@@ -567,35 +576,60 @@ def _build_micro_rows(
         odds_for_math = closing_odds
         implied_prob = implied_probability_from_american(float(odds_for_math)) if odds_for_math is not None else None
         tgt = target_map.get(gid)
-        outcome = "win" if tgt == 1 else "loss" if tgt == 0 else "push"
-        if outcome == "win" and odds_for_math is not None:
-            pnl = profit_for_american_odds(float(odds_for_math), risk_units=1.0)
-        elif outcome == "loss":
-            pnl = -1.0
+        is_market = bool(td and td.target_class == "market")
+
+        # Derive outcome context from stats regardless of target class
+        winner = metrics.get("winner")
+        total_result = metrics.get("total_result")  # "over" | "under" | None
+
+        if is_market:
+            outcome = "win" if tgt == 1 else "loss" if tgt == 0 else "push"
+            if outcome == "win" and odds_for_math is not None:
+                pnl = profit_for_american_odds(float(odds_for_math), risk_units=1.0)
+            elif outcome == "loss":
+                pnl = -1.0
+            else:
+                pnl = 0.0
         else:
+            # Stat targets: keep pnl neutral but still communicate game result
             pnl = 0.0
+            outcome = None
+            if td:
+                if td.target_name == "combined_score":
+                    outcome = total_result if total_result in ("over", "under") else "push"
+                elif td.target_name == "winner":
+                    outcome = winner if winner in ("home", "away") else None
+                elif td.target_name in ("margin_of_victory", "home_points", "away_points"):
+                    outcome = winner if winner in ("home", "away") else None
         model_prob = (model_prob_by_game_id or {}).get(gid)
         edge_vs_implied = (model_prob - implied_prob) if (model_prob is not None and implied_prob is not None) else None
 
         # Stage 2.1 trigger evaluation (truthful: if missing model_prob/implied_prob, we can't trigger)
         reasons: list[str] = []
         did_trigger = bool(trigger_flag)
-        if model_prob is None:
+        if not is_market:
+            # Stat targets: disable triggering and EV/edge; model_prob not meaningful here
             did_trigger = False
-            reasons.append("missing model probability")
-        if implied_prob is None and td and td.target_class == "market":
-            did_trigger = False
-            reasons.append("missing implied probability (odds)")
-        if model_prob is not None:
-            if model_prob < trig.prob_threshold:
+            model_prob = None
+            edge_vs_implied = None
+            reasons.append("stat target: triggers disabled")
+        else:
+            if model_prob is None:
                 did_trigger = False
-                reasons.append(f"model_prob {model_prob:.3f} < threshold {trig.prob_threshold:.3f}")
-            if trig.confidence_band is not None and abs(model_prob - 0.5) < trig.confidence_band:
+                reasons.append("missing model probability")
+            if implied_prob is None:
                 did_trigger = False
-                reasons.append(f"confidence |p-0.5| {abs(model_prob-0.5):.3f} < band {trig.confidence_band:.3f}")
-        if edge_vs_implied is not None and trig.min_edge_vs_implied is not None and edge_vs_implied < trig.min_edge_vs_implied:
-            did_trigger = False
-            reasons.append(f"edge {edge_vs_implied:.3f} < min_edge {trig.min_edge_vs_implied:.3f}")
+                reasons.append("missing implied probability (odds)")
+            if model_prob is not None:
+                if model_prob < trig.prob_threshold:
+                    did_trigger = False
+                    reasons.append(f"model_prob {model_prob:.3f} < threshold {trig.prob_threshold:.3f}")
+                if trig.confidence_band is not None and abs(model_prob - 0.5) < trig.confidence_band:
+                    did_trigger = False
+                    reasons.append(f"confidence |p-0.5| {abs(model_prob-0.5):.3f} < band {trig.confidence_band:.3f}")
+            if edge_vs_implied is not None and trig.min_edge_vs_implied is not None and edge_vs_implied < trig.min_edge_vs_implied:
+                did_trigger = False
+                reasons.append(f"edge {edge_vs_implied:.3f} < min_edge {trig.min_edge_vs_implied:.3f}")
 
         # If it triggers, provide a positive justification line too
         if did_trigger and model_prob is not None:
@@ -636,19 +670,26 @@ def _build_micro_rows(
     return rows
 
 
-def _compute_theory_metrics(rows: list[MicroModelRow], baseline_rows: list[MicroModelRow] | None = None) -> TheoryMetrics:
+def _compute_theory_metrics(rows: list[MicroModelRow], target_def: TargetDefinition, baseline_rows: list[MicroModelRow] | None = None) -> TheoryMetrics | None:
+    """Market metrics only. Stat targets return None to avoid percent semantics."""
+    if target_def.target_class == "stat":
+        return None
+
     n = len(rows)
-    cover_rate = sum(1 for r in rows if r.outcome == "win") / n if n else 0.0
+    eval_rows = [r for r in rows if r.outcome in {"win", "loss"}]
+    n_eval = len(eval_rows)
+    cover_rate = sum(1 for r in eval_rows if r.outcome == "win") / n_eval if n_eval else 0.0
     base_rate = None
     if baseline_rows:
-        b = len(baseline_rows)
-        base_rate = sum(1 for r in baseline_rows if r.outcome == "win") / b if b else None
+        b_rows = [r for r in baseline_rows if r.outcome in {"win", "loss"}]
+        b = len(b_rows)
+        base_rate = sum(1 for r in b_rows if r.outcome == "win") / b if b else None
     delta = (cover_rate - base_rate) if base_rate is not None else None
-    implied = [r.implied_prob for r in rows if r.implied_prob is not None]
+    implied = [r.implied_prob for r in eval_rows if r.implied_prob is not None]
     ev_vs_implied = ((cover_rate - float(np.mean(implied))) * 100.0) if implied else None
     pnl_curve: list[float] = []
     acc = 0.0
-    for r in rows:
+    for r in eval_rows:
         acc += r.pnl_units or 0.0
         pnl_curve.append(acc)
     max_dd = None
@@ -658,7 +699,7 @@ def _compute_theory_metrics(rows: list[MicroModelRow], baseline_rows: list[Micro
         dd = peak - v
         max_dd = dd if max_dd is None or dd > max_dd else max_dd
     sharpe_like = None
-    pnl_changes = [r.pnl_units for r in rows if r.pnl_units is not None]
+    pnl_changes = [r.pnl_units for r in eval_rows if r.pnl_units is not None]
     if len(pnl_changes) > 1:
         sharpe_like = float(np.mean(pnl_changes) / (np.std(pnl_changes) + 1e-9))
     time_stability = None
@@ -672,6 +713,111 @@ def _compute_theory_metrics(rows: list[MicroModelRow], baseline_rows: list[Micro
         max_drawdown=max_dd,
         time_stability=time_stability,
     )
+
+
+def _compute_theory_evaluation(rows: list[MicroModelRow], target_def: TargetDefinition) -> TheoryEvaluation | None:
+    """Lightweight evaluation that does not require modeling."""
+    if not rows:
+        return None
+
+    if target_def.target_class == "stat":
+        values: list[float] = []
+        stability: dict[str, list[float]] = {}
+        for r in rows:
+            if isinstance(r.target_value, (int, float)):
+                values.append(float(r.target_value))
+                season = (r.meta or {}).get("season")
+                if season is not None:
+                    stability.setdefault(str(season), []).append(float(r.target_value))
+        if not values:
+            return None
+        cohort = float(np.mean(values))
+        baseline = cohort  # using cohort mean as baseline fallback; avoids misleading "rate" semantics
+        delta = cohort - baseline if baseline is not None else None
+        stability_mean = {k: float(np.mean(v)) for k, v in stability.items() if v}
+        verdict = None
+        if delta is not None:
+            if abs(delta) >= 5:
+                verdict = "interesting"
+            elif abs(delta) >= 2:
+                verdict = "weak"
+            else:
+                verdict = "noise"
+        return TheoryEvaluation(
+            target_class="stat",
+            sample_size=len(values),
+            cohort_value=cohort,
+            baseline_value=baseline,
+            delta_value=delta,
+            formatting="numeric",
+            notes=["Observational theory — no betting simulation."],
+            stability_by_season=stability_mean or None,
+            verdict=verdict,
+        )
+
+    # market target
+    eval_rows = [r for r in rows if r.outcome in {"win", "loss"}]
+    n_eval = len(eval_rows)
+    if n_eval == 0:
+        return None
+    cover_rate = sum(1 for r in eval_rows if r.outcome == "win") / n_eval
+    implied = [r.implied_prob for r in eval_rows if r.implied_prob is not None]
+    baseline = float(np.mean(implied)) if implied else None
+    delta = (cover_rate - baseline) if baseline is not None else None
+    verdict = None
+    if delta is not None:
+        if delta >= 0.03:
+            verdict = "interesting"
+        elif delta >= 0.01:
+            verdict = "weak"
+        else:
+            verdict = "noise"
+    return TheoryEvaluation(
+        target_class="market",
+        sample_size=n_eval,
+        cohort_value=cover_rate,
+        baseline_value=baseline,
+        delta_value=delta,
+        formatting="percent",
+        notes=None,
+        stability_by_season=None,
+        verdict=verdict,
+    )
+
+
+def _build_meta(run_id: str) -> MetaInfo:
+    return MetaInfo(
+        run_id=run_id,
+        snapshot_hash=None,
+        created_at=datetime.utcnow(),
+        engine_version=os.environ.get("ENGINE_VERSION"),
+    )
+
+
+def _build_theory_descriptor(target_def: TargetDefinition, filters: dict[str, Any]) -> TheoryDescriptor:
+    return TheoryDescriptor(
+        target=target_def.model_dump(),
+        filters=filters,
+    )
+
+
+def _build_cohort(sample_size: int, target_def: TargetDefinition) -> CohortInfo:
+    baseline_type = "stat_mean" if target_def.target_class == "stat" else "implied_prob"
+    baseline_desc = "Mean of target values" if target_def.target_class == "stat" else "Average implied probability from odds"
+    return CohortInfo(
+        sample_size=sample_size,
+        time_span=None,
+        baseline_definition={"type": baseline_type, "description": baseline_desc},
+    )
+
+
+def _mc_eligibility(rows: list[MicroModelRow], target_def: TargetDefinition) -> tuple[bool, str | None]:
+    if target_def.target_class != "market":
+        return False, "stat_target_no_mc"
+    odds_count = sum(1 for r in rows if r.closing_odds is not None)
+    if odds_count >= MC_MIN_ODDS_EVENTS:
+        return True, None
+    return False, "missing_odds"
 
 
 async def _player_minutes_map(
@@ -823,25 +969,27 @@ async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get
     league = await _get_league(session, req.league_code)
     layer_builder = _resolve_layer_builder(req.feature_mode)
     target_def = _resolve_target_definition(req.target_definition)
-    filtered_features, policy = _feature_policy_report(req.features, req.context)
+    is_stat = target_def.target_class == "stat"
+    filtered_features, policy = feature_policy_report(req.features, req.context)
+    if is_stat:
+        filtered_features = [
+            f
+            for f in filtered_features
+            if getattr(f, "source", None) != FeatureSource.MARKET and getattr(f, "timing", None) != FeatureTiming.MARKET_DERIVED
+        ]
 
-    # Debug: log incoming filters
-    try:
-        logger = structlog.get_logger("eda_analyze")
-        logger.info(
-            "analyze_request",
-            league=req.league_code,
-            seasons=req.seasons,
-            phase=req.phase,
-            recent_days=req.recent_days,
-            home_spread_min=req.home_spread_min,
-            home_spread_max=req.home_spread_max,
-            market=req.feature_mode,
-            team=req.team,
-            player=req.player,
-        )
-    except Exception:
-        pass
+    logger.info(
+        "analyze_start",
+        league=req.league_code,
+        seasons=req.seasons,
+        phase=req.phase,
+        recent_days=req.recent_days,
+        home_spread_min=req.home_spread_min,
+        home_spread_max=req.home_spread_max,
+        feature_mode=req.feature_mode,
+        team=req.team,
+        player=req.player,
+    )
 
     # Fetch game ids filtered by seasons if provided
     stmt: Select = select(db_models.SportsGame)
@@ -854,15 +1002,11 @@ async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get
     all_game_ids = await _filter_games_by_player(session, all_game_ids, getattr(req, "player", None))
     games = [g for g in games if g.id in all_game_ids]
 
-    # Debug: log game counts and ids (truncated)
-    try:
-        logger.info(
-            "analyze_games_filtered",
-            game_count=len(all_game_ids),
-            sample_ids=all_game_ids[:20],
-        )
-    except Exception:
-        pass
+    logger.info(
+        "analyze_games_filtered",
+        game_count=len(all_game_ids),
+        sample_ids=all_game_ids[:20],
+    )
 
     if not all_game_ids:
         return AnalysisResponse(
@@ -877,6 +1021,11 @@ async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get
     # Compute feature values
     feature_data = await compute_features_for_games(
         session, league.id, all_game_ids, filtered_features, layer_builder=layer_builder, context=req.context
+    )
+    logger.info(
+        "analyze_features_ready",
+        game_count=len(all_game_ids),
+        feature_count=len(filtered_features),
     )
 
     # Fetch derived targets
@@ -975,7 +1124,42 @@ async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get
             )
 
     micro_rows = _build_micro_rows(games, feature_data, kept_ids, game_to_targets, trigger_flag=True, target_def=target_def)
-    theory_metrics = _compute_theory_metrics(micro_rows, None)
+    theory_metrics = _compute_theory_metrics(micro_rows, target_def, None)
+    theory_evaluation = _compute_theory_evaluation(micro_rows, target_def)
+    odds_present = any(r.closing_odds is not None for r in micro_rows)
+    mc_ok, mc_reason = _mc_eligibility(micro_rows, target_def)
+    modeling_status = ModelingStatus(
+        available=True,
+        has_run=False,
+        reason_not_run="user_has_not_requested",
+        eligibility={"sufficient_features": len(filtered_features) > 0, "target_supported": True},
+        model_type=None,
+        metrics=None,
+        feature_importance=None,
+    )
+    monte_carlo_status = MonteCarloStatus(
+        available=mc_ok,
+        has_run=False,
+        reason_not_run="user_has_not_requested" if mc_ok else None,
+        reason_not_available=mc_reason if not mc_ok else None,
+        eligibility={"odds_present": odds_present, "min_events": MC_MIN_ODDS_EVENTS} if mc_ok else None,
+        results=None,
+    )
+    notes = [
+        "Theory evaluation is complete without modeling.",
+        "Modeling and Monte Carlo are optional analytical extensions.",
+        "This theory does not require market simulation to be valid.",
+    ]
+    filters_payload = {
+        "seasons": req.seasons,
+        "phase": req.phase,
+        "recent_days": req.recent_days,
+        "home_spread_min": req.home_spread_min,
+        "home_spread_max": req.home_spread_max,
+        "team": req.team,
+        "player": req.player,
+        "feature_mode": req.feature_mode,
+    }
     run_id = hashlib.sha256(json.dumps({"target": target_def.model_dump(), "filters": all_game_ids}).encode()).hexdigest()
     try:
         save_run(
@@ -989,6 +1173,12 @@ async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get
     except Exception:
         pass
 
+    logger.info(
+        "analyze_done",
+        sample_size=sample_size,
+        baseline_rate=baseline_rate,
+        micro_rows=len(micro_rows),
+    )
     return AnalysisWithMicroResponse(
         sample_size=sample_size,
         baseline_rate=baseline_rate,
@@ -998,8 +1188,15 @@ async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get
         cleaning_summary=cleaning_summary,
         micro_model_results=micro_rows,
         theory_metrics=theory_metrics,
+        theory_evaluation=theory_evaluation,
         feature_policy=policy,
         run_id=run_id,
+        meta=_build_meta(run_id),
+        theory=_build_theory_descriptor(target_def, filters_payload),
+        cohort=_build_cohort(sample_size, target_def),
+        modeling=modeling_status,
+        monte_carlo=monte_carlo_status,
+        notes=notes,
     )
 # End of file
 
@@ -1170,13 +1367,30 @@ async def build_model(req: ModelBuildRequest, session: AsyncSession = Depends(ge
     league = await _get_league(session, req.league_code)
     layer_builder = _resolve_layer_builder(req.feature_mode)
     target_def = _resolve_target_definition(req.target_definition)
+    is_stat = target_def.target_class == "stat"
     filtered_features, policy = _feature_policy_report(req.features, req.context)
+    if is_stat:
+        filtered_features = [
+            f
+            for f in filtered_features
+            if getattr(f, "source", None) != FeatureSource.MARKET and getattr(f, "timing", None) != FeatureTiming.MARKET_DERIVED
+        ]
+    logger.info(
+        "build_model_start",
+        league=req.league_code,
+        seasons=req.seasons,
+        phase=req.phase,
+        recent_days=req.recent_days,
+        feature_mode=req.feature_mode,
+        target=target_def.target_name,
+    )
 
     stmt: Select = select(db_models.SportsGame)
     stmt = _apply_base_filters(stmt, league, req)
     game_rows = await session.execute(stmt)
     games = game_rows.scalars().unique().all()
     all_game_ids = [g.id for g in games]
+    logger.info("build_model_filtered", game_count=len(all_game_ids), sample_ids=all_game_ids[:20])
 
     if not all_game_ids:
         return ModelBuildWithMicroResponse(
@@ -1194,6 +1408,11 @@ async def build_model(req: ModelBuildRequest, session: AsyncSession = Depends(ge
 
     feature_data = await compute_features_for_games(
         session, league.id, all_game_ids, filtered_features, layer_builder=layer_builder, context=req.context
+    )
+    logger.info(
+        "build_model_features_ready",
+        game_count=len(all_game_ids),
+        feature_count=len(filtered_features),
     )
 
     # target values
@@ -1230,28 +1449,30 @@ async def build_model(req: ModelBuildRequest, session: AsyncSession = Depends(ge
             entry[fname] = 0.0 if (val is None or np.isnan(val)) else float(val)
         aligned_rows.append(entry)
 
-    trained = train_logistic_regression(aligned_rows, pruned_features, "__target__")
+    trained = train_logistic_regression(aligned_rows, pruned_features, "__target__") if not is_stat else None
 
     # Stage 1.3: drop near-zero weight features (post-training)
-    zero_weight = [f for f, w in trained.feature_weights.items() if abs(float(w)) <= 1e-6]
-    for f in zero_weight:
-        dropped_log.append({"feature": f, "reason": "near_zero_weight", "abs_weight": abs(float(trained.feature_weights[f]))})
-    if zero_weight:
-        kept_after_weights = [f for f in trained.features_used if f not in set(zero_weight)]
-        trained.feature_weights = {k: v for k, v in trained.feature_weights.items() if k in set(kept_after_weights)}
-        trained.features_used = kept_after_weights
+    if trained:
+        zero_weight = [f for f, w in trained.feature_weights.items() if abs(float(w)) <= 1e-6]
+        for f in zero_weight:
+            dropped_log.append({"feature": f, "reason": "near_zero_weight", "abs_weight": abs(float(trained.feature_weights[f]))})
+        if zero_weight:
+            kept_after_weights = [f for f in trained.features_used if f not in set(zero_weight)]
+            trained.feature_weights = {k: v for k, v in trained.feature_weights.items() if k in set(kept_after_weights)}
+            trained.features_used = kept_after_weights
 
     # Stage 2.1: compute model probabilities per game id for trigger evaluation
     model_prob_by_game_id: dict[int, float] = {}
-    for idx, gid in enumerate(kept_ids):
-        # aligned_rows order matches kept_ids
-        if idx >= len(aligned_rows):
-            break
-        model_prob_by_game_id[gid] = float(predict_proba(trained, aligned_rows[idx]))
+    if trained:
+        for idx, gid in enumerate(kept_ids):
+            # aligned_rows order matches kept_ids
+            if idx >= len(aligned_rows):
+                break
+            model_prob_by_game_id[gid] = float(predict_proba(trained, aligned_rows[idx]))
 
     # Use previous analysis correlations if available; otherwise empty
     correlations: list[CorrelationResult] = []
-    suggested = generate_theories(trained, correlations, [])
+    suggested = generate_theories(trained, correlations, [], target_def, len(aligned_rows)) if trained else []
 
     micro_rows = _build_micro_rows(
         games,
@@ -1263,8 +1484,17 @@ async def build_model(req: ModelBuildRequest, session: AsyncSession = Depends(ge
         model_prob_by_game_id=model_prob_by_game_id,
         trigger_def=req.trigger_definition,
     )
-    theory_metrics = _compute_theory_metrics(micro_rows, None)
-    mc_summary = simulate_historical_mc(micro_rows)
+    theory_metrics = _compute_theory_metrics(micro_rows, target_def, None)
+    theory_evaluation = _compute_theory_evaluation(micro_rows, target_def)
+    mc_ok, mc_reason = _mc_eligibility(micro_rows, target_def)
+    mc_summary = simulate_historical_mc(micro_rows) if mc_ok else None
+    logger.info(
+        "build_model_trained",
+        sample_size=len(aligned_rows),
+        features_used=len(trained.features_used) if trained else len(pruned_features),
+    )
+    mc_runs = mc_summary.get("runs") if isinstance(mc_summary, dict) else getattr(mc_summary, "runs", None) if mc_summary else None
+    logger.info("build_model_mc_done", runs=mc_runs)
     selected_bets, exposure_summary, dropped_bets_log = _apply_exposure_controls(
         micro_rows, controls=req.exposure_controls, target_def=target_def
     )
@@ -1278,7 +1508,7 @@ async def build_model(req: ModelBuildRequest, session: AsyncSession = Depends(ge
     baseline_rate = float(np.mean(aligned_target)) if aligned_target else 0.0
     theory_candidates = _generate_theory_candidates(
         aligned_rows,
-        trained.features_used,
+        trained.features_used if trained else pruned_features,
         baseline_rate=baseline_rate,
         target_def=target_def,
     )
@@ -1287,29 +1517,83 @@ async def build_model(req: ModelBuildRequest, session: AsyncSession = Depends(ge
         target_def=target_def,
         policy=policy,
         dropped_features=dropped_log,
-        features_used=trained.features_used,
+        features_used=trained.features_used if trained else pruned_features,
         trigger_def=req.trigger_definition,
         exposure_controls=req.exposure_controls,
     )
 
+    logger.info(
+        "build_model_done",
+        sample_size=len(aligned_rows),
+        micro_rows=len(micro_rows),
+        target=target_def.target_name,
+    )
+    odds_present = any(r.closing_odds is not None for r in micro_rows)
+    modeling_status = ModelingStatus(
+        available=True,
+        has_run=True,
+        reason_not_run=None,
+        reason_not_available=None,
+        eligibility={"sufficient_features": len(filtered_features) > 0, "target_supported": True},
+        model_type=trained.model_type if trained else "stat_descriptive",
+        metrics={
+            "accuracy": trained.accuracy if trained else None,
+            "roi": trained.roi if trained else None,
+        },
+        feature_importance=[
+            {"feature": k, "weight": float(v)}
+            for k, v in (trained.feature_weights.items() if trained else {}).items()
+        ]
+        if trained
+        else None,
+    )
+    monte_carlo_status = MonteCarloStatus(
+        available=mc_ok,
+        has_run=mc_summary is not None,
+        reason_not_run=None if mc_summary is not None or not mc_ok else "user_has_not_requested",
+        reason_not_available=mc_reason if not mc_ok else None,
+        eligibility={"odds_present": odds_present, "min_events": MC_MIN_ODDS_EVENTS} if mc_ok else None,
+        results=mc_summary if mc_summary is None else {**mc_summary, "assumptions": {"bet_sizing": "1u flat", "ordering": "chronological", "independence": True}},
+    )
+    notes = [
+        "Theory evaluation is complete without modeling.",
+        "Modeling and Monte Carlo are optional analytical extensions.",
+        "This theory does not require market simulation to be valid.",
+    ]
+    filters_payload = {
+        "seasons": req.seasons,
+        "phase": req.phase,
+        "recent_days": req.recent_days,
+        "home_spread_min": req.home_spread_min,
+        "home_spread_max": req.home_spread_max,
+        "team": req.team,
+        "player": req.player,
+        "feature_mode": req.feature_mode,
+    }
+
+    run_id_build = hashlib.sha256(json.dumps({"target": target_def.model_dump(), "filters": all_game_ids}).encode()).hexdigest()
+
     return ModelBuildWithMicroResponse(
         model_summary=TrainedModelResponse(
-            model_type=trained.model_type,
-            features_used=trained.features_used,
-            feature_weights=trained.feature_weights,
-            accuracy=trained.accuracy,
-            roi=trained.roi,
+            model_type=trained.model_type if trained else "stat_descriptive",
+            features_used=trained.features_used if trained else pruned_features,
+            feature_weights=trained.feature_weights if trained else {},
+            accuracy=trained.accuracy if trained else 0.0,
+            roi=trained.roi if trained else 0.0,
         ),
         suggested_theories=[
-            SuggestedTheoryResponse(
-                text=t.text,
-                features_used=t.features_used,
-                historical_edge=t.historical_edge,
-                confidence=t.confidence,
-            )
-            for t in suggested
+          SuggestedTheoryResponse(
+              text=t.text,
+              features_used=t.features_used,
+              historical_edge=t.historical_edge,
+              confidence=t.confidence,
+          )
+          for t in suggested
         ],
-        validation_stats={"accuracy": trained.accuracy, "roi": trained.roi},
+        validation_stats={
+            "accuracy": trained.accuracy if trained else 0.0,
+            "roi": trained.roi if trained else 0.0,
+        },
         cleaning_summary=cleaning_summary,
         micro_model_results=micro_rows,
         theory_metrics=theory_metrics,
@@ -1324,5 +1608,12 @@ async def build_model(req: ModelBuildRequest, session: AsyncSession = Depends(ge
         mc_interpretation=mc_interpretation,
         theory_candidates=theory_candidates,
         model_snapshot=model_snapshot,
+        theory_evaluation=theory_evaluation,
+        meta=_build_meta(run_id_build),
+        theory=_build_theory_descriptor(target_def, filters_payload),
+        cohort=_build_cohort(len(aligned_rows), target_def),
+        modeling=modeling_status,
+        monte_carlo=monte_carlo_status,
+        notes=notes,
     )
 # End of file

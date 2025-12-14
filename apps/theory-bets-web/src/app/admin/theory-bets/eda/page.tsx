@@ -102,6 +102,9 @@ export default function TheoryBetsEdaPage() {
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [csvLoading, setCsvLoading] = useState(false);
   const [microCsvLoading, setMicroCsvLoading] = useState(false);
+  const [analysisRunning, setAnalysisRunning] = useState(false);
+  const [modelRunning, setModelRunning] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [dataQuality, setDataQuality] = useState<DataQualitySummary | null>(null);
   const [qualityError, setQualityError] = useState<string | null>(null);
   const [qualityLoading, setQualityLoading] = useState(false);
@@ -241,6 +244,8 @@ export default function TheoryBetsEdaPage() {
 
   const handleRunAnalysis = async () => {
     setAnalysisLoading(true);
+    setAnalysisRunning(true);
+    setStatusMessage("Analyzing games… this can take a couple of minutes.");
     setAnalysisError(null);
     try {
       const res = await runAnalysis({
@@ -262,14 +267,17 @@ export default function TheoryBetsEdaPage() {
        setTheoryMetrics(res.theory_metrics ?? null);
       setModelResult(null);
       setMcSummary(null);
+      setStatusMessage("Analysis complete.");
     } catch (err) {
       setAnalysisError(err instanceof Error ? err.message : String(err));
       setAnalysisResult(null);
       setMicroRows(null);
       setTheoryMetrics(null);
       setMcSummary(null);
+      setStatusMessage("Analysis failed. Check inputs and try again.");
     } finally {
       setAnalysisLoading(false);
+      setAnalysisRunning(false);
     }
   };
 
@@ -402,6 +410,8 @@ export default function TheoryBetsEdaPage() {
 
   const handleBuildModel = async () => {
     setModelLoading(true);
+    setModelRunning(true);
+    setStatusMessage("Building model + running MC… this can take a couple of minutes.");
     setModelError(null);
     try {
       const res = await buildModel({
@@ -424,12 +434,15 @@ export default function TheoryBetsEdaPage() {
       setMicroRows(res.micro_model_results ?? microRows);
       setTheoryMetrics(res.theory_metrics ?? theoryMetrics);
       setMcSummary(res.mc_summary ?? null);
+      setStatusMessage("Model build complete.");
     } catch (err) {
       setModelError(err instanceof Error ? err.message : String(err));
       setModelResult(null);
       setMcSummary(null);
+      setStatusMessage("Model build failed. Check inputs and try again.");
     } finally {
       setModelLoading(false);
+      setModelRunning(false);
     }
   };
 
@@ -793,17 +806,17 @@ export default function TheoryBetsEdaPage() {
                 type="button"
                 className={styles.primaryButton}
                 onClick={handleRunAnalysis}
-                disabled={analysisLoading || generatedFeatures.length === 0 || !targetLocked}
+                disabled={analysisRunning || modelRunning || generatedFeatures.length === 0 || !targetLocked}
               >
-                {analysisLoading ? "Running analysis..." : "Analyze"}
+                {analysisRunning ? "Analyzing…" : "Analyze"}
               </button>
               <button
                 type="button"
                 className={styles.primaryButton}
                 onClick={handleBuildModel}
-                disabled={modelLoading || !analysisResult || !targetLocked}
+                disabled={modelRunning || analysisRunning || !analysisResult || !targetLocked}
               >
-                {modelLoading ? "Building model..." : "Build model / MC"}
+                {modelRunning ? "Building…" : "Build model / MC"}
               </button>
             </div>
 
@@ -819,6 +832,12 @@ export default function TheoryBetsEdaPage() {
               <h4 className={styles.sectionTitle}>Results</h4>
               <p className={styles.hint}>Run analyze to view micro results, metrics, model, and MC.</p>
             </div>
+            {statusMessage && (
+              <div className={styles.infoBanner}>
+                {statusMessage}
+                {(analysisRunning || modelRunning) && <span className={styles.dotPulse} />}
+                  </div>
+            )}
 
             <ResultsSection
               analysisResult={analysisResult}
@@ -841,7 +860,7 @@ export default function TheoryBetsEdaPage() {
 
             {modelResult && (
               <>
-                <div className={styles.sectionCard}>
+                  <div className={styles.sectionCard}>
                   <h4 className={styles.sectionTitle}>Promotion readiness</h4>
                     {(() => {
                       const blockers: string[] = [];
@@ -860,21 +879,21 @@ export default function TheoryBetsEdaPage() {
                       const ready = blockers.length === 0;
                       return (
                         <>
-                          <div className={styles.metricsGrid}>
-                            <div>
+                    <div className={styles.metricsGrid}>
+                      <div>
                               Ready: <span className={styles.summaryValue}>{ready ? "Yes" : "No"}</span>
-                            </div>
-                            <div>
+                      </div>
+                      <div>
                               Blockers: <span className={styles.summaryValue}>{blockers.length}</span>
-                            </div>
-                          </div>
+                      </div>
+                        </div>
                           {blockers.length > 0 ? (
                             <ul className={styles.insightsList}>
                               {blockers.map((b, i) => (
                                 <li key={i}>{b}</li>
                               ))}
                             </ul>
-                          ) : (
+                ) : (
                             <p className={styles.hint}>All checklist items satisfied for promotion readiness.</p>
                           )}
                         </>
@@ -1002,10 +1021,10 @@ export default function TheoryBetsEdaPage() {
                       <div className={styles.metricsGrid}>
                         <div>
                           Bet sizing: <span className={styles.summaryValue}>{String(modelResult.mc_assumptions.bet_sizing ?? "—")}</span>
-                        </div>
+                </div>
                         <div>
                           Kelly: <span className={styles.summaryValue}>{String(modelResult.mc_assumptions.kelly ?? "—")}</span>
-                        </div>
+              </div>
                         <div>
                           Independence:{" "}
                           <span className={styles.summaryValue}>{modelResult.mc_assumptions.independence_assumption ? "Yes" : "No"}</span>

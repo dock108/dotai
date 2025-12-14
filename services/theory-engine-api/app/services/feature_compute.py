@@ -311,12 +311,12 @@ async def compute_features_for_games(
             pace_game = None
             if poss_home is not None and poss_away is not None:
                 pace_game = (poss_home + poss_away) / 2.0
-                if "pace_home_possessions" in requested_names:
-                    row["pace_home_possessions"] = poss_home
-                if "pace_away_possessions" in requested_names:
-                    row["pace_away_possessions"] = poss_away
-                if "pace_game" in requested_names:
-                    row["pace_game"] = pace_game
+            if "pace_home_possessions" in requested_names:
+                row["pace_home_possessions"] = poss_home
+            if "pace_away_possessions" in requested_names:
+                row["pace_away_possessions"] = poss_away
+            if "pace_game" in requested_names:
+                row["pace_game"] = pace_game
 
         # Derived gaps from metrics (total, cover margin) if requested
         wants_postgame = any(k in requested_names for k in ("final_total_points", "total_delta", "cover_margin"))

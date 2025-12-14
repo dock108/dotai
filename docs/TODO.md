@@ -1,9 +1,6 @@
 # TODO / Futures
 
-Single place to collect follow-ups and limitations pulled from docs.
-
-## Theory Bets / EDA
-- Refine Monte Carlo and theory filters with real models/filters.
+Single place to collect follow-ups and limitations pulled from docs.\
 
 ## Local Deploy
 - After setup, review highlights and theory surface docs; see deployment guide for full production steps.

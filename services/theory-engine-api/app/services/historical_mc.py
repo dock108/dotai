@@ -6,7 +6,13 @@ import statistics
 
 
 def simulate_historical_mc(rows: Sequence[Any]) -> dict[str, Any]:
-    """Lightweight MC over historical micro rows to estimate luck vs expectation."""
+    """Lightweight MC over historical micro rows to estimate luck vs expectation.
+
+    Assumptions (kept simple and explicit):
+    - Bet sizing: 1 unit flat
+    - Ordering: chronological as provided
+    - Independence: assumed (no covariance modeled)
+    """
     if not rows:
         return {"runs": 0, "mean_pnl": 0.0, "p5_pnl": 0.0, "p50_pnl": 0.0, "p95_pnl": 0.0, "luck_score": 0.0}
 
