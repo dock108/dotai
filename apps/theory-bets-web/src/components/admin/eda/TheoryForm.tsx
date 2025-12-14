@@ -13,7 +13,7 @@ export interface TheoryFormState {
   seasons: string;
   seasonScope: "full" | "current" | "recent";
   recentDays: string;
-  phase: string;
+  phase: "all" | "out_conf" | "conf" | "postseason";
   team: string;
   player: string;
   homeSpreadMin: string;
@@ -29,7 +29,7 @@ export interface TheoryFormState {
 
 interface TheoryFormProps {
   form: TheoryFormState;
-  setForm: React.Dispatch<React.SetStateAction<any>>;
+  setForm: React.Dispatch<React.SetStateAction<TheoryFormState>>;
   pipelineStep: string;
   statKeys: AvailableStatKeysResponse | null;
   loadingStatKeys: boolean;
@@ -176,7 +176,7 @@ export function TheoryForm({
         <select
           className={styles.select}
           value={form.phase}
-          onChange={(e) => setForm((prev) => ({ ...prev, phase: e.target.value }))}
+          onChange={(e) => setForm((prev) => ({ ...prev, phase: e.target.value as TheoryFormState["phase"] }))}
         >
           <option value="all">All</option>
           <option value="out_conf">Out of conference (before 01/01)</option>
@@ -412,17 +412,17 @@ export function TheoryForm({
       {/* Cards */}
       <div className={styles.fieldFull} hidden={hidden}>
         <TargetDefinitionCard
-          value={targetDefinition}
+          targetDefinition={targetDefinition}
           onChange={setTargetDefinition}
-          locked={targetLocked}
+          targetLocked={targetLocked}
           onToggleLock={() => setTargetLocked((prev) => !prev)}
         />
       </div>
       <div className={styles.fieldFull} hidden={hidden}>
-        <TriggerLogicCard value={triggerDefinition} onChange={setTriggerDefinition} />
+        <TriggerLogicCard triggerDefinition={triggerDefinition} onChange={setTriggerDefinition} />
       </div>
       <div className={styles.fieldFull} hidden={hidden}>
-        <ExposureControlsCard value={exposureControls} onChange={setExposureControls} />
+        <ExposureControlsCard exposureControls={exposureControls} onChange={setExposureControls} targetDefinition={targetDefinition} />
       </div>
 
       {/* Action buttons */}

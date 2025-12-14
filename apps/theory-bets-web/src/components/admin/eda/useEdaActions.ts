@@ -28,7 +28,7 @@ interface UseEdaActionsParams {
   exposureControls: ExposureControls;
   diagnosticMode: boolean;
   seasonsForScope: number[];
-  phase: string;
+  phase: "all" | "out_conf" | "conf" | "postseason";
   recentDaysValue: number | undefined;
   team: string;
   player: string;
