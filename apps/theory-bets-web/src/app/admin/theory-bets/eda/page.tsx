@@ -258,6 +258,7 @@ export default function TheoryBetsEdaPage() {
         include_rest_days: includeRestDays,
         include_rolling: includeRolling,
         rolling_window: rollingWindow || 5,
+        include_builtins: includeBuiltins,
       });
       setGeneratedFeatures(res.features);
       setFeatureSummary(res.summary);
