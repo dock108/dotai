@@ -15,7 +15,6 @@ class FeatureGenerationRequest(BaseModel):
     include_rest_days: bool = False
     include_rolling: bool = False
     rolling_window: int = 5
-    include_builtins: bool = False  # pace, conference, player_minutes, etc.
 
 
 class GeneratedFeature(BaseModel):
@@ -26,6 +25,7 @@ class GeneratedFeature(BaseModel):
     timing: str | None = None
     source: str | None = None
     group: str | None = None
+    default_selected: bool = False
 
 
 class FeatureGenerationResponse(BaseModel):

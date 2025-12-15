@@ -78,13 +78,13 @@ export default function TheoryBetsEdaPage() {
   const [statKeys, setStatKeys] = useState<AvailableStatKeysResponse | null>(null);
   const [loadingStatKeys, setLoadingStatKeys] = useState(false);
   const [generatedFeatures, setGeneratedFeatures] = useState<GeneratedFeature[]>([]);
+  const [selectedFeatureNames, setSelectedFeatureNames] = useState<Set<string>>(new Set());
   const [featureSummary, setFeatureSummary] = useState<string | null>(null);
   const [featureError, setFeatureError] = useState<string | null>(null);
   const [includeRestDays, setIncludeRestDays] = useState(false);
   const [includeRolling, setIncludeRolling] = useState(false);
   const [rollingWindow, setRollingWindow] = useState(5);
   const [diagnosticMode, setDiagnosticMode] = useState(false);
-  const [includeBuiltins, setIncludeBuiltins] = useState(false);
   const [targetDefinition, setTargetDefinition] = useState<TargetDefinition>({
     target_class: "stat",
     target_name: "combined_score",
@@ -258,18 +258,61 @@ export default function TheoryBetsEdaPage() {
         include_rest_days: includeRestDays,
         include_rolling: includeRolling,
         rolling_window: rollingWindow || 5,
-        include_builtins: includeBuiltins,
       });
       setGeneratedFeatures(res.features);
+      setSelectedFeatureNames((prev) => {
+        const nextNames = new Set(res.features.map((f) => f.name));
+        return new Set(Array.from(prev).filter((n) => nextNames.has(n)));
+      });
       setFeatureSummary(res.summary);
     } catch (err) {
       setFeatureError(err instanceof Error ? err.message : String(err));
       setGeneratedFeatures([]);
+      setSelectedFeatureNames(new Set());
       setFeatureSummary(null);
     }
   };
 
+  // Populate the catalog once stat keys are available so engineered features are visible,
+  // but never auto-select anything.
+  useEffect(() => {
+    if (!statKeys) return;
+    if (generatedFeatures.length > 0) return;
+    void handleGenerateFeatures();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statKeys]);
+
+  const selectedFeatures = generatedFeatures.filter((f) => selectedFeatureNames.has(f.name));
+
+  const toggleFeature = useCallback((name: string) => {
+    setSelectedFeatureNames((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }, []);
+
+  const selectAllFeatures = useCallback(() => {
+    setSelectedFeatureNames(new Set(generatedFeatures.map((f) => f.name)));
+  }, [generatedFeatures]);
+
+  const selectNoFeatures = useCallback(() => {
+    setSelectedFeatureNames(new Set());
+  }, []);
+
+  const selectByCategory = useCallback(
+    (category: string) => {
+      setSelectedFeatureNames(new Set(generatedFeatures.filter((f) => f.category === category).map((f) => f.name)));
+    },
+    [generatedFeatures]
+  );
+
   const handleRunAnalysis = async () => {
+    if (selectedFeatures.length === 0) {
+      setAnalysisError("Select at least one feature before analyzing.");
+      return;
+    }
     setAnalysisLoading(true);
     setAnalysisRunning(true);
     setStatusMessage("Analyzing games… this can take a couple of minutes.");
@@ -277,7 +320,7 @@ export default function TheoryBetsEdaPage() {
     try {
       const res = await runAnalysis({
         league_code: form.leagueCode,
-        features: generatedFeatures,
+        features: selectedFeatures,
         target_definition: targetDefinition,
         context: diagnosticMode ? "diagnostic" : "deployable",
         seasons: seasonsForScope,
@@ -310,6 +353,10 @@ export default function TheoryBetsEdaPage() {
   };
 
   const handleBuildModel = async () => {
+    if (selectedFeatures.length === 0) {
+      setModelError("Select at least one feature before building a model.");
+      return;
+    }
     setModelLoading(true);
     setModelRunning(true);
     setStatusMessage("Building model + running MC… this can take a couple of minutes.");
@@ -317,7 +364,7 @@ export default function TheoryBetsEdaPage() {
     try {
       const res = await buildModel({
         league_code: form.leagueCode,
-        features: generatedFeatures,
+        features: selectedFeatures,
         target_definition: targetDefinition,
         trigger_definition: triggerDefinition,
         exposure_controls: exposureControls,
@@ -590,8 +637,6 @@ export default function TheoryBetsEdaPage() {
               setIncludeRolling={setIncludeRolling}
               rollingWindow={rollingWindow}
               setRollingWindow={setRollingWindow}
-              includeBuiltins={includeBuiltins}
-              setIncludeBuiltins={setIncludeBuiltins}
               generatedFeatures={generatedFeatures}
               featureSummary={featureSummary}
               featureError={featureError}
@@ -608,6 +653,11 @@ export default function TheoryBetsEdaPage() {
             {/* Feature list panel */}
             <FeatureListPanel
               features={generatedFeatures}
+              selectedFeatureNames={selectedFeatureNames}
+              onToggleFeature={toggleFeature}
+              onSelectAll={selectAllFeatures}
+              onSelectNone={selectNoFeatures}
+              onSelectByCategory={selectByCategory}
               featureSummary={featureSummary}
               featureError={featureError}
               featureLeakageSummary={featureLeakageSummary}

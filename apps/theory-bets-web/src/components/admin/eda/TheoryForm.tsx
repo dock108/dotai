@@ -54,8 +54,6 @@ interface TheoryFormProps {
   setIncludeRolling: React.Dispatch<React.SetStateAction<boolean>>;
   rollingWindow: number;
   setRollingWindow: React.Dispatch<React.SetStateAction<number>>;
-  includeBuiltins: boolean;
-  setIncludeBuiltins: React.Dispatch<React.SetStateAction<boolean>>;
   generatedFeatures: GeneratedFeature[];
   featureSummary: string | null;
   featureError: string | null;
@@ -95,8 +93,6 @@ export function TheoryForm({
   setIncludeRolling,
   rollingWindow,
   setRollingWindow,
-  includeBuiltins,
-  setIncludeBuiltins,
   generatedFeatures,
   featureSummary,
   featureError,
@@ -397,14 +393,6 @@ export function TheoryForm({
               onChange={(e) => setDiagnosticMode(e.target.checked)}
             />
             Diagnostic (post-game features)
-          </label>
-          <label className={styles.toggle}>
-            <input
-              type="checkbox"
-              checked={includeBuiltins}
-              onChange={(e) => setIncludeBuiltins(e.target.checked)}
-            />
-            Include builtins (pace, conference, player minutes)
           </label>
         </div>
       </div>

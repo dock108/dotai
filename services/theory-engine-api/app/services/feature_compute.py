@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from .. import db_models
-from .feature_engine import GeneratedFeature
+from .feature_types import GeneratedFeature
 from .derived_metrics import compute_derived_metrics
 from engine.common.feature_builder import FeatureBuilder
 from .feature_metadata import FeatureTiming, get_feature_metadata

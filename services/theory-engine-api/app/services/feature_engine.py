@@ -7,30 +7,9 @@ frontend can display and the backend can compute.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import List
-
-from .feature_metadata import FeatureSource, FeatureTiming, get_feature_metadata
-
-
-@dataclass
-class GeneratedFeature:
-    """A generated feature descriptor.
-
-    Attributes:
-        name: Machine-friendly feature name (e.g., "points_diff").
-        formula: Human-readable expression (e.g., "home_points - away_points").
-        category: One of ["raw", "differential", "combined", "situational", "rolling"].
-        requires: Raw stats needed to compute this feature.
-    """
-
-    name: str
-    formula: str
-    category: str
-    requires: List[str]
-    timing: FeatureTiming = FeatureTiming.PRE_GAME
-    source: FeatureSource = FeatureSource.UNKNOWN
-    group: str | None = None
+from .feature_metadata import get_feature_metadata
+from .feature_types import GeneratedFeature
+from .features.engineered_features import engineered_feature_catalog
 
 
 def _raw_features(raw_stats: list[str]) -> list[GeneratedFeature]:
@@ -136,142 +115,6 @@ def _situational_features(include_rest_days: bool) -> list[GeneratedFeature]:
     ]
 
 
-def _builtin_features() -> list[GeneratedFeature]:
-    """Always-helpful derived flags and gaps that don't depend on user raw list."""
-    conf_meta = get_feature_metadata("is_conference_game", "situational")
-    pace_game_meta = get_feature_metadata("pace_game", "situational")
-    pace_home_meta = get_feature_metadata("pace_home_possessions", "situational")
-    pace_away_meta = get_feature_metadata("pace_away_possessions", "situational")
-    final_total_meta = get_feature_metadata("final_total_points", "derived")
-    total_delta_meta = get_feature_metadata("total_delta", "derived")
-    cover_margin_meta = get_feature_metadata("cover_margin", "derived")
-    rating_diff_meta = get_feature_metadata("rating_diff", "derived")
-    proj_points_diff_meta = get_feature_metadata("proj_points_diff", "derived")
-    pm_meta = get_feature_metadata("player_minutes", "situational")
-    pmr_meta = get_feature_metadata("player_minutes_rolling", "situational")
-    pmd_meta = get_feature_metadata("player_minutes_delta", "situational")
-    ml_ie_meta = get_feature_metadata("ml_implied_edge", "derived")
-    return [
-        GeneratedFeature(
-            name="is_conference_game",
-            formula="1 if conference game else 0",
-            category="situational",
-            requires=[],
-            timing=conf_meta.timing,
-            source=conf_meta.source,
-            group=conf_meta.group,
-        ),
-        GeneratedFeature(
-            name="pace_game",
-            formula="estimated possessions per game",
-            category="situational",
-            requires=[],
-            timing=pace_game_meta.timing,
-            source=pace_game_meta.source,
-            group=pace_game_meta.group,
-        ),
-        GeneratedFeature(
-            name="pace_home_possessions",
-            formula="estimated home possessions",
-            category="situational",
-            requires=[],
-            timing=pace_home_meta.timing,
-            source=pace_home_meta.source,
-            group=pace_home_meta.group,
-        ),
-        GeneratedFeature(
-            name="pace_away_possessions",
-            formula="estimated away possessions",
-            category="situational",
-            requires=[],
-            timing=pace_away_meta.timing,
-            source=pace_away_meta.source,
-            group=pace_away_meta.group,
-        ),
-        GeneratedFeature(
-            name="final_total_points",
-            formula="home_score + away_score",
-            category="derived",
-            requires=[],
-            timing=final_total_meta.timing,
-            source=final_total_meta.source,
-            group=final_total_meta.group,
-        ),
-        GeneratedFeature(
-            name="total_delta",
-            formula="final_total_points - closing_total",
-            category="derived",
-            requires=[],
-            timing=total_delta_meta.timing,
-            source=total_delta_meta.source,
-            group=total_delta_meta.group,
-        ),
-        GeneratedFeature(
-            name="cover_margin",
-            formula="margin_of_victory - closing_spread_home",
-            category="derived",
-            requires=[],
-            timing=cover_margin_meta.timing,
-            source=cover_margin_meta.source,
-            group=cover_margin_meta.group,
-        ),
-        GeneratedFeature(
-            name="rating_diff",
-            formula="home_rating - away_rating",
-            category="derived",
-            requires=[],
-            timing=rating_diff_meta.timing,
-            source=rating_diff_meta.source,
-            group=rating_diff_meta.group,
-        ),
-        GeneratedFeature(
-            name="proj_points_diff",
-            formula="home_proj_points - away_proj_points",
-            category="derived",
-            requires=[],
-            timing=proj_points_diff_meta.timing,
-            source=proj_points_diff_meta.source,
-            group=proj_points_diff_meta.group,
-        ),
-        GeneratedFeature(
-            name="player_minutes",
-            formula="player minutes (if player filter applied)",
-            category="situational",
-            requires=[],
-            timing=pm_meta.timing,
-            source=pm_meta.source,
-            group=pm_meta.group,
-        ),
-        GeneratedFeature(
-            name="player_minutes_rolling",
-            formula="rolling avg minutes before game (if player filter applied)",
-            category="situational",
-            requires=[],
-            timing=pmr_meta.timing,
-            source=pmr_meta.source,
-            group=pmr_meta.group,
-        ),
-        GeneratedFeature(
-            name="player_minutes_delta",
-            formula="player_minutes - player_minutes_rolling",
-            category="situational",
-            requires=[],
-            timing=pmd_meta.timing,
-            source=pmd_meta.source,
-            group=pmd_meta.group,
-        ),
-        GeneratedFeature(
-            name="ml_implied_edge",
-            formula="implied_prob(home_ml) - implied_prob(away_ml)",
-            category="derived",
-            requires=[],
-            timing=ml_ie_meta.timing,
-            source=ml_ie_meta.source,
-            group=ml_ie_meta.group,
-        ),
-    ]
-
-
 def _rolling_features(raw_stats: list[str], window: int) -> list[GeneratedFeature]:
     features: list[GeneratedFeature] = []
     for stat in raw_stats:
@@ -319,7 +162,6 @@ def generate_features(
     include_rest_days: bool,
     include_rolling: bool,
     rolling_window: int = 5,
-    include_builtins: bool = False,
 ) -> list[GeneratedFeature]:
     """Generate feature descriptors from selected raw stats and context flags."""
     # Deduplicate and preserve input order
@@ -331,8 +173,8 @@ def generate_features(
             deduped_stats.append(stat)
 
     features: list[GeneratedFeature] = []
-    if include_builtins:
-        features.extend(_builtin_features())
+    # Engineered features are available but should not be auto-selected.
+    features.extend(engineered_feature_catalog())
     features.extend(_raw_features(deduped_stats))
     features.extend(_differential_features(deduped_stats))
     features.extend(_combined_features(deduped_stats))

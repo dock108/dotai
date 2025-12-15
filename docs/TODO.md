@@ -2,6 +2,9 @@
 
 Single place to collect follow-ups and limitations pulled from docs.\
 
+## Theory Engine / EDA
+- Add “Single-Game Monte Carlo” sandbox: given one upcoming/historical game + a micro-model (or a saved `analysis_run` model), run an odds-aware MC to produce a distribution of units/ROI (P5/P50/P95 + drawdown) and persist/share the result. Support admin first; optionally expose to users later with strict guardrails (no auto-bet/promotion gating; requires real odds coverage).
+
 ## Local Deploy
 - After setup, review highlights and theory surface docs; see deployment guide for full production steps.
 

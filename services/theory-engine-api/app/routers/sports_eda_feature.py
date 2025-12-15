@@ -93,7 +93,6 @@ async def generate_feature_catalog(req: FeatureGenerationRequest) -> FeatureGene
         include_rest_days=req.include_rest_days,
         include_rolling=req.include_rolling,
         rolling_window=req.rolling_window,
-        include_builtins=req.include_builtins,
     )
     features = [
         GeneratedFeature(
@@ -104,6 +103,7 @@ async def generate_feature_catalog(req: FeatureGenerationRequest) -> FeatureGene
             timing=getattr(f, "timing", None).value if getattr(f, "timing", None) is not None else None,
             source=getattr(f, "source", None).value if getattr(f, "source", None) is not None else None,
             group=getattr(f, "group", None),
+            default_selected=getattr(f, "default_selected", True),
         )
         for f in generated
     ]
