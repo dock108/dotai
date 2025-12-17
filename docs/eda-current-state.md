@@ -1,40 +1,153 @@
-# EDA Current State (Dec 2025)
+# Theory Builder (Dec 2025)
 
-Admin-only EDA / Modeling Lab as of the current codebase. Sources: `services/theory-engine-api/app/routers/sports_eda.py`, `apps/theory-bets-web/src/app/admin/theory-bets/eda/page.tsx`, `apps/theory-bets-web/src/components/admin/eda/*`, `apps/theory-bets-web/src/lib/api/sportsAdmin.ts`.
+Admin-only Theory Builder for sports betting analysis. Replaces the old EDA/Modeling Lab with a cleaner, intent-driven flow.
 
-## Endpoints (sports_eda)
-- `GET /api/admin/sports/eda/stat-keys/{league}`: distinct team/player stat keys from boxscores for the league.
-- `POST /generate-features`: turns selected raw stats into derived feature descriptors + summary.
-- `POST /preview`: feature matrix sample; `format=json` returns data-quality stats, `format=csv` streams rows (optionally with target).
-- `POST /analyze`: builds feature matrix, computes target values, correlations, micro rows, evaluation block. Returns top-level blocks: `meta`, `theory`, `cohort` (with `odds_coverage_pct`), `micro_rows`, `evaluation` (stat uses numeric formatting, not percent), `modeling` (available/has_run), `monte_carlo` (available/has_run), `notes`. Persists run payload + micro rows CSV pointer (see Persistence).
-- `POST /analyze/export`: streams aligned feature matrix with target.
-- `POST /micro-model/export`: streams micro_model rows (game-level outputs).
-- `POST /build-model`: trains lightweight logistic regression for market targets, runs MC, exposure controls, theory candidates (market only), and returns model snapshot. Stat targets skip training/MC but still return descriptive payloads.
-- `GET /analysis-runs`, `GET /analysis-runs/{id}`: list/load persisted runs (metadata + micro sample).
-- `POST /walkforward`: rolling train/test replay for market targets; persists slice metrics + predictions CSV pointer.
-- Shared knobs: `context` (`deployable` drops post-game features; `diagnostic` allows them), `cleaning` (drop null/non-numeric/min non-null), `feature_mode` (`admin`/`full`), filters (seasons, phase, recent_days, team, player, spread band).
+## Architecture
 
-- UI surface (theory-bets-web admin)
-- Pipeline tabs: Theory Definition → Cohort & Micro → Evaluation → Market Mapping → Modeling → Robustness MC → Walk-forward → Live Matches (stubs).
-- Filters: league, seasons + scope (full/current/recent), NCAAB phase, team/player search, spread band, optional season/market/side text, team/player stat-key multiselects (player keys collected but not sent to API today).
-- Workflow copy is target-aware: stat targets end at Evaluation (complete); market targets can continue to optional modeling/MC.
-- Results: feature list/summary, status banner, ResultsSection (stat path hides market columns; market path shows micro table with odds/model columns, metrics, modeling + MC status), publishing readiness checklist, model weights, suggested theories/candidates (market only), MC summary/assumptions/interpretation, theory drafts (local-only), odds coverage shown when available.
-- Advanced diagnostics: cleaning toggles, data-quality table (from preview JSON), correlation table, CSV exports (feature matrix, micro rows, preview).
-- Run viewer: saved runs can be opened (replay micro/evaluation/modeling/MC), micro rows download link shown when persisted.
+### Frontend Components
 
-## Target definitions (UI lists)
-- Stat targets (metric_type numeric unless noted, odds_required=false): `home_points`, `away_points`, `combined_score`, `margin_of_victory`, `winner` (binary).
-- Market targets (metric_type binary, odds_required=true): `ats_cover` (spread, side home/away), `moneyline_win` (moneyline, side home/away), `total_over_hit` (total, side over/under).
-- Default: stat `combined_score`, locked by default; switching class updates required fields (market_type/side).
+Located at `apps/theory-bets-web/src/components/admin/theory-builder/`:
 
-## Persistence today
-- Runs persisted via micro store with UUIDs: target, request, evaluation, modeling/MC status, micro_rows_ref (CSV), optional model_snapshot/mc_summary.
-- `EDA_RUNS_DIR` (default `/tmp/eda_runs`) stores micro rows CSV and walkforward predictions.
-- `GET /analysis-runs` / `GET /analysis-runs/{id}` provide summaries and samples; no DB writes yet.
-- Walkforward persists slice metrics + predictions CSV pointer.
+| Component | Purpose |
+|-----------|---------|
+| `TheoryBuilderPage.tsx` | Root component, manages tabs and validation |
+| `useTheoryBuilderState.ts` | Single source of truth for `TheoryDraft` state |
+| `DefinePanel.tsx` | Scope, Target, Inputs, Context configuration |
+| `RunPanel.tsx` | Analyze, Build Model, Monte Carlo actions |
+| `ResultsPanel.tsx` | Summary, verdict, correlations, sample games |
+| `LeagueSelector.tsx` | League dropdown |
+| `TimeWindowSelector.tsx` | Time window presets + custom range |
+| `TargetSelector.tsx` | Target type cards with accessible ARIA |
+| `BaseStatsSelector.tsx` | Collapsible stat chips with explicit selection |
+| `ContextPresetSelector.tsx` | Preset dropdown + custom feature toggles |
 
-- ## Noted mismatches / caveats
-- Player stat key selections collected in UI are not included in `generate-features`/`analyze`/`preview`/`build-model` requests; only team stat keys are sent.
-- Modeling status is returned for stat targets (descriptive only); triggers/MC disabled for stats.
-- Suggested theories are generated only for market/binary targets; stat targets skip candidates.
+### Backend Endpoints
 
+Located at `services/theory-engine-api/app/routers/`:
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/admin/sports/eda/stat-keys/{league}` | Available stat keys for a league |
+| `POST /api/admin/theory/analyze` | Run analysis on a `TheoryDraft` |
+| `POST /api/admin/theory/build-model` | Train model (market targets only) |
+| `POST /api/admin/sports/eda/analysis-runs` | List persisted runs |
+| `POST /api/admin/sports/eda/walkforward` | Rolling train/test replay |
+
+## TheoryDraft Schema
+
+The canonical JSON shape that flows from UI to backend:
+
+```typescript
+interface TheoryDraft {
+  league: string;                    // "NBA", "NFL", "NCAAB", etc.
+  time_window: {
+    mode: "current_season" | "last_30" | "last_60" | "last_n" | "custom";
+    value?: number;
+    start_date?: string;
+    end_date?: string;
+  };
+  target: {
+    type: "game_total" | "spread_result" | "moneyline_win" | "team_stat";
+    stat?: string;
+    metric: "numeric" | "binary";
+    side?: "home" | "away" | null;   // Optional - only if theory is side-specific
+  };
+  inputs: {
+    base_stats: string[];            // User-selected stats
+    feature_policy: "auto" | "manual";
+  };
+  context: {
+    preset: "minimal" | "standard" | "market_aware" | "verbose" | "custom";
+    features: {
+      game: string[];
+      market: string[];
+      team: string[];
+      player: string[];
+      diagnostic: string[];
+    };
+  };
+  filters: {
+    team?: string;
+    player?: string;
+    phase?: "out_conf" | "conf" | "postseason";
+    spread_abs_min?: number;
+    spread_abs_max?: number;
+  };
+  diagnostics: {
+    allow_post_game_features: boolean;
+  };
+  model: {
+    enabled: boolean;
+    prob_threshold: number;
+  };
+}
+```
+
+## User Flow
+
+### Define Tab
+1. **Scope**: Pick league + time window (presets: This season, Last 30/60 days, Custom)
+2. **Target**: Click card for outcome type (Game total, Spread result, Moneyline, Team stat)
+3. **Inputs**: Select base stats (collapsible with summary when selected)
+4. **Context**: Choose preset (Minimal, Standard, Market-aware) or customize
+
+### Run Tab
+- **Analyze**: Run correlation analysis (enabled when target + ≥1 stat selected)
+- **Build Model**: Train logistic regression (market targets only, requires analysis)
+- **Monte Carlo**: Simulate bet outcomes (requires model)
+
+### Results Tab
+- **Summary sentence**: Human-readable lift description
+- **Assessment**: Structured verdict with checkmarks (lift, sample size, stability)
+- **Sample games**: Table with Date, Home/Score, Away/Score, Target, Result
+- **Correlations**: Collapsed by default, diagnostic framing
+- **Export**: Full analysis JSON download
+
+## Validation Rules
+
+| Condition | Result |
+|-----------|--------|
+| No target selected | Run tab disabled |
+| No stats selected | Run tab disabled |
+| Target + ≥1 stat | "✓ Ready" indicator, Run tab enabled |
+| Analysis complete | Results tab enabled |
+| Market target + analysis | Model/MC buttons enabled |
+| Stat target | Model/MC disabled (stat analysis is complete at evaluation) |
+
+## Context Presets
+
+| Preset | Includes |
+|--------|----------|
+| Minimal | None |
+| Standard | `conference_game`, `rest_days` |
+| Market-aware | Standard + `closing_spread`, `closing_total`, `implied_prob` |
+| Player-aware | Market-aware + `player_minutes`, `player_minutes_rolling` |
+| Verbose | All available features |
+| Custom | User-selected |
+
+## Concept Detection
+
+The backend automatically detects patterns from theory inputs:
+
+| Concept | Derived Fields | Trigger |
+|---------|----------------|---------|
+| Pace | `pace_game`, `pace_home_possessions`, `pace_away_possessions` | "pace" in inputs or pace filters |
+| Rest | `home_rest_days`, `away_rest_days`, `rest_advantage` | `include_rest_days` filter |
+| Altitude | `altitude_ft`, `altitude_delta` | Altitude-related inputs |
+
+## Persistence
+
+- Runs stored via micro store with UUIDs
+- `EDA_RUNS_DIR` (default `/tmp/eda_runs`) for CSV artifacts
+- Endpoints: `GET /analysis-runs`, `GET /analysis-runs/{id}`
+
+## Migration from Old EDA
+
+The old EDA components have been deleted:
+- `TheoryForm.tsx` → `DefinePanel.tsx`
+- `ResultsSection.tsx` → `ResultsPanel.tsx`
+- `FeatureListPanel.tsx` → Removed (features auto-derived)
+- `PipelineTabs.tsx` → Tab logic in `TheoryBuilderPage.tsx`
+- `page.module.css` → `TheoryBuilder.module.css`
+
+The new UI emits only the `TheoryDraft` JSON shape. Legacy translation is handled server-side during transition.

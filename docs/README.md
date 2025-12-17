@@ -44,6 +44,10 @@ This directory contains all documentation for the dock108 monorepo.
 - [`UNIFIED_THEORY_BETS.md`](UNIFIED_THEORY_BETS.md) - v1 bets pipeline
 - [`CONSPIRACY_THEORY.md`](CONSPIRACY_THEORY.md) - Conspiracy analysis engine
 
+#### Theory Builder (Admin EDA)
+- [`eda-current-state.md`](eda-current-state.md) - Theory Builder architecture and flow
+- [`FEATURE_LAYERS.md`](FEATURE_LAYERS.md) - Feature categories and presets
+
 #### Sports Features
 - [`HIGHLIGHT_PARSING.md`](HIGHLIGHT_PARSING.md) - AI parsing for highlight requests
 - [`SPORTS_SEARCH.md`](SPORTS_SEARCH.md) - YouTube search implementation

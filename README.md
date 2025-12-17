@@ -81,12 +81,18 @@ Users submit betting theories → LLM grades prompt and infers config → histor
 **User flow:** `/` → submit theory → redirect to `/theory/{run_id}`
 **Admin flow:** `/admin/theory-bets/runs` → browse/filter runs → click through to results
 
-### EDA / Modeling Lab (admin)
-- Pipeline UI: Theory Definition → Cohort & Micro → Evaluation → Market Mapping → Modeling → Robustness MC → Walk-forward → Live Matches (stubs). Tabs make stage/state explicit.
-- Stat targets: observational and **complete at Evaluation** (cohort mean/baseline/delta, stability, verdict). Modeling/MC are optional and disabled for stat targets.
-- Market targets: can optionally run modeling + MC when odds exist; odds coverage reported; run viewer persists snapshots/micro CSV pointers.
-- Data exports: preview feature matrix (CSV or data-quality JSON), analyze/export (features+target CSV), micro-model CSV, run history (`analysis-runs` endpoints).
-- Cleaning toggles (drop null/non-numeric/min non-null); target-leakage guard drops aliases for combined_score.
+### Theory Builder (admin)
+Intent-driven UI for sports betting theory analysis. Three-step flow:
+- **Define**: Pick league → time window → target → base stats → context preset
+- **Run**: Analyze (always) → Build Model (market targets) → Monte Carlo (optional)
+- **Results**: Summary with lift %, structured assessment, sample games table, collapsed correlations
+
+Key features:
+- **Stat targets**: Complete at evaluation (cohort mean/baseline/delta, verdict). No model/MC needed.
+- **Market targets**: Can optionally train logistic regression + run MC when odds exist.
+- **Context presets**: Minimal, Standard, Market-aware, Verbose, Custom—auto-expands to relevant features.
+- **Concept detection**: Auto-derives pace, rest, altitude fields when referenced in theory.
+- **Clean results**: Human-readable summary sentences, structured verdicts with checkmarks, no raw JSON exposed.
 
 ### Sports Data Ingestion
 Celery workers scrape boxscores and odds for NBA, NFL, MLB, NHL, NCAAB, NCAAF. Admin UI at `/admin/theory-bets/ingestion` to trigger and monitor runs.
@@ -104,14 +110,11 @@ Natural language requests → AI parsing → YouTube search with channel reputat
 | `POST /api/highlights/plan` | Plan highlight playlist |
 | `GET /api/admin/sports/games` | Browse games data |
 | `POST /api/admin/sports/scraper/runs` | Trigger scrape run |
-| `POST /api/admin/sports/eda/generate-features` | Generate derived features for EDA |
-| `POST /api/admin/sports/eda/preview` | Preview feature matrix (CSV) or data quality JSON |
-| `POST /api/admin/sports/eda/analyze` | Run correlation analysis for selected features/target |
-| `POST /api/admin/sports/eda/build-model` | Train lightweight model on feature matrix |
-| `POST /api/admin/sports/eda/analyze/export` | Export feature matrix + targets as CSV |
-| `GET /api/admin/sports/eda/analysis-runs` | List persisted EDA runs (summary) |
-| `GET /api/admin/sports/eda/analysis-runs/{id}` | Load persisted run detail + micro sample |
-| `POST /api/admin/sports/eda/walkforward` | Rolling train/test replay (market targets) |
+| `GET /api/admin/sports/eda/stat-keys/{league}` | Available stat keys for a league |
+| `POST /api/admin/theory/analyze` | Run analysis on TheoryDraft |
+| `POST /api/admin/theory/build-model` | Train model (market targets) |
+| `GET /api/admin/sports/eda/analysis-runs` | List persisted runs |
+| `POST /api/admin/sports/eda/walkforward` | Rolling train/test replay |
 
 Full API docs at `http://localhost:8000/docs` when backend is running.
 
@@ -139,6 +142,7 @@ POSTGRES_PASSWORD=...
 
 - **[`docs/START.md`](docs/START.md)** - Quick start guide
 - **[`docs/LOCAL_DEPLOY.md`](docs/LOCAL_DEPLOY.md)** - Detailed local setup
+- **[`docs/eda-current-state.md`](docs/eda-current-state.md)** - Theory Builder (admin EDA)
 - **[`docs/THEORY_SURFACES.md`](docs/THEORY_SURFACES.md)** - Theory surfaces design
 - **[`docs/UNIFIED_THEORY_BETS.md`](docs/UNIFIED_THEORY_BETS.md)** - v1 pipeline details
 - **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** - System architecture
@@ -171,11 +175,12 @@ alembic revision --autogenerate -m "description"  # New migration
 - Theory bets v1 pipeline with LLM grading and historical analysis
 - Sports data ingestion for 6 leagues
 - Sports highlights playlist generator
-- Admin UI for data management and run tracing
+- Theory Builder (admin EDA) with Define → Run → Results flow
+- Context presets and concept detection
 
 **In Progress:**
-- Real filters for theory matching (back-to-back, altitude)
-- Enhanced Monte Carlo with trained models
-- Admin UI styling improvements
+- Micro rows data population (game dates, team names, scores)
+- Stability visualizations
+- Single-game Monte Carlo sandbox
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for full roadmap.

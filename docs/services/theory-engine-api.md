@@ -54,6 +54,14 @@ Cache entries are stored in `external_context_cache` table with `key_hash` (SHA-
 - `GET /healthz` - Health check
 - `POST /api/theory/evaluate` - Evaluate a theory submission
 
+### Theory Builder (Admin EDA)
+- `GET /api/admin/sports/eda/stat-keys/{league}` - Available stat keys for a league
+- `POST /api/admin/theory/analyze` - Run analysis on a `TheoryDraft`
+- `POST /api/admin/theory/build-model` - Train model on analysis results
+- `GET /api/admin/sports/eda/analysis-runs` - List persisted analysis runs
+- `GET /api/admin/sports/eda/analysis-runs/{id}` - Get run details
+- `POST /api/admin/sports/eda/walkforward` - Rolling train/test replay
+
 ### Sports Highlights
 - `POST /api/highlights/plan` - Plan a highlight playlist from user query
 - `GET /api/highlights/{playlist_id}` - Get detailed playlist information
@@ -69,7 +77,7 @@ Cache entries are stored in `external_context_cache` table with `key_hash` (SHA-
 - `POST /api/conspiracies/evaluate` - Evaluate conspiracy theory
 - `POST /api/playlist/evaluate` - Evaluate playlist request
 
-See [`THEORY_ENGINE.md`](../THEORY_ENGINE.md) for the full blueprint and [`HIGHLIGHTS_API.md`](../HIGHLIGHTS_API.md) for highlights API documentation.
+See [`THEORY_ENGINE.md`](../THEORY_ENGINE.md) for the full blueprint, [`eda-current-state.md`](../eda-current-state.md) for Theory Builder docs, and [`HIGHLIGHTS_API.md`](../HIGHLIGHTS_API.md) for highlights API documentation.
 
 ## Maintenance Scripts
 
