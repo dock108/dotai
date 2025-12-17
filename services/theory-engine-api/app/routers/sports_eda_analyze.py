@@ -30,6 +30,8 @@ from .. import db_models
 from ..db import AsyncSession, get_db
 from ..services.derived_metrics import compute_derived_metrics
 from ..services.feature_compute import compute_features_for_games
+from ..services.feature_metadata import get_feature_metadata
+from ..services.features.concept_detector import detect_concepts
 from ..services.eda.micro_store import save_run, load_run, list_runs
 from .sports_eda_helpers import (
     _resolve_layer_builder,
@@ -64,6 +66,7 @@ from .sports_eda_schemas import (
     MonteCarloStatus,
     AnalysisRunSummary,
     AnalysisRunDetail,
+    GeneratedFeature,
 )
 
 MAX_GAMES_LIMIT = 5000
@@ -144,8 +147,32 @@ async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get
     league = await _get_league(session, req.league_code)
     layer_builder = _resolve_layer_builder(req.feature_mode)
     target_def = _resolve_target_definition(req.target_definition)
-    filtered_features, policy = _feature_policy_report(req.features, req.context)
+    requested_features = req.features or []
+    filtered_features, policy = _feature_policy_report(requested_features, req.context)
     filtered_features = _drop_target_leakage(filtered_features, target_def)
+
+    # Detect concepts to derive only the minimal required fields during Analyze.
+    concept_info = detect_concepts(
+        theory_text=getattr(target_def, "target_name", None),
+        filters=req.model_dump(exclude={"features"}) if hasattr(req, "model_dump") else {},
+    )
+    concept_field_names = concept_info.get("auto_derived_fields", []) if concept_info else []
+    concept_features: list[GeneratedFeature] = []
+    for fname in concept_field_names:
+        meta = get_feature_metadata(fname, "engineered")
+        concept_features.append(
+            GeneratedFeature(
+                name=fname,
+                formula=meta.formula if hasattr(meta, "formula") else fname,
+                category="engineered",
+                requires=[],
+                timing=getattr(meta, "timing", None),
+                source=getattr(meta, "source", None),
+                group=getattr(meta, "group", None),
+                default_selected=False,
+            )
+        )
+    requested_for_compute = concept_features + filtered_features
 
     logger.info(
         "analyze_start",
@@ -180,12 +207,20 @@ async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get
             best_segments=[],
             insights=["No games found for the selected filters."],
             feature_policy=policy,
+            detected_concepts=concept_info.get("detected_concepts") if concept_info else None,
+            concept_derived_fields=concept_field_names or None,
         )
 
     feature_data = await compute_features_for_games(
-        session, league.id, all_game_ids, filtered_features, layer_builder=layer_builder, context=req.context
+        session, league.id, all_game_ids, requested_for_compute, layer_builder=layer_builder, context=req.context
     )
-    logger.info("analyze_features_ready", game_count=len(all_game_ids), feature_count=len(filtered_features))
+    logger.info(
+        "analyze_features_ready",
+        game_count=len(all_game_ids),
+        feature_count=len(requested_for_compute),
+        explanatory_feature_count=len(filtered_features),
+        concept_feature_count=len(concept_features),
+    )
 
     # Fetch derived targets
     game_to_targets: dict[int, float] = {}
@@ -320,6 +355,8 @@ async def run_analysis(req: AnalysisRequest, session: AsyncSession = Depends(get
         modeling=modeling_status,
         monte_carlo=monte_carlo_status,
         notes=notes,
+        detected_concepts=concept_info.get("detected_concepts") if concept_info else None,
+        concept_derived_fields=concept_field_names or None,
     )
 
 
@@ -328,7 +365,7 @@ async def export_analysis_csv(req: AnalysisRequest, session: AsyncSession = Depe
     """Export the feature matrix with targets as CSV."""
     league = await _get_league(session, req.league_code)
     layer_builder = _resolve_layer_builder(req.feature_mode)
-    filtered_features, _policy = _feature_policy_report(req.features, req.context)
+    filtered_features, _policy = _feature_policy_report(req.features or [], req.context)
     target_def = _resolve_target_definition(req.target_definition)
 
     stmt: Select = select(db_models.SportsGame)
@@ -397,7 +434,7 @@ async def export_micro_model(req: AnalysisRequest, session: AsyncSession = Depen
     """Export per-game micro_model_results CSV for given filters/features/target."""
     league = await _get_league(session, req.league_code)
     layer_builder = _resolve_layer_builder(req.feature_mode)
-    filtered_features, _policy = _feature_policy_report(req.features, req.context)
+    filtered_features, _policy = _feature_policy_report(req.features or [], req.context)
     target_def = _resolve_target_definition(req.target_definition)
 
     stmt: Select = select(db_models.SportsGame)

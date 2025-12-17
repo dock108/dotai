@@ -3,13 +3,15 @@ from __future__ import annotations
 
 import csv
 import io
+import math
 from typing import Any
 
 import numpy as np
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from starlette.responses import StreamingResponse
 from sqlalchemy import Select, select
+from sqlalchemy.orm import selectinload
 
 from .. import db_models
 from ..db import AsyncSession, get_db
@@ -19,6 +21,7 @@ from .sports_eda_helpers import (
     _resolve_layer_builder,
     _get_league,
     _feature_policy_report,
+    _target_value,
 )
 from .sports_eda_schemas import (
     FeatureGenerationRequest,
@@ -27,13 +30,21 @@ from .sports_eda_schemas import (
     FeaturePreviewRequest,
     FeaturePreviewSummary,
     FeatureQualityStats,
+    AnalysisResponse,
+    AddFeaturesRequest,
+    TargetDefinition,
 )
 from .sports_eda_shared import (
     _apply_base_filters,
     _filter_games_by_player,
     _compute_quality_stats,
     _coerce_numeric,
+    _prepare_dataset,
+    _drop_target_leakage,
+    _pearson_correlation,
 )
+from ..services.derived_metrics import compute_derived_metrics
+from ..services.eda.micro_store import load_run, save_run
 
 router = APIRouter(prefix="/api/admin/sports/eda", tags=["sports-eda"])
 
@@ -178,4 +189,95 @@ async def preview_features(req: FeaturePreviewRequest, session: AsyncSession = D
             buffer.truncate(0)
 
     return StreamingResponse(csv_iter(), media_type="text/csv")
+
+
+@router.post("/analysis-runs/{run_id}/add-features", response_model=AnalysisResponse)
+async def add_explanatory_features(
+    run_id: str, req: AddFeaturesRequest, session: AsyncSession = Depends(get_db)
+) -> AnalysisResponse:
+    """Attach explanatory features to an existing analysis run and return correlations."""
+    payload = load_run(run_id)
+    if not payload:
+        raise HTTPException(status_code=404, detail="run not found")
+
+    base_request = payload.get("request") if isinstance(payload, dict) else None
+    target_payload = payload.get("target") if isinstance(payload, dict) else None
+    game_ids = payload.get("game_ids") if isinstance(payload, dict) else None
+    if not base_request or not target_payload or not game_ids:
+        raise HTTPException(status_code=400, detail="run is missing required context")
+
+    league_code = base_request.get("league_code")
+    league = await _get_league(session, league_code)
+    target_def = TargetDefinition(**target_payload)
+    layer_builder = _resolve_layer_builder(req.feature_mode)
+
+    filtered_features, policy = _feature_policy_report(req.features or [], req.context)
+    filtered_features = _drop_target_leakage(filtered_features, target_def)
+
+    # Compute features for the stored game cohort.
+    feature_data = await compute_features_for_games(
+        session, league.id, game_ids, filtered_features, layer_builder=layer_builder, context=req.context
+    )
+
+    # Build target map from stored games.
+    stmt_games = select(db_models.SportsGame).where(db_models.SportsGame.id.in_(game_ids)).options(
+        selectinload(db_models.SportsGame.odds),
+        selectinload(db_models.SportsGame.home_team),
+        selectinload(db_models.SportsGame.away_team),
+    )
+    games_res = await session.execute(stmt_games)
+    games = games_res.scalars().all()
+
+    game_to_targets: dict[int, float] = {}
+    for game in games:
+        metrics = compute_derived_metrics(game, game.odds or [])
+        tgt_val = _target_value(metrics, target_def)
+        if tgt_val is not None:
+            game_to_targets[game.id] = tgt_val
+
+    feature_names = [f.name for f in filtered_features]
+    aligned_features, aligned_target, kept_ids, cleaning_summary = _prepare_dataset(
+        feature_data, feature_names, game_to_targets, req.cleaning
+    )
+
+    sample_size = len(aligned_target)
+    baseline_value = float(np.mean(aligned_target)) if aligned_target else 0.0
+    if math.isnan(baseline_value) or math.isinf(baseline_value):
+        baseline_value = 0.0
+
+    correlations: list[dict[str, Any]] = []
+    for fname in feature_names:
+        corr = _pearson_correlation(aligned_features[fname], aligned_target)
+        if corr is None:
+            continue
+        significant = abs(corr) > 0.03 and sample_size >= 30
+        correlations.append(
+            CorrelationResult(feature=fname, correlation=corr, significant=significant).model_dump()
+        )
+    correlations.sort(key=lambda c: abs(c["correlation"]), reverse=True)
+
+    insights = [f"Sample size: {sample_size} games"]
+    if sample_size < 30:
+        insights.append("⚠️ Sample size is very small; results may not be reliable.")
+
+    # Optionally persist updated run info (non-blocking best effort).
+    try:
+        payload["request"]["features"] = [f.model_dump() for f in req.features] if req.features else []
+        payload["feature_policy"] = policy
+        payload["correlations"] = correlations
+        payload["cleaning_summary"] = cleaning_summary.model_dump() if cleaning_summary else None
+        save_run(run_id, payload)
+    except Exception:
+        pass
+
+    return AnalysisResponse(
+        sample_size=sample_size,
+        baseline_value=baseline_value,
+        correlations=[CorrelationResult(**c) for c in correlations],
+        best_segments=[],
+        insights=insights,
+        cleaning_summary=cleaning_summary,
+        feature_policy=policy,
+        run_id=run_id,
+    )
 

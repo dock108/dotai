@@ -65,6 +65,8 @@ interface TheoryFormProps {
   isStatTarget: boolean;
   mcAvailable: boolean;
   mcReason: string | null;
+  canAddFeatures: boolean;
+  selectedFeatureCount: number;
 }
 
 export function TheoryForm({
@@ -104,6 +106,8 @@ export function TheoryForm({
   isStatTarget,
   mcAvailable,
   mcReason,
+  canAddFeatures,
+  selectedFeatureCount,
 }: TheoryFormProps) {
   const hidden = pipelineStep !== "theory";
 
@@ -274,7 +278,7 @@ export function TheoryForm({
       {/* Team stat keys */}
       <div className={styles.fieldFull} hidden={hidden}>
         <label className={styles.label}>
-          Team stat keys
+          Stats to include in results (team)
           {loadingStatKeys && <span className={styles.loadingBadge}>Loading...</span>}
           {!loadingStatKeys && statKeys && (
             <span className={styles.countBadge}>
@@ -310,13 +314,15 @@ export function TheoryForm({
             {loadingStatKeys ? "Loading available stats..." : "No team stats found for this league."}
           </p>
         )}
-        <p className={styles.hint}>Leave empty to include all team stats in results.</p>
+        <p className={styles.hint}>
+          These control what shows up in results/exports. They do not auto-trigger feature engineering.
+        </p>
       </div>
 
       {/* Player stat keys */}
       <div className={styles.fieldFull} hidden={hidden}>
         <label className={styles.label}>
-          Player stat keys
+          Stats to include in results (player)
           {loadingStatKeys && <span className={styles.loadingBadge}>Loading...</span>}
           {!loadingStatKeys && statKeys && (
             <span className={styles.countBadge}>
@@ -352,7 +358,9 @@ export function TheoryForm({
             {loadingStatKeys ? "Loading available stats..." : "No player stats found for this league."}
           </p>
         )}
-        <p className={styles.hint}>Leave empty to include all player stats in results.</p>
+        <p className={styles.hint}>
+          Use these to control what you want to display or explore later; they will not derive features during Analyze.
+        </p>
       </div>
 
       {/* Context / diagnostic toggles */}
@@ -416,21 +424,26 @@ export function TheoryForm({
       {/* Action buttons */}
       <div className={styles.fieldFull} hidden={hidden}>
         <div className={styles.previewActions}>
-          <button type="button" className={styles.primaryButton} onClick={onGenerateFeatures}>
-            Generate features
-          </button>
           <button
             type="button"
             className={styles.primaryButton}
-            disabled={generatedFeatures.length === 0 || analysisRunning}
+            disabled={analysisRunning}
             onClick={onRunAnalysis}
           >
             {analysisRunning ? "Analyzing…" : "Analyze theory"}
           </button>
           <button
             type="button"
+            className={styles.secondaryButton}
+            disabled={!canAddFeatures || analysisRunning}
+            onClick={onGenerateFeatures}
+          >
+            Add explanatory features
+          </button>
+          <button
+            type="button"
             className={styles.primaryButton}
-            disabled={generatedFeatures.length === 0 || modelRunning || analysisRunning}
+            disabled={selectedFeatureCount === 0 || modelRunning || analysisRunning}
             onClick={onBuildModel}
           >
             {modelRunning ? "Building…" : "Build model"}
@@ -438,7 +451,9 @@ export function TheoryForm({
           <button
             type="button"
             className={styles.secondaryButton}
-            disabled={generatedFeatures.length === 0 || modelRunning || analysisRunning || (isStatTarget && !mcAvailable)}
+            disabled={
+              selectedFeatureCount === 0 || modelRunning || analysisRunning || (isStatTarget && !mcAvailable)
+            }
             onClick={onBuildModel}
             title={isStatTarget ? "Not eligible: stat targets have no market distribution" : mcReason ?? undefined}
           >

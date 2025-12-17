@@ -242,15 +242,11 @@ export default function TheoryBetsEdaPage() {
   };
 
   const handleGenerateFeatures = async () => {
+    if (!analysisResult) {
+      setFeatureError("Run Analyze before adding explanatory features.");
+      return;
+    }
     setFeatureError(null);
-    setAnalysisResult(null);
-    setMicroRows(null);
-    setTheoryMetrics(null);
-    setMcSummary(null);
-    setAnalysisError(null);
-    setDataQuality(null);
-    setQualityError(null);
-    setQualityLoading(false);
     try {
       const res = await generateFeatures({
         league_code: form.leagueCode,
@@ -273,16 +269,8 @@ export default function TheoryBetsEdaPage() {
     }
   };
 
-  // Populate the catalog once stat keys are available so engineered features are visible,
-  // but never auto-select anything.
-  useEffect(() => {
-    if (!statKeys) return;
-    if (generatedFeatures.length > 0) return;
-    void handleGenerateFeatures();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statKeys]);
-
   const selectedFeatures = generatedFeatures.filter((f) => selectedFeatureNames.has(f.name));
+  const canAddFeatures = Boolean(analysisResult);
 
   const toggleFeature = useCallback((name: string) => {
     setSelectedFeatureNames((prev) => {
@@ -309,10 +297,6 @@ export default function TheoryBetsEdaPage() {
   );
 
   const handleRunAnalysis = async () => {
-    if (selectedFeatures.length === 0) {
-      setAnalysisError("Select at least one feature before analyzing.");
-      return;
-    }
     setAnalysisLoading(true);
     setAnalysisRunning(true);
     setStatusMessage("Analyzing games… this can take a couple of minutes.");
@@ -334,7 +318,7 @@ export default function TheoryBetsEdaPage() {
       });
       setAnalysisResult(res);
       setMicroRows(res.micro_rows ?? null);
-      setTheoryMetrics(res.theory_metrics ?? null);
+       setTheoryMetrics(res.theory_metrics ?? null);
       setModelResult(null);
       setMcSummary(null);
       setMicroRowsRef(null);
@@ -399,9 +383,13 @@ export default function TheoryBetsEdaPage() {
     if (!generatedFeatures.length) return;
     setCsvLoading(true);
     try {
+      if (selectedFeatures.length === 0) {
+        setAnalysisError("Select at least one feature before exporting CSV.");
+        return;
+      }
       const res = await downloadAnalysisCsv({
         league_code: form.leagueCode,
-        features: generatedFeatures,
+        features: selectedFeatures,
         target_definition: targetDefinition,
         context: diagnosticMode ? "diagnostic" : "deployable",
         seasons: seasonsForScope,
@@ -428,9 +416,13 @@ export default function TheoryBetsEdaPage() {
     if (!generatedFeatures.length) return;
     setMicroCsvLoading(true);
     try {
+      if (selectedFeatures.length === 0) {
+        setAnalysisError("Select at least one feature before exporting micro CSV.");
+        return;
+      }
       const res = await downloadMicroModelCsv({
         league_code: form.leagueCode,
-        features: generatedFeatures,
+        features: selectedFeatures,
         target_definition: targetDefinition,
         context: diagnosticMode ? "diagnostic" : "deployable",
         seasons: seasonsForScope,
@@ -462,9 +454,14 @@ export default function TheoryBetsEdaPage() {
     setWfError(null);
     setWfResult(null);
     try {
+      if (selectedFeatures.length === 0) {
+        setWfError("Select at least one feature before running walk-forward.");
+        setWfRunning(false);
+        return;
+      }
       const res = await runWalkforward({
         league_code: form.leagueCode,
-        features: generatedFeatures,
+        features: selectedFeatures,
         target_definition: targetDefinition,
         context: diagnosticMode ? "diagnostic" : "deployable",
         seasons: seasonsForScope,
@@ -606,9 +603,9 @@ export default function TheoryBetsEdaPage() {
                   <div>Target: <span className={styles.summaryValue}>{targetDefinition.target_name}</span></div>
                   <div>Filters: <span className={styles.summaryValue}>{form.seasons || "all seasons"} · phase {form.phase}</span></div>
                   <div>Team: <span className={styles.summaryValue}>{form.team || "any"}</span> · Player: <span className={styles.summaryValue}>{form.player || "any"}</span></div>
-                </div>
-              </div>
+                  </div>
             </div>
+          </div>
 
             {/* Form fields for theory definition */}
             <TheoryForm
@@ -648,9 +645,12 @@ export default function TheoryBetsEdaPage() {
               isStatTarget={isStatTarget}
               mcAvailable={mcAvailable}
               mcReason={mcReason}
+              canAddFeatures={canAddFeatures}
+              selectedFeatureCount={selectedFeatures.length}
             />
 
             {/* Feature list panel */}
+          {analysisResult && (
             <FeatureListPanel
               features={generatedFeatures}
               selectedFeatureNames={selectedFeatureNames}
@@ -663,6 +663,7 @@ export default function TheoryBetsEdaPage() {
               featureLeakageSummary={featureLeakageSummary}
               featurePolicyMessage={featurePolicyMessage}
             />
+          )}
 
             {/* Results header with status/downloads */}
             {analysisResult && (
@@ -681,29 +682,29 @@ export default function TheoryBetsEdaPage() {
                   onDownloadMicroJson={handleDownloadMicroJson}
                   microRowsRef={microRowsRef}
                 />
-              </div>
+                  </div>
             )}
 
             {/* Main results for cohort/eval/market/modeling/mc panels */}
             {(pipelineStep === "cohort" || pipelineStep === "evaluation" || pipelineStep === "market" || pipelineStep === "modeling" || pipelineStep === "mc") && (
-              <ResultsSection
-                analysisResult={analysisResult}
-                microRows={microRows}
-                theoryMetrics={theoryMetrics}
-                modelResult={modelResult}
-                primarySignalDrivers={primarySignalDrivers}
-                gamesLink={gamesLink}
-                microCsvLoading={microCsvLoading}
-                csvLoading={csvLoading}
-                onDownloadMicroCsv={handleDownloadMicroCsv}
-                onDownloadCsv={handleDownloadCsv}
-                mcSummary={mcSummary}
-                theoryDraftEdits={theoryDraftEdits}
-                theoryDraftStatus={theoryDraftStatus}
-                setTheoryDraftEdits={setTheoryDraftEdits}
-                setTheoryDraftStatus={setTheoryDraftStatus}
-                downloadJson={downloadJson}
-              />
+            <ResultsSection
+              analysisResult={analysisResult}
+              microRows={microRows}
+              theoryMetrics={theoryMetrics}
+              modelResult={modelResult}
+              primarySignalDrivers={primarySignalDrivers}
+              gamesLink={gamesLink}
+              microCsvLoading={microCsvLoading}
+              csvLoading={csvLoading}
+              onDownloadMicroCsv={handleDownloadMicroCsv}
+              onDownloadCsv={handleDownloadCsv}
+              mcSummary={mcSummary}
+              theoryDraftEdits={theoryDraftEdits}
+              theoryDraftStatus={theoryDraftStatus}
+              setTheoryDraftEdits={setTheoryDraftEdits}
+              setTheoryDraftStatus={setTheoryDraftStatus}
+              downloadJson={downloadJson}
+            />
             )}
 
             {/* Walk-forward panel */}
@@ -723,18 +724,18 @@ export default function TheoryBetsEdaPage() {
                   wfResult={wfResult}
                   onRun={handleRunWalkforward}
                 />
-              </div>
-            )}
+                    </div>
+                  )}
 
             {/* Live matches stub */}
             {pipelineStep === "live" && (
               <div className={styles.fieldFull}>
-                <div className={styles.sectionCard}>
+                    <div className={styles.sectionCard}>
                   <h4 className={styles.sectionTitle}>Live matches (stub)</h4>
                   <p className={styles.hint}>Future: hook to live/incoming games for the selected league with model/trigger overlay.</p>
-                </div>
-              </div>
-            )}
+                        </div>
+                          </div>
+                        )}
 
             {/* Publishing readiness card */}
             {modelResult && (
@@ -749,15 +750,15 @@ export default function TheoryBetsEdaPage() {
                   setTheoryDraftStatus={setTheoryDraftStatus}
                   setTheoryDraftEdits={setTheoryDraftEdits}
                 />
-              </div>
-            )}
+                </div>
+              )}
 
             {/* Reset button */}
             <div className={styles.fieldFull}>
-              <div className={styles.actions}>
-                <button type="button" className={styles.secondaryButton} onClick={handleReset}>
-                  Reset
-                </button>
+            <div className={styles.actions}>
+              <button type="button" className={styles.secondaryButton} onClick={handleReset}>
+                Reset
+              </button>
               </div>
             </div>
           </div>

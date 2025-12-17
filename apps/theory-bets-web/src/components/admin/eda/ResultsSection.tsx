@@ -59,6 +59,8 @@ export function ResultsSection({
   const notes: string[] | null = modelResult?.notes ?? (analysisResult as any)?.notes ?? null;
   const cohort = modelResult?.cohort ?? analysisResult?.cohort ?? null;
   const isStat = evaluation?.formatting === "numeric" || !(microRows?.some((r) => r.market_type));
+  const detectedConcepts = analysisResult?.detected_concepts ?? null;
+  const conceptFields = analysisResult?.concept_derived_fields ?? null;
 
   const renderModelingStatus = () => {
     if (!modeling) return null;
@@ -139,6 +141,20 @@ export function ResultsSection({
           )}
 
           <EvaluationCard evaluation={evaluation as any} cohort={cohort as any} theoryMetrics={theoryMetrics} isStat={isStat} />
+          {detectedConcepts && detectedConcepts.length > 0 && (
+            <div className={styles.sectionCard}>
+              <h4 className={styles.sectionTitle}>Detected concepts</h4>
+              <p className={styles.hint}>We derived the minimum data needed to evaluate these concepts:</p>
+              <ul className={styles.bulletList}>
+                {detectedConcepts.map((c) => (
+                  <li key={c}>{c}</li>
+                ))}
+              </ul>
+              {conceptFields && conceptFields.length > 0 && (
+                <p className={styles.hint}>Auto-derived fields: {conceptFields.join(", ")}</p>
+              )}
+            </div>
+          )}
           {renderModelingStatus()}
           {renderMcStatus()}
 

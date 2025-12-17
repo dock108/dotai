@@ -128,7 +128,7 @@ class TargetDefinition(BaseModel):
 
 class AnalysisRequest(BaseModel):
     league_code: str
-    features: list[GeneratedFeature]
+    features: list[GeneratedFeature] | None = None
     seasons: list[int] | None = None
     date_start: datetime | None = None
     date_end: datetime | None = None
@@ -195,6 +195,8 @@ class AnalysisResponse(BaseModel):
     cleaning_summary: CleaningSummary | None = None
     feature_policy: dict[str, Any] | None = None
     run_id: str | None = None
+    detected_concepts: list[str] | None = None
+    concept_derived_fields: list[str] | None = None
 
 
 class ModelBuildRequest(BaseModel):
@@ -460,6 +462,13 @@ class ModelBuildWithMicroResponse(ModelBuildResponse):
     modeling: ModelingStatus | None = None
     monte_carlo: MonteCarloStatus | None = None
     notes: list[str] | None = None
+
+
+class AddFeaturesRequest(BaseModel):
+    features: list[GeneratedFeature]
+    feature_mode: str | None = None
+    context: Literal["deployable", "diagnostic"] = "deployable"
+    cleaning: CleaningOptions | None = None
 
 
 class TriggerDefinition(BaseModel):

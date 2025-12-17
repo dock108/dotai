@@ -42,18 +42,21 @@ export function FeatureListPanel({
 
       {features.length === 0 ? (
         <div className={styles.sectionCard}>
-          <h4 className={styles.sectionTitle}>Feature selection</h4>
+          <h4 className={styles.sectionTitle}>Explanatory features (optional)</h4>
           <div className={styles.hint}>
-            No feature catalog yet. Click <b>Generate features</b> above to populate the selectable feature list (including engineered features like pace/conference/player-minutes).
+            No feature catalog yet. Run <b>Add explanatory features</b> after Analyze to populate the selectable list (pace, conference, player minutes, rolling, etc.).
           </div>
         </div>
       ) : (
         <details className={styles.advanced}>
           <summary>
-            Feature selection (collapsed) · Selected:{" "}
+            Explanatory features (collapsed) · Selected:{" "}
             <span className={styles.summaryValue}>{selectedFeatureNames.size.toLocaleString()}</span> /{" "}
             <span className={styles.summaryValue}>{features.length.toLocaleString()}</span>
           </summary>
+          <div className={styles.hint} style={{ marginTop: 8 }}>
+            Want to explore why this works? Add optional explanatory features below. Analysis already ran without them.
+          </div>
           <div className={styles.contextRow} style={{ marginTop: 8 }}>
             <button type="button" className={styles.secondaryButton} onClick={onSelectAll}>
               Select all
@@ -77,13 +80,13 @@ export function FeatureListPanel({
                     onChange={() => onToggleFeature(f.name)}
                   />
                   <div>
-                    <div className={styles.featureName}>{f.name}</div>
-                    <div className={styles.featureFormula}>{f.formula}</div>
-                    <div className={styles.featureMeta}>
-                      {f.category}
-                      {f.timing ? ` · ${f.timing}` : ""}
-                      {f.group ? ` · ${f.group}` : ""}
-                    </div>
+                <div className={styles.featureName}>{f.name}</div>
+                <div className={styles.featureFormula}>{f.formula}</div>
+                <div className={styles.featureMeta}>
+                  {f.category}
+                  {f.timing ? ` · ${f.timing}` : ""}
+                  {f.group ? ` · ${f.group}` : ""}
+                </div>
                   </div>
                 </label>
               </div>
