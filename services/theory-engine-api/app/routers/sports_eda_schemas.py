@@ -243,6 +243,13 @@ class ModelBuildRequest(BaseModel):
 class MicroModelRow(BaseModel):
     theory_id: str | None = None
     game_id: int
+    # Game metadata for display
+    game_date: str | None = None  # ISO date string
+    home_team: str | None = None
+    away_team: str | None = None
+    home_score: int | None = None
+    away_score: int | None = None
+    # Target info
     target_name: str
     target_value: float | str | None = None
     baseline_value: float | None = None
@@ -251,8 +258,8 @@ class MicroModelRow(BaseModel):
     closing_line: float | None = None
     closing_odds: float | None = None
     implied_prob: float | None = None
-    final_score_home: int | None = None
-    final_score_away: int | None = None
+    final_score_home: int | None = None  # Deprecated: use home_score
+    final_score_away: int | None = None  # Deprecated: use away_score
     outcome: str | None = None
     pnl_units: float | None = None
     est_ev_pct: float | None = None

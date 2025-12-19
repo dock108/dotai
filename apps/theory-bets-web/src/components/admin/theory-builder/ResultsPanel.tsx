@@ -2,7 +2,6 @@
 
 import React, { useState, useCallback, useMemo } from "react";
 import styles from "./TheoryBuilder.module.css";
-import { FEATURE_ROI, FEATURE_STABILITY_BREAKDOWN, FEATURE_MODEL_BUILDING } from "@/lib/featureFlags";
 import type { TheoryBuilderState, TheoryBuilderActions } from "./useTheoryBuilderState";
 
 interface Props {
@@ -12,32 +11,25 @@ interface Props {
 
 // Human-readable target descriptions
 const TARGET_DESCRIPTIONS: Record<string, string> = {
-  game_total: "Game total (combined points)",
-  spread_result: "Spread cover",
-  moneyline_win: "Moneyline win",
-  team_stat: "Team statistic",
+  game_total: "Totals (O/U)",
+  spread_result: "Spread (ATS)",
+  moneyline_win: "Moneyline",
+  team_stat: "Team stat",
 };
 
-// Human-readable concept explanations
-const CONCEPT_EXPLANATIONS: Record<string, { label: string; description: string }> = {
-  pace: {
-    label: "Pace",
-    description: "This theory appears sensitive to game tempo (estimated possessions per game) rather than shooting efficiency.",
-  },
-  rest: {
-    label: "Rest advantage",
-    description: "Days between games may influence outcomes. Rest advantage is factored in.",
-  },
-  altitude: {
-    label: "Altitude",
-    description: "Venue altitude differences may affect team performance.",
-  },
+// Context preset labels
+const CONTEXT_LABELS: Record<string, string> = {
+  minimal: "Base stats only",
+  standard: "Standard (pace, conference)",
+  market_aware: "Market-aware (lines, implied)",
+  verbose: "Verbose (all context)",
+  custom: "Custom",
 };
 
 export function ResultsPanel({ state, actions }: Props) {
   const { analysisResult, draft } = state;
   const [showCorrelations, setShowCorrelations] = useState(false);
-  const [showAllMicroRows, setShowAllMicroRows] = useState(false);
+  const [showAllGames, setShowAllGames] = useState(false);
 
   const downloadJson = useCallback((filename: string, data: unknown) => {
     const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -53,49 +45,56 @@ export function ResultsPanel({ state, actions }: Props) {
     setTimeout(() => URL.revokeObjectURL(url), 30_000);
   }, []);
 
-  // Build verdict reasons - simplified for MVP
+  // Build cohort rule description from draft
+  const getCohortRuleDescription = (): string => {
+    const rule = draft.cohort_rule;
+    if (rule.mode === "auto") {
+      return "Auto-discovered (best split using selected stats)";
+    }
+    if (rule.mode === "quantile" && rule.quantile_rules && rule.quantile_rules.length > 0) {
+      return rule.quantile_rules
+        .map((qr) => `${qr.stat} in ${qr.direction} ${qr.percentile}%`)
+        .join(" AND ");
+    }
+    if (rule.mode === "threshold" && rule.threshold_rules && rule.threshold_rules.length > 0) {
+      return rule.threshold_rules
+        .map((tr) => `${tr.stat} ${tr.operator} ${tr.value}`)
+        .join(" AND ");
+    }
+    return "No rule defined";
+  };
+
+  // Build verdict reasons from single source of truth
   const verdictReasons = useMemo(() => {
     if (!analysisResult) return [];
     const reasons: { type: "good" | "warning" | "bad"; text: string }[] = [];
-    const delta = analysisResult.delta_value ?? 0;
-    const sample = analysisResult.sample_size ?? 0;
-
-    // Lift
-    if (delta > 0.05) {
-      reasons.push({ type: "good", text: `Meaningful lift (+${(delta * 100).toFixed(1)}%)` });
-    } else if (delta > 0) {
-      reasons.push({ type: "warning", text: `Small lift (+${(delta * 100).toFixed(1)}%)` });
-    } else {
-      reasons.push({ type: "bad", text: `No lift (${(delta * 100).toFixed(1)}%)` });
+    
+    // Use the exact values from response - NO recomputation
+    const { sample_size, baseline_value, cohort_value, delta_value } = analysisResult;
+    
+    // Sanity check: delta should equal cohort - baseline
+    const expectedDelta = cohort_value - baseline_value;
+    const deltaMatch = Math.abs(delta_value - expectedDelta) < 0.001;
+    if (!deltaMatch) {
+      console.warn("Delta mismatch:", { delta_value, expectedDelta, cohort_value, baseline_value });
     }
 
-    // Sample size
-    if (sample >= 1000) {
-      reasons.push({ type: "good", text: `Good sample (${sample.toLocaleString()} games)` });
-    } else if (sample >= 200) {
-      reasons.push({ type: "warning", text: `Small sample (${sample.toLocaleString()} games)` });
+    // Lift assessment
+    if (delta_value > 0.05) {
+      reasons.push({ type: "good", text: `Meaningful lift (+${(delta_value * 100).toFixed(1)}%)` });
+    } else if (delta_value > 0) {
+      reasons.push({ type: "warning", text: `Small lift (+${(delta_value * 100).toFixed(1)}%)` });
     } else {
-      reasons.push({ type: "bad", text: `Very small sample (${sample.toLocaleString()} games)` });
+      reasons.push({ type: "bad", text: `No lift (${(delta_value * 100).toFixed(1)}%)` });
     }
 
-    // Stability - only if feature flag enabled
-    if (FEATURE_STABILITY_BREAKDOWN) {
-      const evaluation = analysisResult.evaluation ?? {};
-      const stability = evaluation.stability_by_season;
-      if (stability && typeof stability === "object" && !Array.isArray(stability)) {
-        const values = Object.values(stability).filter((v) => typeof v === "number") as number[];
-        if (values.length > 1) {
-          const variance =
-            values.reduce((sum, v) => sum + Math.pow(v - delta, 2), 0) / values.length;
-          if (variance < 0.01) {
-            reasons.push({ type: "good", text: "Stable across seasons" });
-          } else if (variance < 0.05) {
-            reasons.push({ type: "warning", text: "Moderate stability" });
-          } else {
-            reasons.push({ type: "bad", text: "Unstable across seasons" });
-          }
-        }
-      }
+    // Sample size assessment
+    if (sample_size >= 500) {
+      reasons.push({ type: "good", text: `Good sample (${sample_size.toLocaleString()} games)` });
+    } else if (sample_size >= 100) {
+      reasons.push({ type: "warning", text: `Small sample (${sample_size.toLocaleString()} games)` });
+    } else {
+      reasons.push({ type: "bad", text: `Very small sample (${sample_size.toLocaleString()} games)` });
     }
 
     return reasons;
@@ -112,79 +111,99 @@ export function ResultsPanel({ state, actions }: Props) {
     );
   }
 
+  // Extract values - single source of truth
+  const { sample_size, baseline_value, cohort_value, delta_value } = analysisResult;
   const correlations = analysisResult.correlations ?? [];
-  const microRows = analysisResult.micro_rows ?? [];
-  const evaluation = analysisResult.evaluation ?? {};
-
-  // Only show top 3 correlations by default
-  const displayCorrelations = correlations.slice(0, 3);
-  const displayMicroRows = showAllMicroRows ? microRows : microRows.slice(0, 10);
-
-  // Human-readable outcome description
+  const sampleGames = analysisResult.sample_games ?? [];
+  
+  // Target description
   const targetDesc = TARGET_DESCRIPTIONS[draft.target.type] ?? draft.target.type;
   const sideDesc = draft.target.side ? ` (${draft.target.side})` : "";
-  const outcomeLabel = `${targetDesc}${sideDesc}`;
 
-  // Summary sentence
-  const baseline = analysisResult.baseline_value;
-  const cohort = analysisResult.cohort_value;
-  const delta = analysisResult.delta_value;
-  const liftPct = delta != null ? (delta * 100).toFixed(1) : null;
+  // Only show patterns if:
+  // 1. Rule mode is auto (we discovered something), OR
+  // 2. Context is NOT minimal (we added features beyond base stats)
+  const showPatterns = 
+    (draft.cohort_rule.mode === "auto" || draft.context.preset !== "minimal") &&
+    analysisResult.detected_concepts.length > 0;
+
+  // Display limits
+  const displayCorrelations = showCorrelations ? correlations : correlations.slice(0, 3);
+  const displayGames = showAllGames ? sampleGames : sampleGames.slice(0, 10);
 
   return (
     <div className={styles.resultsPanel}>
-      {/* Outcome evaluated */}
-      <div className={styles.outcomeHeader}>
-        <span className={styles.outcomeLabel}>Outcome evaluated:</span>
-        <span className={styles.outcomeValue}>{outcomeLabel}</span>
+      {/* COHORT DEFINITION - Must be shown first */}
+      <div className={styles.cohortDefinition}>
+        <h4 className={styles.cohortTitle}>Cohort Definition</h4>
+        
+        {/* If backend provided cohort_definition, use it */}
+        {analysisResult.cohort_definition ? (
+          <div className={styles.cohortDetails}>
+            <p className={styles.cohortRule}>
+              <strong>Rule:</strong> {analysisResult.cohort_definition.rule_description}
+            </p>
+            {analysisResult.cohort_definition.discovered_split && (
+              <p className={styles.cohortDiscovered}>
+                <strong>Discovered:</strong> {analysisResult.cohort_definition.discovered_split}
+              </p>
+            )}
+          </div>
+        ) : (
+          /* Fallback: build from draft */
+          <p className={styles.cohortRule}>
+            <strong>Rule:</strong> {getCohortRuleDescription()}
+          </p>
+        )}
+        
+        <p className={styles.cohortMeta}>
+          <strong>Market:</strong> {targetDesc}{sideDesc} &nbsp;|&nbsp;
+          <strong>Context:</strong> {CONTEXT_LABELS[draft.context.preset] ?? draft.context.preset} &nbsp;|&nbsp;
+          <strong>Window:</strong> {draft.time_window.mode.replace(/_/g, " ")}
+        </p>
       </div>
 
-      {/* Summary sentence */}
-      {cohort != null && baseline != null && delta != null && (
-        <p className={styles.summarySentence}>
-          Games matching this theory{" "}
-          {draft.target.type === "spread_result"
-            ? `covered the spread ${(cohort * 100).toFixed(1)}% of the time`
-            : draft.target.type === "moneyline_win"
-              ? `won ${(cohort * 100).toFixed(1)}% of the time`
-              : `averaged ${cohort.toFixed(2)}`}
-          , compared to a {(baseline * 100).toFixed(1)}% baseline
-          {delta > 0 ? `, a +${liftPct}% lift` : `, a ${liftPct}% difference`}.
-        </p>
-      )}
-
-      {/* Summary Cards - simplified */}
-      <div className={styles.summaryCards}>
-        <div className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Sample</span>
-          <span className={styles.summaryValue}>
-            {analysisResult.sample_size.toLocaleString()}
-          </span>
-        </div>
-        <div className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Baseline</span>
-          <span className={styles.summaryValue}>{(baseline * 100).toFixed(1)}%</span>
-        </div>
-        {cohort != null && (
+      {/* METRICS - Single source of truth, no recomputation */}
+      <div className={styles.metricsSection}>
+        <div className={styles.summaryCards}>
+          <div className={styles.summaryCard}>
+            <span className={styles.summaryLabel}>Sample</span>
+            <span className={styles.summaryValue}>{sample_size.toLocaleString()}</span>
+          </div>
+          <div className={styles.summaryCard}>
+            <span className={styles.summaryLabel}>Baseline</span>
+            <span className={styles.summaryValue}>{(baseline_value * 100).toFixed(1)}%</span>
+          </div>
           <div className={styles.summaryCard}>
             <span className={styles.summaryLabel}>Cohort</span>
-            <span className={styles.summaryValue}>{(cohort * 100).toFixed(1)}%</span>
+            <span className={styles.summaryValue}>{(cohort_value * 100).toFixed(1)}%</span>
           </div>
-        )}
-        {delta != null && (
           <div className={styles.summaryCard}>
             <span className={styles.summaryLabel}>Lift</span>
-            <span
-              className={`${styles.summaryValue} ${delta > 0 ? styles.positive : styles.negative}`}
-            >
-              {delta > 0 ? "+" : ""}
-              {liftPct}%
+            <span className={`${styles.summaryValue} ${delta_value > 0 ? styles.positive : styles.negative}`}>
+              {delta_value > 0 ? "+" : ""}{(delta_value * 100).toFixed(1)}%
             </span>
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Assessment - structured */}
+      {/* SUMMARY SENTENCE - Uses exact values from metrics */}
+      <p className={styles.summarySentence}>
+        Games in this cohort{" "}
+        {draft.target.type === "spread_result"
+          ? `covered the spread ${(cohort_value * 100).toFixed(1)}% of the time`
+          : draft.target.type === "moneyline_win"
+            ? `won ${(cohort_value * 100).toFixed(1)}% of the time`
+            : draft.target.type === "game_total"
+              ? `went over ${(cohort_value * 100).toFixed(1)}% of the time`
+              : `averaged ${cohort_value.toFixed(2)}`}
+        , compared to {(baseline_value * 100).toFixed(1)}% baseline
+        {delta_value > 0 
+          ? ` — a +${(delta_value * 100).toFixed(1)}% lift`
+          : ` — a ${(delta_value * 100).toFixed(1)}% difference`}.
+      </p>
+
+      {/* ASSESSMENT */}
       {verdictReasons.length > 0 && (
         <div className={styles.verdictSection}>
           <h4 className={styles.subsectionTitle}>Assessment</h4>
@@ -198,64 +217,33 @@ export function ResultsPanel({ state, actions }: Props) {
               </li>
             ))}
           </ul>
-          {/* Model CTA only if feature flag enabled */}
-          {FEATURE_MODEL_BUILDING && verdictReasons.filter((r) => r.type === "good").length >= 2 && (
-            <div className={styles.verdictCta}>
-              <button
-                type="button"
-                className={styles.secondaryButton}
-                onClick={() => actions.setActiveTab("run")}
-              >
-                Build model →
-              </button>
-            </div>
-          )}
         </div>
       )}
 
-      {/* Detected concepts - with explanations */}
-      {analysisResult.detected_concepts.length > 0 && (
+      {/* DETECTED PATTERNS - Only if appropriate */}
+      {showPatterns && (
         <div className={styles.conceptsSection}>
-          <h4 className={styles.subsectionTitle}>Detected patterns</h4>
-          {analysisResult.detected_concepts.map((concept) => {
-            const info = CONCEPT_EXPLANATIONS[concept];
-            return (
-              <div key={concept} className={styles.conceptExplainer}>
-                <span className={styles.conceptLabel}>{info?.label ?? concept}</span>
-                <p className={styles.conceptDesc}>
-                  {info?.description ?? "Pattern detected in your theory inputs."}
-                </p>
-              </div>
-            );
-          })}
+          <h4 className={styles.subsectionTitle}>
+            Detected patterns
+            {draft.cohort_rule.mode === "auto" && (
+              <span className={styles.patternSource}> (from auto-discovery)</span>
+            )}
+          </h4>
+          <ul className={styles.patternList}>
+            {analysisResult.detected_concepts.map((concept) => (
+              <li key={concept} className={styles.patternItem}>{concept}</li>
+            ))}
+          </ul>
         </div>
       )}
 
-      {/* ROI - only if feature flag enabled */}
-      {FEATURE_ROI && evaluation.roi != null && typeof evaluation.roi === "number" && (
-        <div className={styles.roiSection}>
-          <div className={styles.roiCard}>
-            <span className={styles.roiLabel}>Simulated ROI (flat 1u staking)</span>
-            <span
-              className={`${styles.roiValue} ${evaluation.roi > 0 ? styles.positive : styles.negative}`}
-            >
-              {evaluation.roi > 0 ? "+" : ""}
-              {(evaluation.roi * 100).toFixed(1)}%
-            </span>
-            <p className={styles.roiNote}>
-              Based on historical closing lines. Does not account for vig or line movement.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Correlations - collapsed by default, diagnostic framing */}
+      {/* CORRELATIONS - Collapsed, diagnostic only */}
       {correlations.length > 0 && (
         <details className={styles.correlationsSection}>
           <summary className={styles.correlationsSummary}>
-            <span>Feature correlations (diagnostic)</span>
+            Feature correlations (diagnostic)
             <span className={styles.correlationsHint}>
-              For intuition only — correlation ≠ predictive power
+              For intuition only — correlation ≠ causation
             </span>
           </summary>
           <div className={styles.correlationsContent}>
@@ -267,7 +255,7 @@ export function ResultsPanel({ state, actions }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {(showCorrelations ? correlations : displayCorrelations).map((c) => (
+                {displayCorrelations.map((c) => (
                   <tr key={c.feature}>
                     <td>{c.feature.replace(/_/g, " ")}</td>
                     <td className={c.correlation > 0 ? styles.positive : styles.negative}>
@@ -290,83 +278,83 @@ export function ResultsPanel({ state, actions }: Props) {
         </details>
       )}
 
-      {/* Micro rows - with context */}
-      {microRows.length > 0 && (
-        <div className={styles.microRowsSection}>
-          <div className={styles.sectionHeader}>
-            <h4 className={styles.subsectionTitle}>
-              Sample games ({microRows.length.toLocaleString()})
-            </h4>
-            <div className={styles.sectionActions}>
-              <button
-                type="button"
-                className={styles.secondaryButton}
-                onClick={() => downloadJson("sample_games.json", microRows)}
-              >
-                Export
-              </button>
-            </div>
-          </div>
-          <div className={styles.microRowsTable}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Home</th>
-                  <th>Score</th>
-                  <th>Away</th>
-                  <th>Score</th>
-                  <th>{targetDesc}</th>
-                  <th>Result</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayMicroRows.map((row, i) => (
-                  <tr key={`${row.game_id}-${i}`}>
-                    <td>{row.game_date ? String(row.game_date) : "—"}</td>
-                    <td>{row.home_team ? String(row.home_team) : "—"}</td>
-                    <td>{row.home_score != null ? String(row.home_score) : "—"}</td>
-                    <td>{row.away_team ? String(row.away_team) : "—"}</td>
-                    <td>{row.away_score != null ? String(row.away_score) : "—"}</td>
-                    <td>
-                      {row.target_value != null
-                        ? typeof row.target_value === "number"
-                          ? row.target_value.toFixed(2)
-                          : String(row.target_value)
-                        : "—"}
-                    </td>
-                    <td className={String(row.outcome) === "W" ? styles.positive : styles.negative}>
-                      {row.outcome != null ? String(row.outcome) : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {microRows.length > 10 && (
+      {/* SAMPLE GAMES - With full data or clear message */}
+      <div className={styles.sampleGamesSection}>
+        <div className={styles.sectionHeader}>
+          <h4 className={styles.subsectionTitle}>Sample games</h4>
+          {sampleGames.length > 0 && (
             <button
               type="button"
-              className={styles.linkButton}
-              onClick={() => setShowAllMicroRows(!showAllMicroRows)}
+              className={styles.secondaryButton}
+              onClick={() => downloadJson("sample_games.json", sampleGames)}
             >
-              {showAllMicroRows ? "Show fewer" : `Show all ${microRows.length.toLocaleString()}`}
+              Export
             </button>
           )}
         </div>
-      )}
+        
+        {sampleGames.length > 0 ? (
+          <>
+            <div className={styles.tableWrapper}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Home</th>
+                    <th>Score</th>
+                    <th>Away</th>
+                    <th>Score</th>
+                    <th>{targetDesc}</th>
+                    <th>Result</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayGames.map((game, i) => (
+                    <tr key={game.game_id || i}>
+                      <td>{game.game_date}</td>
+                      <td>{game.home_team}</td>
+                      <td>{game.home_score}</td>
+                      <td>{game.away_team}</td>
+                      <td>{game.away_score}</td>
+                      <td>{typeof game.target_value === "number" 
+                        ? game.target_value.toFixed(1) 
+                        : game.target_value}</td>
+                      <td className={["W", "Cover", "O"].includes(game.outcome) 
+                        ? styles.positive 
+                        : styles.negative}>
+                        {game.outcome}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {sampleGames.length > 10 && (
+              <button
+                type="button"
+                className={styles.linkButton}
+                onClick={() => setShowAllGames(!showAllGames)}
+              >
+                {showAllGames ? "Show fewer" : `Show all ${sampleGames.length.toLocaleString()}`}
+              </button>
+            )}
+          </>
+        ) : (
+          <p className={styles.noDataMessage}>
+            Sample games unavailable (missing game metadata join in backend).
+          </p>
+        )}
+      </div>
 
-      {/* Export section */}
+      {/* EXPORT */}
       <div className={styles.exportSection}>
-        <h4 className={styles.subsectionTitle}>Export</h4>
-        <div className={styles.exportButtons}>
-          <button
-            type="button"
-            className={styles.secondaryButton}
-            onClick={() => downloadJson("theory_analysis.json", analysisResult)}
-          >
-            Download Full Analysis
-          </button>
-        </div>
+        <button
+          type="button"
+          className={styles.secondaryButton}
+          onClick={() => downloadJson("theory_analysis.json", analysisResult)}
+        >
+          Download Full Analysis
+        </button>
       </div>
     </div>
   );

@@ -8,6 +8,8 @@ import {
   type Target,
   type ContextPreset,
   type ContextFeatures,
+  type CohortRule,
+  type CohortRuleMode,
   createDefaultTheoryDraft,
   CONTEXT_PRESETS,
   analyzeTheory,
@@ -47,6 +49,8 @@ export interface TheoryBuilderActions {
   setTarget: (target: Target) => void;
   setBaseStats: (stats: string[]) => void;
   toggleBaseStat: (stat: string) => void;
+  setCohortRule: (rule: CohortRule) => void;
+  setCohortRuleMode: (mode: CohortRuleMode) => void;
   setContextPreset: (preset: ContextPreset) => void;
   setContextFeatures: (features: ContextFeatures) => void;
   setFilter: <K extends keyof TheoryDraft["filters"]>(
@@ -136,6 +140,23 @@ export function useTheoryBuilderState(
         inputs: { ...prev.inputs, base_stats: next },
       };
     });
+  }, []);
+
+  const setCohortRule = useCallback((cohort_rule: CohortRule) => {
+    setDraft((prev) => ({ ...prev, cohort_rule }));
+  }, []);
+
+  const setCohortRuleMode = useCallback((mode: CohortRuleMode) => {
+    setDraft((prev) => ({
+      ...prev,
+      cohort_rule: {
+        ...prev.cohort_rule,
+        mode,
+        // Clear rules when switching modes
+        quantile_rules: mode === "quantile" ? prev.cohort_rule.quantile_rules : [],
+        threshold_rules: mode === "threshold" ? prev.cohort_rule.threshold_rules : [],
+      },
+    }));
   }, []);
 
   const setContextPreset = useCallback((preset: ContextPreset) => {
@@ -283,6 +304,8 @@ export function useTheoryBuilderState(
       setTarget,
       setBaseStats,
       toggleBaseStat,
+      setCohortRule,
+      setCohortRuleMode,
       setContextPreset,
       setContextFeatures,
       setFilter,
@@ -304,6 +327,8 @@ export function useTheoryBuilderState(
       setTarget,
       setBaseStats,
       toggleBaseStat,
+      setCohortRule,
+      setCohortRuleMode,
       setContextPreset,
       setContextFeatures,
       setFilter,

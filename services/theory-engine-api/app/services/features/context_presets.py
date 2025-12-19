@@ -23,7 +23,10 @@ class ContextFeatureSet(TypedDict):
 # Preset Definitions
 # -----------------------------------------------------------------------------
 
+# IMPORTANT: "minimal" must be truly empty - no pace, no conference, nothing.
+# Only user-selected base stats are used when preset is "minimal".
 PRESET_MINIMAL: ContextFeatureSet = {
+    # EMPTY - only base stats derived features are used
     "game": [],
     "market": [],
     "team": [],
@@ -31,36 +34,38 @@ PRESET_MINIMAL: ContextFeatureSet = {
     "diagnostic": [],
 }
 
+# Standard adds conference game only - NO pace (pace is in verbose)
 PRESET_STANDARD: ContextFeatureSet = {
-    "game": ["is_conference_game", "pace_game"],
+    "game": ["is_conference_game"],
     "market": [],
-    "team": ["rating_diff"],
+    "team": [],
     "player": [],
     "diagnostic": [],
 }
 
+# Market-aware adds closing lines
 PRESET_MARKET_AWARE: ContextFeatureSet = {
-    "game": ["is_conference_game", "pace_game"],
-    "market": ["closing_spread_home", "closing_total", "ml_implied_edge"],
-    "team": ["rating_diff", "proj_points_diff"],
+    "game": ["is_conference_game"],
+    "market": ["closing_spread_home", "closing_total"],
+    "team": [],
     "player": [],
     "diagnostic": [],
 }
 
+# Player-aware adds rest and player data
 PRESET_PLAYER_AWARE: ContextFeatureSet = {
-    "game": ["is_conference_game", "pace_game", "home_rest_days", "away_rest_days"],
+    "game": ["is_conference_game", "home_rest_days", "away_rest_days"],
     "market": [],
-    "team": ["rating_diff"],
-    "player": ["player_minutes", "player_minutes_rolling", "player_minutes_delta"],
+    "team": [],
+    "player": ["player_minutes", "player_minutes_rolling"],
     "diagnostic": [],
 }
 
+# Verbose includes everything
 PRESET_VERBOSE: ContextFeatureSet = {
     "game": [
         "is_conference_game",
         "pace_game",
-        "pace_home_possessions",
-        "pace_away_possessions",
         "home_rest_days",
         "away_rest_days",
         "rest_advantage",

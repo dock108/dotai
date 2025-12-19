@@ -17,6 +17,7 @@ from .theory_draft_schema import (
     TimeWindow,
     Target,
     Inputs,
+    CohortRule,
     Context,
     ContextFeatures,
     Filters,
@@ -109,6 +110,7 @@ def translate_legacy_theory(payload: dict[str, Any]) -> TheoryDraft:
         time_window=time_window,
         target=target,
         inputs=inputs,
+        cohort_rule=CohortRule(mode="auto"),  # Legacy payloads default to auto discovery
         context=context,
         filters=filters,
         model=model_config,

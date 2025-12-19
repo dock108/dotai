@@ -148,6 +148,33 @@ class DiagnosticsConfig(BaseModel):
 
 
 # -----------------------------------------------------------------------------
+# Cohort Rule - REQUIRED: defines what games are "in the cohort"
+# -----------------------------------------------------------------------------
+
+
+class QuantileRule(BaseModel):
+    """A quantile-based cohort rule."""
+    stat: str  # e.g. "turnovers_diff"
+    direction: Literal["top", "bottom"]  # top 20% or bottom 20%
+    percentile: int  # 10, 20, 25, etc.
+
+
+class ThresholdRule(BaseModel):
+    """A threshold-based cohort rule."""
+    stat: str  # e.g. "turnovers_diff"
+    operator: Literal[">=", "<=", ">", "<", "="]
+    value: float
+
+
+class CohortRule(BaseModel):
+    """Cohort rule defining what games are included."""
+    mode: Literal["auto", "quantile", "threshold"] = "auto"
+    quantile_rules: list[QuantileRule] = []
+    threshold_rules: list[ThresholdRule] = []
+    discovered_rule: str | None = None  # Backend populates for auto mode
+
+
+# -----------------------------------------------------------------------------
 # Main TheoryDraft
 # -----------------------------------------------------------------------------
 
@@ -163,6 +190,7 @@ class TheoryDraft(BaseModel):
     time_window: TimeWindow
     target: Target
     inputs: Inputs = Inputs()
+    cohort_rule: CohortRule = CohortRule()  # REQUIRED: how we decide what games are in cohort
     context: Context = Context()
     filters: Filters = Filters()
     model: ModelConfig = ModelConfig()
@@ -172,21 +200,53 @@ class TheoryDraft(BaseModel):
 
 
 # -----------------------------------------------------------------------------
-# Response with detected concepts
+# Response Types
 # -----------------------------------------------------------------------------
 
 
+class CohortDefinition(BaseModel):
+    """Description of what games are included in the cohort."""
+    rule_description: str  # Human-readable: "turnovers_diff in top 20%"
+    discovered_split: str | None = None  # If auto mode, what was found
+    sample_size: int
+    feature_set_used: str  # "minimal", "standard", etc.
+
+
+class SampleGame(BaseModel):
+    """A single game in the sample with full data."""
+    game_id: str
+    game_date: str
+    home_team: str
+    away_team: str
+    home_score: int
+    away_score: int
+    target_value: float | str  # Spread, total, or win indicator
+    outcome: str  # "W", "L", "O", "U", "Cover", "Miss"
+
+
 class TheoryAnalysisResponse(BaseModel):
-    """Response from theory analysis."""
+    """Response from theory analysis.
+    
+    IMPORTANT: delta_value MUST equal cohort_value - baseline_value.
+    The UI relies on this for correct rendering.
+    """
 
     run_id: str
+    # REQUIRED: Cohort definition - must be shown first in results
+    cohort_definition: CohortDefinition
+    # Core metrics (single source of truth - no recomputation in UI)
     sample_size: int
     baseline_value: float
-    cohort_value: float | None = None
-    delta_value: float | None = None
+    cohort_value: float
+    delta_value: float  # MUST equal cohort_value - baseline_value
+    # Concepts - only populated if rule mode is auto OR context is not minimal
     detected_concepts: list[str] = []
     concept_fields: list[str] = []
+    # Correlations - only from eligible features
     correlations: list[dict[str, Any]] = []
+    # Sample games with full data
+    sample_games: list[SampleGame] = []
+    # Optional extended data
     evaluation: dict[str, Any] | None = None
     micro_rows: list[dict[str, Any]] | None = None
     modeling_available: bool = True

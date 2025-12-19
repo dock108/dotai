@@ -119,10 +119,36 @@ def _build_micro_rows(
             reasons.insert(0, f"model_prob {model_prob:.3f} passes trigger")
 
         ev_pct = None
+        
+        # Extract game metadata for frontend display
+        game_date_str = None
+        home_team_name = None
+        away_team_name = None
+        home_score_val = None
+        away_score_val = None
+        
+        if game:
+            if game.game_date:
+                game_date_str = game.game_date.strftime("%Y-%m-%d")
+            # Try to get team names from relationship
+            if hasattr(game, "home_team") and game.home_team:
+                home_team_name = getattr(game.home_team, "name", None) or getattr(game.home_team, "abbreviation", None)
+            if hasattr(game, "away_team") and game.away_team:
+                away_team_name = getattr(game.away_team, "name", None) or getattr(game.away_team, "abbreviation", None)
+            home_score_val = getattr(game, "home_score", None)
+            away_score_val = getattr(game, "away_score", None)
+        
         rows.append(
             MicroModelRow(
                 theory_id=None,
                 game_id=gid,
+                # New game metadata fields
+                game_date=game_date_str,
+                home_team=home_team_name,
+                away_team=away_team_name,
+                home_score=home_score_val,
+                away_score=away_score_val,
+                # Target info
                 target_name=td.target_name if td else "",
                 target_value=tgt,
                 baseline_value=None,
@@ -133,8 +159,8 @@ def _build_micro_rows(
                 implied_prob=implied_prob,
                 model_prob=model_prob,
                 edge_vs_implied=edge_vs_implied,
-                final_score_home=getattr(game, "home_score", None) if game else None,
-                final_score_away=getattr(game, "away_score", None) if game else None,
+                final_score_home=home_score_val,  # Keep for backward compat
+                final_score_away=away_score_val,  # Keep for backward compat
                 outcome=outcome,
                 pnl_units=pnl,
                 est_ev_pct=ev_pct,
@@ -142,7 +168,7 @@ def _build_micro_rows(
                 features={k: v for k, v in row.items() if k != "game_id"},
                 meta={
                     "season": getattr(game, "season", None) if game else None,
-                    "game_date": getattr(game, "game_date", None).isoformat() if (game and game.game_date) else None,
+                    "game_date": game_date_str,
                     "conference": getattr(game, "is_conference_game", None) if game else None,
                     "target_definition": td.model_dump() if hasattr(td, "model_dump") else td.dict() if td else None,
                     "trigger_definition": trig.model_dump() if hasattr(trig, "model_dump") else trig.dict(),

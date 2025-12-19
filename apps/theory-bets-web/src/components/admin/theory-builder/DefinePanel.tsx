@@ -6,6 +6,7 @@ import { LeagueSelector } from "./LeagueSelector";
 import { TimeWindowSelector } from "./TimeWindowSelector";
 import { TargetSelector } from "./TargetSelector";
 import { BaseStatsSelector } from "./BaseStatsSelector";
+import { CohortRuleSelector } from "./CohortRuleSelector";
 import { ContextPresetSelector } from "./ContextPresetSelector";
 import { FEATURE_PLAYER_MODELING } from "@/lib/featureFlags";
 import type { TheoryBuilderState, TheoryBuilderActions } from "./useTheoryBuilderState";
@@ -20,6 +21,9 @@ export function DefinePanel({ state, actions, defineComplete }: Props) {
   const { draft, statKeys, loadingStatKeys, analysisLoading } = state;
   const hasTarget = !!draft.target.type;
   const hasStats = draft.inputs.base_stats.length > 0;
+  const hasRule = draft.cohort_rule.mode === "auto" || 
+    (draft.cohort_rule.mode === "quantile" && (draft.cohort_rule.quantile_rules ?? []).length > 0) ||
+    (draft.cohort_rule.mode === "threshold" && (draft.cohort_rule.threshold_rules ?? []).length > 0);
 
   return (
     <div className={styles.definePanel}>
@@ -57,9 +61,24 @@ export function DefinePanel({ state, actions, defineComplete }: Props) {
         />
       </div>
 
-      {/* Section 4: Context - simplified for MVP */}
+      {/* Section 4: Rule - REQUIRED - defines the cohort */}
       <div className={styles.section}>
-        <h3 className={styles.sectionTitle}>4. Context (optional)</h3>
+        <h3 className={styles.sectionTitle}>
+          4. Rule <span className={styles.required}>*</span>
+        </h3>
+        <p className={styles.hint}>How do we decide a game is "in the cohort"?</p>
+        <CohortRuleSelector
+          rule={draft.cohort_rule}
+          selectedStats={draft.inputs.base_stats}
+          onRuleChange={actions.setCohortRule}
+          onModeChange={actions.setCohortRuleMode}
+        />
+      </div>
+
+      {/* Section 5: Context - optional additional features */}
+      <div className={styles.section}>
+        <h3 className={styles.sectionTitle}>5. Context (optional)</h3>
+        <p className={styles.hint}>Additional context features beyond your selected stats.</p>
         <ContextPresetSelector
           preset={draft.context.preset}
           features={draft.context.features}
@@ -67,7 +86,7 @@ export function DefinePanel({ state, actions, defineComplete }: Props) {
           onFeaturesChange={actions.setContextFeatures}
           diagnosticsAllowed={draft.diagnostics.allow_post_game_features}
           onDiagnosticsChange={actions.setDiagnosticsAllowed}
-          hasPlayerFilter={FEATURE_PLAYER_MODELING && !!draft.filters.player}
+          hasPlayerFilter={!!draft.filters.player}
         />
       </div>
 
@@ -172,13 +191,14 @@ export function DefinePanel({ state, actions, defineComplete }: Props) {
             actions.setActiveTab("run");
           }}
         >
-          {analysisLoading ? "Analyzing…" : "Continue to Run →"}
+          {analysisLoading ? "Analyzing…" : "Analyze →"}
         </button>
 
         {defineComplete && <span className={styles.readyIndicator}>✓ Ready</span>}
 
         {!hasTarget && <p className={styles.ctaHint}>Select a target.</p>}
         {hasTarget && !hasStats && <p className={styles.ctaHint}>Select at least one stat.</p>}
+        {hasTarget && hasStats && !hasRule && <p className={styles.ctaHint}>Define a cohort rule (or use Auto).</p>}
       </div>
     </div>
   );
