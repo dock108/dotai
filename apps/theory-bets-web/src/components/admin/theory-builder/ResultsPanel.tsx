@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useMemo } from "react";
 import styles from "./TheoryBuilder.module.css";
+import { FEATURE_ROI, FEATURE_STABILITY_BREAKDOWN, FEATURE_MODEL_BUILDING } from "@/lib/featureFlags";
 import type { TheoryBuilderState, TheoryBuilderActions } from "./useTheoryBuilderState";
 
 interface Props {
@@ -52,61 +53,49 @@ export function ResultsPanel({ state, actions }: Props) {
     setTimeout(() => URL.revokeObjectURL(url), 30_000);
   }, []);
 
-  // Build verdict reasons
+  // Build verdict reasons - simplified for MVP
   const verdictReasons = useMemo(() => {
     if (!analysisResult) return [];
     const reasons: { type: "good" | "warning" | "bad"; text: string }[] = [];
     const delta = analysisResult.delta_value ?? 0;
     const sample = analysisResult.sample_size ?? 0;
-    const evaluation = analysisResult.evaluation ?? {};
 
     // Lift
-    if (delta > 0.1) {
-      reasons.push({ type: "good", text: `Strong lift (+${(delta * 100).toFixed(1)}%)` });
-    } else if (delta > 0.05) {
-      reasons.push({ type: "good", text: `Moderate lift (+${(delta * 100).toFixed(1)}%)` });
+    if (delta > 0.05) {
+      reasons.push({ type: "good", text: `Meaningful lift (+${(delta * 100).toFixed(1)}%)` });
     } else if (delta > 0) {
       reasons.push({ type: "warning", text: `Small lift (+${(delta * 100).toFixed(1)}%)` });
     } else {
-      reasons.push({ type: "bad", text: `Negative lift (${(delta * 100).toFixed(1)}%)` });
+      reasons.push({ type: "bad", text: `No lift (${(delta * 100).toFixed(1)}%)` });
     }
 
     // Sample size
-    if (sample >= 5000) {
-      reasons.push({ type: "good", text: `Large sample (${sample.toLocaleString()} games)` });
-    } else if (sample >= 1000) {
-      reasons.push({ type: "warning", text: `Moderate sample (${sample.toLocaleString()} games)` });
+    if (sample >= 1000) {
+      reasons.push({ type: "good", text: `Good sample (${sample.toLocaleString()} games)` });
+    } else if (sample >= 200) {
+      reasons.push({ type: "warning", text: `Small sample (${sample.toLocaleString()} games)` });
     } else {
-      reasons.push({ type: "bad", text: `Small sample (${sample.toLocaleString()} games)` });
+      reasons.push({ type: "bad", text: `Very small sample (${sample.toLocaleString()} games)` });
     }
 
-    // Stability (if available and not [object Object])
-    const stability = evaluation.stability_by_season;
-    if (stability && typeof stability === "object" && !Array.isArray(stability)) {
-      const values = Object.values(stability).filter((v) => typeof v === "number") as number[];
-      if (values.length > 1) {
-        const variance =
-          values.reduce((sum, v) => sum + Math.pow(v - delta, 2), 0) / values.length;
-        if (variance < 0.01) {
-          reasons.push({ type: "good", text: "Stable across seasons" });
-        } else if (variance < 0.05) {
-          reasons.push({ type: "warning", text: "Moderate stability across seasons" });
-        } else {
-          reasons.push({ type: "bad", text: "Unstable across seasons" });
+    // Stability - only if feature flag enabled
+    if (FEATURE_STABILITY_BREAKDOWN) {
+      const evaluation = analysisResult.evaluation ?? {};
+      const stability = evaluation.stability_by_season;
+      if (stability && typeof stability === "object" && !Array.isArray(stability)) {
+        const values = Object.values(stability).filter((v) => typeof v === "number") as number[];
+        if (values.length > 1) {
+          const variance =
+            values.reduce((sum, v) => sum + Math.pow(v - delta, 2), 0) / values.length;
+          if (variance < 0.01) {
+            reasons.push({ type: "good", text: "Stable across seasons" });
+          } else if (variance < 0.05) {
+            reasons.push({ type: "warning", text: "Moderate stability" });
+          } else {
+            reasons.push({ type: "bad", text: "Unstable across seasons" });
+          }
         }
       }
-    }
-
-    // Correlations strength
-    const correlations = analysisResult.correlations ?? [];
-    const significantCount = correlations.filter((c) => c.significant).length;
-    if (significantCount === 0) {
-      reasons.push({
-        type: "warning",
-        text: "No significant linear correlations (may be interaction-based)",
-      });
-    } else if (significantCount >= 3) {
-      reasons.push({ type: "good", text: `${significantCount} significant feature correlations` });
     }
 
     return reasons;
@@ -195,7 +184,7 @@ export function ResultsPanel({ state, actions }: Props) {
         )}
       </div>
 
-      {/* Verdict - structured */}
+      {/* Assessment - structured */}
       {verdictReasons.length > 0 && (
         <div className={styles.verdictSection}>
           <h4 className={styles.subsectionTitle}>Assessment</h4>
@@ -209,11 +198,12 @@ export function ResultsPanel({ state, actions }: Props) {
               </li>
             ))}
           </ul>
-          {verdictReasons.filter((r) => r.type === "good").length >= 2 && (
+          {/* Model CTA only if feature flag enabled */}
+          {FEATURE_MODEL_BUILDING && verdictReasons.filter((r) => r.type === "good").length >= 2 && (
             <div className={styles.verdictCta}>
               <button
                 type="button"
-                className={styles.primaryButton}
+                className={styles.secondaryButton}
                 onClick={() => actions.setActiveTab("run")}
               >
                 Build model →
@@ -241,8 +231,8 @@ export function ResultsPanel({ state, actions }: Props) {
         </div>
       )}
 
-      {/* ROI - only if meaningful, with clear units */}
-      {evaluation.roi != null && typeof evaluation.roi === "number" && (
+      {/* ROI - only if feature flag enabled */}
+      {FEATURE_ROI && evaluation.roi != null && typeof evaluation.roi === "number" && (
         <div className={styles.roiSection}>
           <div className={styles.roiCard}>
             <span className={styles.roiLabel}>Simulated ROI (flat 1u staking)</span>

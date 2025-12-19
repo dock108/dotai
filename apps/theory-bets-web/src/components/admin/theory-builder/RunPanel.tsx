@@ -2,6 +2,7 @@
 
 import React from "react";
 import styles from "./TheoryBuilder.module.css";
+import { FEATURE_MODEL_BUILDING, FEATURE_MONTE_CARLO } from "@/lib/featureFlags";
 import type { TheoryBuilderState, TheoryBuilderActions } from "./useTheoryBuilderState";
 
 interface Props {
@@ -22,8 +23,8 @@ export function RunPanel({ state, actions }: Props) {
   } = state;
 
   const hasAnalysis = !!analysisResult;
-  const canModel = hasAnalysis && analysisResult.modeling_available;
-  const canMC = hasAnalysis && analysisResult.mc_available;
+  const canModel = hasAnalysis && analysisResult.modeling_available && FEATURE_MODEL_BUILDING;
+  const canMC = hasAnalysis && analysisResult.mc_available && FEATURE_MONTE_CARLO;
 
   return (
     <div className={styles.runPanel}>
@@ -32,10 +33,10 @@ export function RunPanel({ state, actions }: Props) {
         {analysisError && (
           <div className={styles.errorMessage}>{analysisError}</div>
         )}
-        {modelError && (
+        {modelError && FEATURE_MODEL_BUILDING && (
           <div className={styles.errorMessage}>{modelError}</div>
         )}
-        {mcError && (
+        {mcError && FEATURE_MONTE_CARLO && (
           <div className={styles.errorMessage}>{mcError}</div>
         )}
 
@@ -50,28 +51,28 @@ export function RunPanel({ state, actions }: Props) {
             <div className={styles.statusRow}>
               <span className={styles.statusLabel}>Baseline</span>
               <span className={styles.statusValue}>
-                {analysisResult.baseline_value.toFixed(2)}
+                {(analysisResult.baseline_value * 100).toFixed(1)}%
               </span>
             </div>
             {analysisResult.cohort_value != null && (
               <div className={styles.statusRow}>
-                <span className={styles.statusLabel}>Cohort mean</span>
+                <span className={styles.statusLabel}>Cohort</span>
                 <span className={styles.statusValue}>
-                  {analysisResult.cohort_value.toFixed(2)}
+                  {(analysisResult.cohort_value * 100).toFixed(1)}%
                 </span>
               </div>
             )}
             {analysisResult.delta_value != null && (
               <div className={styles.statusRow}>
-                <span className={styles.statusLabel}>Delta</span>
-                <span className={styles.statusValue}>
-                  {analysisResult.delta_value.toFixed(2)}
+                <span className={styles.statusLabel}>Lift</span>
+                <span className={`${styles.statusValue} ${analysisResult.delta_value > 0 ? styles.positive : styles.negative}`}>
+                  {analysisResult.delta_value > 0 ? "+" : ""}{(analysisResult.delta_value * 100).toFixed(1)}%
                 </span>
               </div>
             )}
             {analysisResult.detected_concepts.length > 0 && (
               <div className={styles.conceptsBox}>
-                <span className={styles.conceptsLabel}>Detected concepts:</span>
+                <span className={styles.conceptsLabel}>Detected:</span>
                 <span className={styles.conceptsList}>
                   {analysisResult.detected_concepts.join(", ")}
                 </span>
@@ -81,7 +82,7 @@ export function RunPanel({ state, actions }: Props) {
         ) : (
           <div className={styles.statusCard}>
             <p className={styles.hint}>
-              Run analysis to see results. Configure your theory in the Define tab.
+              Configure your theory in the Define tab, then run analysis.
             </p>
           </div>
         )}
@@ -93,42 +94,42 @@ export function RunPanel({ state, actions }: Props) {
           <button
             type="button"
             className={styles.primaryButton}
-            disabled={analysisLoading || draft.inputs.base_stats.length === 0}
+            disabled={analysisLoading || draft.inputs.base_stats.length === 0 || !draft.target.type}
             onClick={actions.runAnalysis}
           >
-            {analysisLoading ? "Analyzing…" : "Run Analysis"}
+            {analysisLoading ? "Analyzing…" : "Analyze"}
           </button>
 
-          <button
-            type="button"
-            className={styles.secondaryButton}
-            disabled={!canModel || modelLoading}
-            onClick={actions.runModel}
-            title={!canModel ? "Run analysis first" : undefined}
-          >
-            {modelLoading ? "Building…" : "Build Model"}
-          </button>
+          {/* Model button - only visible if feature flag enabled */}
+          {FEATURE_MODEL_BUILDING && (
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              disabled={!canModel || modelLoading}
+              onClick={actions.runModel}
+              title={!canModel ? "Run analysis first" : undefined}
+            >
+              {modelLoading ? "Building…" : "Build Model"}
+            </button>
+          )}
 
-          <button
-            type="button"
-            className={styles.tertiaryButton}
-            disabled={!canMC || mcLoading}
-            onClick={actions.runMonteCarlo}
-            title={
-              !canMC
-                ? analysisResult?.mc_reason ?? "Monte Carlo not available"
-                : undefined
-            }
-          >
-            {mcLoading ? "Running…" : "Monte Carlo"}
-          </button>
+          {/* Monte Carlo button - only visible if feature flag enabled */}
+          {FEATURE_MONTE_CARLO && (
+            <button
+              type="button"
+              className={styles.tertiaryButton}
+              disabled={!canMC || mcLoading}
+              onClick={actions.runMonteCarlo}
+              title={
+                !canMC
+                  ? analysisResult?.mc_reason ?? "Monte Carlo not available"
+                  : undefined
+              }
+            >
+              {mcLoading ? "Running…" : "Monte Carlo"}
+            </button>
+          )}
         </div>
-
-        {!canMC && hasAnalysis && analysisResult.mc_reason && (
-          <p className={styles.actionHint}>
-            MC unavailable: {analysisResult.mc_reason}
-          </p>
-        )}
       </div>
 
       {hasAnalysis && analysisResult.notes.length > 0 && (

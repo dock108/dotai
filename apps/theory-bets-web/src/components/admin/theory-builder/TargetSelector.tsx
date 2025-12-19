@@ -3,36 +3,44 @@
 import React from "react";
 import styles from "./TheoryBuilder.module.css";
 import type { Target, TargetType, TargetSide } from "@/lib/api/theoryDraft";
+import { FEATURE_TEAM_STAT_TARGETS } from "@/lib/featureFlags";
 
 interface Props {
   value: Target;
   onChange: (target: Target) => void;
 }
 
-const TARGET_OPTIONS: { type: TargetType; label: string; description: string }[] = [
-  {
-    type: "game_total",
-    label: "Game total (points)",
-    description: "Predict or analyze combined score",
-  },
+// MVP targets: ATS, Totals, ML - team_stat is parked
+const TARGET_OPTIONS: { type: TargetType; label: string; description: string; flagged?: boolean }[] = [
   {
     type: "spread_result",
-    label: "Spread result",
-    description: "Did the team cover the spread?",
+    label: "Spread (ATS)",
+    description: "Did the team cover?",
+  },
+  {
+    type: "game_total",
+    label: "Totals (O/U)",
+    description: "Over or under the line?",
   },
   {
     type: "moneyline_win",
-    label: "Moneyline (W/L)",
-    description: "Did the team win outright?",
+    label: "Moneyline",
+    description: "Did they win outright?",
   },
   {
     type: "team_stat",
-    label: "Team stat outcome",
-    description: "Analyze a specific team statistic",
+    label: "Team stat",
+    description: "Analyze a specific statistic",
+    flagged: true, // Only show if FEATURE_TEAM_STAT_TARGETS is enabled
   },
 ];
 
 export function TargetSelector({ value, onChange }: Props) {
+  // Filter targets by feature flags
+  const visibleTargets = TARGET_OPTIONS.filter(
+    (opt) => !opt.flagged || FEATURE_TEAM_STAT_TARGETS
+  );
+
   const handleTypeChange = (type: TargetType) => {
     // Set sensible defaults based on type - side is always optional now
     let newTarget: Target;
@@ -57,7 +65,7 @@ export function TargetSelector({ value, onChange }: Props) {
 
   // Side is optional for all market targets - only needed if theory is about home/away specifically
   const canHaveSide = value.type === "spread_result" || value.type === "moneyline_win";
-  const needsStat = value.type === "team_stat";
+  const needsStat = value.type === "team_stat" && FEATURE_TEAM_STAT_TARGETS;
   const sideOptions: { value: TargetSide | "any"; label: string }[] = [
     { value: "any", label: "Any (not side-specific)" },
     { value: "home", label: "Home" },
@@ -69,9 +77,9 @@ export function TargetSelector({ value, onChange }: Props) {
       <div
         className={styles.targetOptions}
         role="radiogroup"
-        aria-label="What are you trying to explain or predict?"
+        aria-label="What market are you testing?"
       >
-        {TARGET_OPTIONS.map((opt) => {
+        {visibleTargets.map((opt) => {
           const isSelected = value.type === opt.type;
           return (
             <button
@@ -115,7 +123,7 @@ export function TargetSelector({ value, onChange }: Props) {
             </select>
           </label>
           <p className={styles.sideHint}>
-            Leave as "Any" unless your theory is specifically about home/away performance.
+            Leave as "Any" unless your theory is specifically about home/away.
           </p>
         </div>
       )}

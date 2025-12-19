@@ -82,17 +82,18 @@ Users submit betting theories → LLM grades prompt and infers config → histor
 **Admin flow:** `/admin/theory-bets/runs` → browse/filter runs → click through to results
 
 ### Theory Builder (admin)
-Intent-driven UI for sports betting theory analysis. Three-step flow:
-- **Define**: Pick league → time window → target → base stats → context preset
-- **Run**: Analyze (always) → Build Model (market targets) → Monte Carlo (optional)
-- **Results**: Summary with lift %, structured assessment, sample games table, collapsed correlations
+Intent-driven UI for sports betting theory analysis. Simple three-step MVP:
+1. **Pick market** (ATS / Totals / ML)
+2. **Pick stats** to analyze
+3. **See results**: lift %, sample size, assessment, sample games
 
 Key features:
-- **Stat targets**: Complete at evaluation (cohort mean/baseline/delta, verdict). No model/MC needed.
-- **Market targets**: Can optionally train logistic regression + run MC when odds exist.
-- **Context presets**: Minimal, Standard, Market-aware, Verbose, Custom—auto-expands to relevant features.
-- **Concept detection**: Auto-derives pace, rest, altitude fields when referenced in theory.
-- **Clean results**: Human-readable summary sentences, structured verdicts with checkmarks, no raw JSON exposed.
+- **Clean interface**: No feature engineering exposed, no bet sizing, no automation
+- **Clear results**: Human-readable summary sentences, structured assessment with checkmarks
+- **Context presets**: Minimal, Standard, Market-aware—one dropdown, no complexity
+- **Sample games table**: Date, scores, target, result—real data for intuition
+
+Advanced features (model building, Monte Carlo, player modeling) are behind feature flags for v2.
 
 ### Sports Data Ingestion
 Celery workers scrape boxscores and odds for NBA, NFL, MLB, NHL, NCAAB, NCAAF. Admin UI at `/admin/theory-bets/ingestion` to trigger and monitor runs.
@@ -170,17 +171,20 @@ alembic revision --autogenerate -m "description"  # New migration
 
 ## Project Status
 
+**MVP Complete:**
+- Theory Builder: ATS / Totals / ML analysis with clean results
+- Sports data ingestion for 6 leagues
+- Sports highlights playlist generator
+
 **Working:**
 - All theory evaluation surfaces (bets, crypto, stocks, conspiracies)
 - Theory bets v1 pipeline with LLM grading and historical analysis
-- Sports data ingestion for 6 leagues
-- Sports highlights playlist generator
-- Theory Builder (admin EDA) with Define → Run → Results flow
-- Context presets and concept detection
+- Admin UI for data management
 
-**In Progress:**
-- Micro rows data population (game dates, team names, scores)
+**Parked for v2:**
+- Model building / Monte Carlo (feature flagged)
+- Player-level modeling
 - Stability visualizations
-- Single-game Monte Carlo sandbox
+- Advanced feature engineering UI
 
-See [`docs/ROADMAP.md`](docs/ROADMAP.md) for full roadmap.
+See [`docs/ROADMAP.md`](docs/ROADMAP.md) for full roadmap and [`future/`](future/) for parked designs.

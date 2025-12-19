@@ -3,6 +3,11 @@
 import React from "react";
 import styles from "./TheoryBuilder.module.css";
 import type { ContextPreset, ContextFeatures } from "@/lib/api/theoryDraft";
+import {
+  FEATURE_PLAYER_MODELING,
+  FEATURE_CUSTOM_CONTEXT,
+  FEATURE_DIAGNOSTICS,
+} from "@/lib/featureFlags";
 
 interface Props {
   preset: ContextPreset;
@@ -14,30 +19,34 @@ interface Props {
   hasPlayerFilter: boolean;
 }
 
-const PRESET_LABELS: Record<ContextPreset, { label: string; description: string }> = {
+// All presets with visibility flags
+const PRESET_LABELS: Record<ContextPreset, { label: string; description: string; flagged?: boolean }> = {
   minimal: {
     label: "Minimal",
-    description: "No context features (base stats only)",
+    description: "Base stats only",
   },
   standard: {
     label: "Standard",
-    description: "Pace + conference + rating difference",
+    description: "Adds pace + conference",
   },
   market_aware: {
     label: "Market aware",
-    description: "Adds closing lines and implied probabilities",
+    description: "Adds closing lines",
   },
   player_aware: {
     label: "Player aware",
-    description: "Adds player minutes and rest days",
+    description: "Adds player minutes",
+    flagged: true, // Only if FEATURE_PLAYER_MODELING
   },
   verbose: {
     label: "Verbose",
-    description: "Everything except post-game diagnostics",
+    description: "All available context",
+    flagged: true, // Hide for MVP - too complex
   },
   custom: {
     label: "Custom",
-    description: "Pick individual context features",
+    description: "Pick individual features",
+    flagged: true, // Only if FEATURE_CUSTOM_CONTEXT
   },
 };
 
@@ -103,6 +112,15 @@ export function ContextPresetSelector({
   onDiagnosticsChange,
   hasPlayerFilter,
 }: Props) {
+  // Filter presets by feature flags
+  const visiblePresets = Object.entries(PRESET_LABELS).filter(([key, { flagged }]) => {
+    if (!flagged) return true;
+    if (key === "player_aware") return FEATURE_PLAYER_MODELING;
+    if (key === "custom") return FEATURE_CUSTOM_CONTEXT;
+    if (key === "verbose") return FEATURE_CUSTOM_CONTEXT; // Verbose is also advanced
+    return false;
+  });
+
   const toggleFeature = (group: keyof ContextFeatures, featureName: string) => {
     const current = features[group];
     const next = current.includes(featureName)
@@ -123,13 +141,13 @@ export function ContextPresetSelector({
     <div className={styles.contextSelector}>
       <div className={styles.presetSelect}>
         <label className={styles.fieldLabel}>
-          Preset
+          Context
           <select
             className={styles.select}
             value={preset}
             onChange={(e) => onPresetChange(e.target.value as ContextPreset)}
           >
-            {Object.entries(PRESET_LABELS).map(([key, { label }]) => (
+            {visiblePresets.map(([key, { label }]) => (
               <option key={key} value={key}>
                 {label}
               </option>
@@ -141,11 +159,12 @@ export function ContextPresetSelector({
         </p>
       </div>
 
-      {preset === "custom" && (
+      {/* Custom features - only if FEATURE_CUSTOM_CONTEXT enabled */}
+      {preset === "custom" && FEATURE_CUSTOM_CONTEXT && (
         <div className={styles.customFeatures}>
           {FEATURE_GROUPS.map((group) => {
-            // Only show player group if player filter is applied
-            if (group.key === "player" && !hasPlayerFilter) {
+            // Only show player group if player feature flag AND player filter
+            if (group.key === "player" && (!FEATURE_PLAYER_MODELING || !hasPlayerFilter)) {
               return null;
             }
             return (
@@ -169,41 +188,42 @@ export function ContextPresetSelector({
         </div>
       )}
 
-      {/* Diagnostics section - always visible but gated */}
-      <div className={styles.diagnosticsSection}>
-        <label className={styles.diagnosticsToggle}>
-          <input
-            type="checkbox"
-            checked={diagnosticsAllowed}
-            onChange={(e) => onDiagnosticsChange(e.target.checked)}
-          />
-          <span className={styles.diagnosticsLabel}>
-            Enable post-game diagnostics
-          </span>
-          <span className={styles.diagnosticsWarning}>⚠️ Leaky features</span>
-        </label>
+      {/* Diagnostics section - only if FEATURE_DIAGNOSTICS enabled */}
+      {FEATURE_DIAGNOSTICS && (
+        <div className={styles.diagnosticsSection}>
+          <label className={styles.diagnosticsToggle}>
+            <input
+              type="checkbox"
+              checked={diagnosticsAllowed}
+              onChange={(e) => onDiagnosticsChange(e.target.checked)}
+            />
+            <span className={styles.diagnosticsLabel}>
+              Enable post-game diagnostics
+            </span>
+            <span className={styles.diagnosticsWarning}>⚠️ Leaky features</span>
+          </label>
 
-        {diagnosticsAllowed && (
-          <div className={styles.diagnosticFeatures}>
-            <p className={styles.diagnosticsNote}>
-              These features use post-game data and cannot be used for pre-game predictions.
-              Only enable for diagnostic analysis.
-            </p>
-            <div className={styles.featureCheckboxes}>
-              {DIAGNOSTIC_FEATURES.map((f) => (
-                <label key={f.name} className={styles.featureCheckbox}>
-                  <input
-                    type="checkbox"
-                    checked={features.diagnostic.includes(f.name)}
-                    onChange={() => toggleDiagnostic(f.name)}
-                  />
-                  <span>{f.label}</span>
-                </label>
-              ))}
+          {diagnosticsAllowed && (
+            <div className={styles.diagnosticFeatures}>
+              <p className={styles.diagnosticsNote}>
+                These features use post-game data and cannot be used for pre-game predictions.
+              </p>
+              <div className={styles.featureCheckboxes}>
+                {DIAGNOSTIC_FEATURES.map((f) => (
+                  <label key={f.name} className={styles.featureCheckbox}>
+                    <input
+                      type="checkbox"
+                      checked={features.diagnostic.includes(f.name)}
+                      onChange={() => toggleDiagnostic(f.name)}
+                    />
+                    <span>{f.label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

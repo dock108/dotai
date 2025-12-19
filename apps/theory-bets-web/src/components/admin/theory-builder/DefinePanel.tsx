@@ -7,6 +7,7 @@ import { TimeWindowSelector } from "./TimeWindowSelector";
 import { TargetSelector } from "./TargetSelector";
 import { BaseStatsSelector } from "./BaseStatsSelector";
 import { ContextPresetSelector } from "./ContextPresetSelector";
+import { FEATURE_PLAYER_MODELING } from "@/lib/featureFlags";
 import type { TheoryBuilderState, TheoryBuilderActions } from "./useTheoryBuilderState";
 
 interface Props {
@@ -42,12 +43,10 @@ export function DefinePanel({ state, actions, defineComplete }: Props) {
         <TargetSelector value={draft.target} onChange={actions.setTarget} />
       </div>
 
-      {/* Section 3: Inputs - collapsible */}
+      {/* Section 3: Stats */}
       <div className={styles.section}>
-        <h3 className={styles.sectionTitle}>3. Inputs</h3>
-        <p className={styles.hint}>
-          Select base stats. We auto-generate raw / diff / combined features.
-        </p>
+        <h3 className={styles.sectionTitle}>3. Stats</h3>
+        <p className={styles.hint}>Select the stats to analyze.</p>
         <BaseStatsSelector
           selected={draft.inputs.base_stats}
           available={statKeys?.team_stat_keys ?? []}
@@ -58,7 +57,7 @@ export function DefinePanel({ state, actions, defineComplete }: Props) {
         />
       </div>
 
-      {/* Section 4: Context - dropdown with optional custom */}
+      {/* Section 4: Context - simplified for MVP */}
       <div className={styles.section}>
         <h3 className={styles.sectionTitle}>4. Context (optional)</h3>
         <ContextPresetSelector
@@ -68,11 +67,11 @@ export function DefinePanel({ state, actions, defineComplete }: Props) {
           onFeaturesChange={actions.setContextFeatures}
           diagnosticsAllowed={draft.diagnostics.allow_post_game_features}
           onDiagnosticsChange={actions.setDiagnosticsAllowed}
-          hasPlayerFilter={!!draft.filters.player}
+          hasPlayerFilter={FEATURE_PLAYER_MODELING && !!draft.filters.player}
         />
       </div>
 
-      {/* Advanced filters */}
+      {/* Advanced filters - simplified for MVP */}
       <details className={styles.advancedSection}>
         <summary className={styles.advancedToggle}>Advanced filters</summary>
         <div className={styles.advancedContent}>
@@ -87,16 +86,19 @@ export function DefinePanel({ state, actions, defineComplete }: Props) {
                 onChange={(e) => actions.setFilter("team", e.target.value || null)}
               />
             </label>
-            <label className={styles.filterLabel}>
-              Player
-              <input
-                type="text"
-                className={styles.filterInput}
-                placeholder="Player name..."
-                value={draft.filters.player ?? ""}
-                onChange={(e) => actions.setFilter("player", e.target.value || null)}
-              />
-            </label>
+            {/* Player filter only shown if feature flag enabled */}
+            {FEATURE_PLAYER_MODELING && (
+              <label className={styles.filterLabel}>
+                Player
+                <input
+                  type="text"
+                  className={styles.filterInput}
+                  placeholder="Player name..."
+                  value={draft.filters.player ?? ""}
+                  onChange={(e) => actions.setFilter("player", e.target.value || null)}
+                />
+              </label>
+            )}
           </div>
           {draft.league === "NCAAB" && (
             <div className={styles.filterRow}>
